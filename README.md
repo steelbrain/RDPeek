@@ -5,9 +5,8 @@
 # RDPeek
 
 A native macOS remote desktop client built on
-[RDPKit](https://github.com/steelbrain/RDPKit), with a connection-center
-experience in the spirit of Microsoft's "Windows App" — but pure Swift,
-lightweight, and Mac-first. Home: [rdpeek.com](https://rdpeek.com).
+[RDPKit](https://github.com/steelbrain/RDPKit) — pure Swift,
+lightweight, and Mac-first.
 
 - **Connection Center** — a searchable grid of saved PCs with per-device
   gradient tiles, play-to-connect, context menus, and sort by name or
