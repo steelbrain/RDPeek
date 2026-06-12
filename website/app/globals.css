@@ -1,0 +1,323 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f5fa;
+  --foreground: #17132a;
+  --muted: #5f5b78;
+  --edge: rgba(23, 19, 42, 0.1);
+  --surface: rgba(255, 255, 255, 0.72);
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(23, 19, 42, 0.08);
+  --accent: #5340db;
+  --accent-soft: #6e63f1;
+  --warm-1: #ffd27a;
+  --warm-2: #ff9457;
+  --warm-3: #ef5d86;
+  --mesh-opacity: 0.38;
+  --shadow-window: 0 24px 70px -18px rgba(23, 19, 42, 0.4);
+  --canvas: #e5e1f6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0b0918;
+    --foreground: #f1f0f7;
+    --muted: #a3a0c0;
+    --edge: rgba(241, 240, 247, 0.1);
+    --surface: rgba(255, 255, 255, 0.04);
+    --glass-bg: rgba(22, 18, 46, 0.5);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --accent: #8b82f5;
+    --accent-soft: #6e63f1;
+    --mesh-opacity: 0.5;
+    --shadow-window: 0 24px 70px -12px rgba(0, 0, 0, 0.65);
+    --canvas: #151029;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-edge: var(--edge);
+  --color-surface: var(--surface);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-warm-1: var(--warm-1);
+  --color-warm-2: var(--warm-2);
+  --color-warm-3: var(--warm-3);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* The root background is what browsers paint in the overscroll
+   (rubber-band) area, so it gets a canvas color tuned to the hero's top
+   edge; .canvas-bleed-* gradients land the page's own edges on the same
+   color so the overscroll continues seamlessly. */
+html {
+  background-color: var(--canvas);
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.canvas-bleed-top {
+  background: linear-gradient(to bottom, var(--canvas), transparent);
+}
+
+.canvas-bleed-bottom {
+  background: linear-gradient(to top, var(--canvas), transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent-soft) 30%, transparent);
+}
+
+/* Scroll-triggered reveals (driven by components/Reveal.tsx). */
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal.is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    transform: none;
+    transition: opacity 0.3s ease-out;
+  }
+}
+
+/* Links with a warm gradient underline — the tile motif, in miniature. */
+.footer-link {
+  background-image: linear-gradient(90deg, var(--warm-2), var(--warm-3));
+  background-repeat: no-repeat;
+  background-size: 100% 1.5px;
+  background-position: 0 100%;
+  padding-bottom: 2px;
+  transition: color 0.15s ease-out;
+}
+
+/* Frosted glass panel — the app-icon story applied to UI surfaces. */
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+/* macOS-style window shell around screenshots and the tile-grid demo. */
+.window-shell {
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-window);
+}
+
+/* A section that stays in the app's dark session aesthetic in both color
+   schemes: re-scope the theme tokens so every child utility follows. */
+.dark-band {
+  --background: #0d0a1d;
+  --foreground: #f1f0f7;
+  --muted: #a3a0c0;
+  --edge: rgba(241, 240, 247, 0.1);
+  --surface: rgba(255, 255, 255, 0.04);
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --accent: #8b82f5;
+  background:
+    linear-gradient(180deg, #100c24, #0b0918 60%, #0d0a1d);
+  color: var(--foreground);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Device tiles: lift and tilt toward the cursor, like the app's cards. */
+.device-tile {
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg))
+    translateY(var(--lift, 0px));
+  transition:
+    transform 0.16s ease-out,
+    box-shadow 0.16s ease-out;
+  box-shadow: 0 4px 14px -6px rgba(23, 19, 42, 0.35);
+}
+
+.device-tile:hover,
+.device-tile:focus-visible {
+  --lift: -4px;
+  box-shadow: 0 18px 38px -12px rgba(23, 19, 42, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .device-tile {
+    transform: none;
+  }
+
+  .device-tile:hover,
+  .device-tile:focus-visible {
+    --lift: 0px;
+  }
+}
+
+/* Warm gradient text for headline accents. */
+.text-warm-gradient {
+  background: linear-gradient(100deg, #d96f2e, #e0457a 52%, #5340db);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-warm-gradient {
+    background-image: linear-gradient(100deg, #ffd27a, #ff9457 45%, #ef5d86);
+  }
+}
+
+/* Keycap chips for the shortcut sections. */
+.keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2em;
+  padding: 0.2em 0.55em;
+  border-radius: 0.45em;
+  font-family: var(--font-mono), monospace;
+  font-weight: 500;
+  color: var(--foreground);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--foreground) 3%, var(--background)),
+    color-mix(in srgb, var(--foreground) 9%, var(--background))
+  );
+  border: 1px solid color-mix(in srgb, var(--foreground) 16%, transparent);
+  box-shadow:
+    0 2px 0 color-mix(in srgb, var(--foreground) 22%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--background) 70%, transparent);
+  transition:
+    transform 0.12s ease-out,
+    box-shadow 0.12s ease-out;
+}
+
+.keycap-pressed {
+  transform: translateY(2px);
+  box-shadow:
+    0 0 0 color-mix(in srgb, var(--foreground) 22%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--background) 70%, transparent);
+}
+
+/* Drifting warm gradient mesh behind the hero glass. */
+.mesh-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: var(--mesh-opacity);
+  will-change: transform;
+}
+
+.mesh-a {
+  animation: mesh-a 21s ease-in-out infinite alternate;
+}
+
+.mesh-b {
+  animation: mesh-b 26s ease-in-out infinite alternate;
+}
+
+.mesh-c {
+  animation: mesh-c 31s ease-in-out infinite alternate;
+}
+
+@keyframes mesh-a {
+  from {
+    transform: translate3d(-4%, -6%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(7%, 9%, 0) scale(1.18);
+  }
+}
+
+@keyframes mesh-b {
+  from {
+    transform: translate3d(5%, 3%, 0) scale(1.1);
+  }
+  to {
+    transform: translate3d(-8%, -7%, 0) scale(0.92);
+  }
+}
+
+@keyframes mesh-c {
+  from {
+    transform: translate3d(0, 8%, 0) scale(0.95);
+  }
+  to {
+    transform: translate3d(4%, -6%, 0) scale(1.12);
+  }
+}
+
+/* Load-in reveals for the hero. `backwards` keeps the first frame hidden
+   without JS, so there is nothing to flicker at hydration. */
+.hero-rise {
+  animation: hero-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The "peek": the warm desktop slides out from behind the hero glass. */
+.hero-peek {
+  animation: hero-peek 0.9s 0.15s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes hero-peek {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesh-a,
+  .mesh-b,
+  .mesh-c {
+    animation: none;
+  }
+
+  .hero-rise,
+  .hero-peek {
+    animation: hero-fade 0.4s ease-out backwards;
+  }
+
+  @keyframes hero-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}

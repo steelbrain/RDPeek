@@ -1,0 +1,71 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    RDPeek app icon master artwork.
+
+    Concept: a frosted-glass window (your Mac) in front, with the faraway
+    desktop glowing warmly behind it, peeking out — remote desktop as
+    "another screen behind yours". Mirrors the app's HUD language: glass
+    overlays, warm beacon glow, deep indigo backdrop.
+
+    The squircle fills the full 1024 canvas with transparent corners —
+    no padding. macOS Tahoe re-masks compliant icons into its system
+    squircle; non-conforming artwork would be shrunk onto a gray
+    backplate ("squircle jail"), and padded artwork renders small.
+    Render with scripts/build-app-icon.sh.
+  -->
+  <defs>
+    <linearGradient id="backdrop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6E63F1"/>
+      <stop offset="0.5" stop-color="#5340DB"/>
+      <stop offset="1" stop-color="#371DA8"/>
+    </linearGradient>
+
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <linearGradient id="faraway" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#FFD27A"/>
+      <stop offset="0.45" stop-color="#FF9457"/>
+      <stop offset="1" stop-color="#EF5D86"/>
+    </linearGradient>
+
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFAF68" stop-opacity="0.55"/>
+      <stop offset="0.55" stop-color="#FF8E5E" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#FF8E5E" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.16"/>
+    </linearGradient>
+
+    <clipPath id="squircleClip">
+      <rect x="0" y="0" width="1024" height="1024" rx="229" ry="229"/>
+    </clipPath>
+  </defs>
+
+  <!-- Squircle fills the canvas; corners stay transparent -->
+  <g clip-path="url(#squircleClip)">
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#backdrop)"/>
+    <rect x="0" y="0" width="1024" height="512" fill="url(#sheen)"/>
+  </g>
+
+  <!-- Composition scaled from the 824 grid up to the full canvas -->
+  <g clip-path="url(#squircleClip)">
+   <g transform="translate(512 512) scale(1.2427) translate(-512 -512)">
+    <!-- The faraway desktop: warm panel peeking out from behind -->
+    <ellipse cx="640" cy="412" rx="300" ry="250" fill="url(#halo)"/>
+    <rect x="480" y="288" width="320" height="248" rx="40" ry="40" fill="url(#faraway)"/>
+
+    <!-- Your window: frosted glass in front -->
+    <rect x="244" y="416" width="372" height="292" rx="44" ry="44"
+          fill="url(#glass)" stroke="#FFFFFF" stroke-opacity="0.95" stroke-width="16"/>
+    <circle cx="304" cy="472" r="11" fill="#FFFFFF" fill-opacity="0.9"/>
+    <circle cx="344" cy="472" r="11" fill="#FFFFFF" fill-opacity="0.62"/>
+    <circle cx="384" cy="472" r="11" fill="#FFFFFF" fill-opacity="0.38"/>
+   </g>
+  </g>
+</svg>

@@ -1,0 +1,85 @@
+name: RDPeek
+options:
+  bundleIdPrefix: ai.aneesiqbal
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+packages:
+  RDPKit:
+    url: https://github.com/steelbrain/RDPKit.git
+    # Pinned to the revision with the pre-frame timeout and onCertificate
+    # callback. Move to exactVersion when the next RDPKit release is tagged.
+    revision: 25814d5df2ca94bf613f0544c31a04634197368e
+targets:
+  RDPeek:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+        excludes:
+          # The icon pipeline (master artwork and renderer) lives beside the
+          # asset catalog but must not ship in the bundle — only the rendered
+          # appiconset does.
+          - Resources/AppIcon.svg
+          - Resources/build-app-icon.sh
+    dependencies:
+      - package: RDPKit
+        product: RDPKit
+      - sdk: AVFoundation.framework
+      - sdk: CoreMedia.framework
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: RDPeek
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleName: $(PRODUCT_NAME)
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: "1.0.1"
+        CFBundleVersion: "2"
+        LSMinimumSystemVersion: "14.0"
+        LSApplicationCategoryType: public.app-category.productivity
+        NSHumanReadableCopyright: Copyright © 2026 Anees Iqbal.
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.aneesiqbal.rdpeek
+        PRODUCT_NAME: RDPeek
+        SWIFT_VERSION: "6.0"
+        SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+        GCC_TREAT_WARNINGS_AS_ERRORS: YES
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CURRENT_PROJECT_VERSION: "2"
+        MARKETING_VERSION: "1.0.1"
+    scheme:
+      testTargets:
+        - RDPeekTests
+  RDPeekTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      # Unhosted test bundle: compiles the files under test directly so the
+      # hardened-runtime app does not need to host the tests.
+      - path: Tests
+      - path: Sources/ConnectionCenter/DeviceListModel.swift
+      - path: Sources/Session/RemoteInputCaptureView.swift
+      - path: Sources/Session/SessionCommandState.swift
+      - path: Sources/Session/SessionModels.swift
+      - path: Sources/Session/SessionWindowPlacement.swift
+      - path: Sources/Storage/DeviceProfileStore.swift
+      - path: Sources/Storage/InMemoryCredentialCache.swift
+      - path: Sources/Storage/KeychainCredentialStore.swift
+    dependencies:
+      - package: RDPKit
+        product: RDPKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.aneesiqbal.rdpeek-tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "6.0"
+        SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+        GCC_TREAT_WARNINGS_AS_ERRORS: YES
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        CODE_SIGN_STYLE: Automatic

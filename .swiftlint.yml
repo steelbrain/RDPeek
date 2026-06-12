@@ -1,0 +1,38 @@
+included:
+  - Sources
+
+excluded:
+  - DerivedData
+  - Generated
+  - RDPeek.xcodeproj
+
+only_rules:
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - contains_over_first_not_nil
+  - discarded_notification_center_observer
+  - duplicate_conditions
+  - duplicate_enum_cases
+  - duplicate_imports
+  - duplicated_key_in_dictionary_literal
+  - empty_count
+  - fatal_error_message
+  - first_where
+  - force_cast
+  - force_try
+  - force_unwrapping
+  - identical_operands
+  - last_where
+  - legacy_random
+  - notification_center_detachment
+  - orphaned_doc_comment
+  - reduce_into
+  - redundant_sendable
+  - sorted_first_last
+  - unavailable_condition
+  - unavailable_function
+  - unhandled_throwing_task
+  - unowned_variable_capture
+  - unused_optional_binding
+  - weak_delegate
+  - yoda_condition
