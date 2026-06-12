@@ -39,7 +39,10 @@ export function Footer() {
             .
           </p>
           <p className="mt-4 text-[13px] text-muted">
-            © {new Date().getFullYear()} Anees Iqbal
+            © {new Date().getFullYear()}{" "}
+            <a href="https://aneesiqbal.ai/" className="footer-link">
+              Anees Iqbal
+            </a>
           </p>
         </div>
         <nav aria-label="Footer">
