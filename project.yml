@@ -7,9 +7,7 @@ options:
 packages:
   RDPKit:
     url: https://github.com/steelbrain/RDPKit.git
-    # Pinned to the revision with the pre-frame timeout and onCertificate
-    # callback. Move to exactVersion when the next RDPKit release is tagged.
-    revision: 25814d5df2ca94bf613f0544c31a04634197368e
+    exactVersion: 0.2.0
 targets:
   RDPeek:
     type: application

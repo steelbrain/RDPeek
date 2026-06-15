@@ -647,7 +647,10 @@ final class SessionViewController: NSViewController {
             graphicsFrameCaptureLimit: nil,
             desktopSize: requestedDesktopSize,
             clipboardEnabled: clipboardSharingEnabled,
-            audioPlaybackEnabled: audioPlaybackEnabled
+            audioPlaybackEnabled: audioPlaybackEnabled,
+            // RDPeek never exposes a graphics-profile picker: automatic lets
+            // RDPKit negotiate the best path per host (Windows included).
+            graphicsCapabilityProfile: .automatic
         )
 
         let connectionID = UUID()
@@ -915,9 +918,9 @@ final class SessionViewController: NSViewController {
                 controller.remoteAudioPlayer.reset()
                 controller.firstFrameWatchdogTask?.cancel()
                 // Retry transport failures (no negotiation response ever
-                // arrived) and pre-frame stalls. KRdp gives no explicit
-                // bad-credential signal — rejected credentials surface as a
-                // timeout, which the retry budget bounds.
+                // arrived) and pre-frame stalls. Some servers give no
+                // explicit bad-credential signal — rejected credentials
+                // surface as a timeout, which the retry budget bounds.
                 if let reason = controller.sessionEndReason,
                    reason.kind == .failed,
                    controller.hasPresentedFrame == false,

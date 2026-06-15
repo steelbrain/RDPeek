@@ -23,7 +23,7 @@ The session core (`SessionViewController`, renderer, input capture, frame
 clock) is adapted from RDPKit's example client. When changing connection,
 clipboard, display-control, or credential behavior, compare against
 `Examples/RDPClient` in the RDPKit repository first — it is the reference
-implementation, validated against KRdp.
+implementation.
 
 ## UI Conventions
 
@@ -54,8 +54,8 @@ implementation, validated against KRdp.
 - Gather context before implementing: read the code you change and its
   callers, and confirm RDPKit API names against the package source.
 - Verify by building (and running, when behavior changed) before every
-  commit. Live behavior should be validated against a KRdp or other real
-  RDP server when touching session logic.
+  commit. Live behavior should be validated against a real RDP server
+  when touching session logic.
 - RDPKit is pinned by exact version in `project.yml`; bump it consciously
   and re-validate the vendored session logic when you do.
 - CI (`.github/workflows/ci.yml`) runs the lint gate and an unsigned
