@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.1.0
+
+Windows support: connect to Windows hosts that require Network Level
+Authentication, in addition to the existing servers.
+
+### Sessions
+
+- Windows RDP compatibility through RDPKit 0.2.0 — CredSSP with NTLM for
+  hosts that require Network Level Authentication, plus the graphics,
+  codec, clipboard, input, and audio paths Windows negotiates.
+- Graphics capability negotiation runs in automatic mode, picking the
+  best path per host (Windows included) with no profile knobs to set.
+
+### Under the hood
+
+- Updated to RDPKit 0.2.0, which also brings a lighter, faster decode
+  path with bounded in-order video buffering.
+
 ## 1.0.1
 
 Bug-fix release: remote input, session window, and credential-storage
