@@ -38,7 +38,6 @@ final class RemoteDesktopSampleBufferNSView: NSView {
     private let displayLayer = AVSampleBufferDisplayLayer()
     private let sampleBufferFactory = RDPFrameSampleBufferFactory()
     private var lastPresentationID: Int?
-    private var hasEnqueuedSample = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -86,21 +85,23 @@ final class RemoteDesktopSampleBufferNSView: NSView {
         guard lastPresentationID != id else {
             return
         }
-        lastPresentationID = id
 
-        if sampleBufferFactory.willChangeDisplayFormat(for: presentation) {
+        let disposition = rdpSampleBufferDisplayDisposition(
+            displayFormatWillChange: sampleBufferFactory.willChangeDisplayFormat(for: presentation),
+            rendererFailed: displayLayer.status == .failed,
+            requiresFlushToResume: displayLayer.requiresFlushToResumeDecoding
+        )
+        switch disposition {
+        case .flushAndEnqueue:
             flushQueuedSamples()
-        } else if hasEnqueuedSample {
-            flushQueuedSamples()
+        case .enqueue:
+            break
         }
 
         do {
             let sampleBuffer = try sampleBufferFactory.makeSampleBuffer(for: presentation)
-            if displayLayer.status == .failed || displayLayer.isReadyForMoreMediaData == false {
-                flushQueuedSamples()
-            }
             displayLayer.enqueue(sampleBuffer)
-            hasEnqueuedSample = true
+            lastPresentationID = id
         } catch {
             flushQueuedSamples()
         }
@@ -128,7 +129,22 @@ final class RemoteDesktopSampleBufferNSView: NSView {
 
     private func flushQueuedSamples() {
         displayLayer.flush()
-        hasEnqueuedSample = false
     }
 
+}
+
+enum RDPRemoteDesktopSampleBufferDisplayDisposition: Equatable {
+    case enqueue
+    case flushAndEnqueue
+}
+
+func rdpSampleBufferDisplayDisposition(
+    displayFormatWillChange: Bool,
+    rendererFailed: Bool,
+    requiresFlushToResume: Bool
+) -> RDPRemoteDesktopSampleBufferDisplayDisposition {
+    if displayFormatWillChange || rendererFailed || requiresFlushToResume {
+        return .flushAndEnqueue
+    }
+    return .enqueue
 }

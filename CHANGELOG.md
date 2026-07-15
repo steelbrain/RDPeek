@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.1.1
+
+Compatibility and reliability improvements for Windows and KDE KRdp
+servers through RDPKit 0.3.1.
+
+### Sessions
+
+- Follow server redirections and handle more Windows and KRdp activation,
+  reconnect, clipboard, audio, and input flows.
+- Render RemoteFX Progressive, classic RemoteFX, ClearCodec, NSCodec,
+  bitmap-compressed, and interleaved RLE updates, with more complete
+  multi-surface composition and AVC444 reconstruction.
+- Keep decoded-frame acknowledgements synchronized with presentation and
+  recover the display layer without flushing every frame.
+- Save server-issued RDP client licenses in Keychain and reuse them on
+  later connections.
+
+### Under the hood
+
+- Updated to RDPKit 0.3.1 for broader graphics capability negotiation,
+  stricter protocol validation, and expanded interoperability coverage.
+
 ## 1.1.0
 
 Windows support: connect to Windows hosts that require Network Level

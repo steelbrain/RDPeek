@@ -4,10 +4,13 @@ options:
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
+settings:
+  base:
+    DEAD_CODE_STRIPPING: YES
 packages:
   RDPKit:
     url: https://github.com/steelbrain/RDPKit.git
-    exactVersion: 0.2.0
+    exactVersion: 0.3.1
 targets:
   RDPeek:
     type: application
@@ -32,8 +35,8 @@ targets:
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         CFBundleName: $(PRODUCT_NAME)
         CFBundlePackageType: APPL
-        CFBundleShortVersionString: "1.1.0"
-        CFBundleVersion: "3"
+        CFBundleShortVersionString: "1.1.1"
+        CFBundleVersion: "4"
         LSMinimumSystemVersion: "14.0"
         LSApplicationCategoryType: public.app-category.productivity
         NSHumanReadableCopyright: Copyright © 2026 Anees Iqbal.
@@ -49,8 +52,8 @@ targets:
         ENABLE_HARDENED_RUNTIME: YES
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        CURRENT_PROJECT_VERSION: "3"
-        MARKETING_VERSION: "1.1.0"
+        CURRENT_PROJECT_VERSION: "4"
+        MARKETING_VERSION: "1.1.1"
     scheme:
       testTargets:
         - RDPeekTests
@@ -62,11 +65,13 @@ targets:
       # hardened-runtime app does not need to host the tests.
       - path: Tests
       - path: Sources/ConnectionCenter/DeviceListModel.swift
+      - path: Sources/Session/RemoteDesktopRenderer.swift
       - path: Sources/Session/RemoteInputCaptureView.swift
       - path: Sources/Session/SessionCommandState.swift
       - path: Sources/Session/SessionModels.swift
       - path: Sources/Session/SessionWindowPlacement.swift
       - path: Sources/Storage/DeviceProfileStore.swift
+      - path: Sources/Storage/ClientLicenseStore.swift
       - path: Sources/Storage/InMemoryCredentialCache.swift
       - path: Sources/Storage/KeychainCredentialStore.swift
     dependencies:

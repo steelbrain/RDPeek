@@ -13,6 +13,7 @@ private let sessionMaximumLocalClipboardFileBytes = 32 * 1024 * 1024
 @MainActor
 final class SessionViewController: NSViewController {
     private let credentialStore = KeychainCredentialStore()
+    private let clientLicenseStore = ClientLicenseStore()
     private let trustedCertificateStore = TrustedCertificateStore()
     private let sessionID: UUID
     private weak var launchStore: SessionLaunchStore?
@@ -429,6 +430,7 @@ final class SessionViewController: NSViewController {
             renderMetrics: renderMetricsStore.metrics,
             framePacing: framePacing,
             sessionEndReason: sessionEndReason,
+            serverCertificateInfo: liveCertificate,
             viewerPixelSize: viewerPixelSize,
             requestedDesktopSize: requestedDesktopSizeLabel,
             inputReady: inputSession != nil,
@@ -621,6 +623,12 @@ final class SessionViewController: NSViewController {
             username: trimmedUsername,
             domain: trimmedDomain
         )
+        let clientLicenseKey = ClientLicenseStoreKey(identity: RDPConnectionIdentity(
+            host: target.host,
+            port: target.port,
+            username: trimmedUsername,
+            domain: trimmedDomain
+        ))
         let credentials: RDPCredentials?
         do {
             credentials = try RDPCredentials.validated(
@@ -639,7 +647,7 @@ final class SessionViewController: NSViewController {
             hasCredentials: credentials != nil
         )
 
-        let configuration = RDPConnectionConfiguration(
+        let baseConfiguration = RDPConnectionConfiguration(
             target: target,
             credentials: credentials,
             timeoutSeconds: draft.timeoutSeconds,
@@ -668,7 +676,10 @@ final class SessionViewController: NSViewController {
 
         let sink = SessionMainActorSink(controller: self, connectionID: connectionID)
         let credentialStore = credentialStore
+        let clientLicenseStore = clientLicenseStore
         connectionTask = Task.detached(priority: .userInitiated) {
+            var configuration = baseConfiguration
+            configuration.storedClientLicense = try? clientLicenseStore.license(for: clientLicenseKey)
             let decodeQueue = RDPLatestFrameDecodeQueue(
                 shouldCancel: {
                     cancellation.isCancelled
@@ -737,10 +748,13 @@ final class SessionViewController: NSViewController {
             let nextReport = RDPPreflightClient().run(
                 configuration: configuration,
                 onGraphicsFrame: { frame in
-                    guard Task.isCancelled == false else {
-                        return
-                    }
-                    decodeQueue.submit(frame, receivedAt: Date())
+                    try decodeQueue.submitAndWait(
+                        frame,
+                        receivedAt: Date(),
+                        shouldContinue: {
+                            Task.isCancelled == false && cancellation.isCancelled == false
+                        }
+                    ).requireDecoded()
                 },
                 onInputReady: { session in
                     // Keychain writes can block on the access-approval
@@ -862,6 +876,14 @@ final class SessionViewController: NSViewController {
                 }
             )
             let finalWireReceiveSample = wireReceiveCoalescer.takePendingSample()
+            // License persistence is not connection-scoped. Save an issued
+            // license even when closing the window cancelled this task, so
+            // the next connection can present it to the server.
+            persistClientLicenseIfNeeded(
+                nextReport.rdpIssuedClientLicense,
+                key: clientLicenseKey,
+                store: clientLicenseStore
+            )
             guard Task.isCancelled == false else {
                 return
             }

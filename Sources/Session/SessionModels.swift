@@ -79,10 +79,26 @@ struct RDPSessionEndReason: Equatable {
         if report.status == "failure" || report.error != nil {
             kind = .failed
             message = report.error ?? "Connection failed at \(report.stage)."
+        } else if report.nextStage == "rdp-session-ended", report.rdpGraphicsChannelName == nil {
+            kind = .ended
+            message = "Remote session ended before opening the RDPGFX dynamic channel\(Self.terminationSuffix(report))."
+        } else if report.nextStage == "rdp-session-ended", report.rdpGraphicsFrames?.isEmpty != false {
+            kind = .ended
+            message = "Remote session ended before producing a graphics frame\(Self.terminationSuffix(report))."
         } else {
             kind = .ended
-            message = "Connection ended after \(report.stage)."
+            message = "Remote session disconnected."
         }
+    }
+
+    private static func terminationSuffix(_ report: RDPPreflightReport) -> String {
+        if let errorInfoName = report.rdpRemoteTerminationErrorInfoName {
+            return " (\(errorInfoName))"
+        }
+        if let disconnectReasonName = report.rdpRemoteTerminationDisconnectReasonName {
+            return " (\(disconnectReasonName))"
+        }
+        return ""
     }
 
     var title: String {

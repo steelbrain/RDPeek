@@ -153,6 +153,7 @@ struct RemoteSessionDiagnosticsSnapshot: Equatable {
     var renderMetrics = RDPRenderMetrics()
     var framePacing = RDPFramePacingState()
     var sessionEndReason: RDPSessionEndReason?
+    var serverCertificateInfo: RDPServerCertificateInfo?
     var viewerPixelSize: RDPViewerPixelSize?
     var requestedDesktopSize = "unknown"
     var inputReady = false
@@ -260,8 +261,11 @@ struct RemoteSessionDiagnosticsWindowContent: View {
                     DiagnosticRow("Graphics Channel", snapshot.report?.rdpGraphicsChannelName ?? "not opened")
                     DiagnosticRow("Graphics Channel ID", dynamicChannelID(snapshot.report?.rdpGraphicsChannelID))
                     DiagnosticRow("Graphics Response", snapshot.report?.rdpGraphicsResponseType ?? "none")
+                    DiagnosticRow("Graphics Profile", snapshot.report?.rdpGraphicsCapabilityProfile.rawValue ?? "not requested")
                     DiagnosticRow("Graphics", graphicsCapability(snapshot.report))
+                    DiagnosticRow("Graphics Path", RDPGraphicsPathDescription.describe(report: snapshot.report))
                     DiagnosticRow("Graphics Updates", graphicsUpdateSummary(snapshot.report?.rdpGraphicsUpdateMessages))
+                    DiagnosticRow("Graphics Failure", graphicsFailureSummary(snapshot.report))
                     DiagnosticRow("Update Packets", countSummary(snapshot.report?.rdpGraphicsUpdateResponseCount))
                     DiagnosticRow("Presented Frames", "\(snapshot.previewFrameCount)")
                     DiagnosticRow("Input", snapshot.inputReady ? "ready" : "not ready")
@@ -420,6 +424,12 @@ struct RemoteSessionDiagnosticsWindowContent: View {
                                 )
                             }
                         }
+                        if let failurePayloadHex = report.rdpGraphicsFailureUpdatePayloadHex {
+                            MonospaceBlock(title: "RDPGFX Failure Payload", value: failurePayloadHex)
+                        }
+                        if let failureResponseHex = report.rdpGraphicsFailureUpdateResponseHex {
+                            MonospaceBlock(title: "RDPGFX Failure Response", value: failureResponseHex)
+                        }
                         if let rdpDynamicChannelRequestHexes = report.rdpDynamicChannelRequestHexes {
                             ForEach(rdpDynamicChannelRequestHexes.indices, id: \.self) { index in
                                 let type = report.rdpDynamicChannelRequestTypes?[safe: index] ?? "request"
@@ -491,7 +501,7 @@ struct RemoteSessionDiagnosticsWindowContent: View {
         if let message = snapshot.certificateTrustMessage {
             return message
         }
-        guard let trusted = snapshot.report?.certificateTrusted else {
+        guard let trusted = snapshot.report?.certificateTrusted ?? snapshot.serverCertificateInfo?.trusted else {
             return "not available"
         }
         return trusted ? "trusted" : "unrecognized"
@@ -654,12 +664,44 @@ struct RemoteSessionDiagnosticsWindowContent: View {
                 if let codecName = message.codecName {
                     parts.append(codecName)
                 }
+                if let progressiveRegionTileCount = message.progressiveRegionTileCount {
+                    parts.append("tiles \(progressiveRegionTileCount)")
+                }
+                if let progressiveTileFirstCount = message.progressiveTileFirstCount,
+                   progressiveTileFirstCount > 0
+                {
+                    parts.append("first \(progressiveTileFirstCount)")
+                }
+                if let progressiveTileUpgradeCount = message.progressiveTileUpgradeCount,
+                   progressiveTileUpgradeCount > 0
+                {
+                    parts.append("upgrade \(progressiveTileUpgradeCount)")
+                }
+                if let cavideoTileCount = message.cavideoTileCount {
+                    parts.append("rfx tiles \(cavideoTileCount)")
+                }
+                if let entropy = message.cavideoTileSetEntropyAlgorithms?.last {
+                    parts.append(entropy)
+                }
                 if let avc444Layout = message.avc444Layout {
                     parts.append(avc444Layout)
                 }
                 return parts.joined(separator: " ")
             }
             .joined(separator: ", ")
+    }
+
+    private func graphicsFailureSummary(_ report: RDPPreflightReport?) -> String {
+        guard let report,
+              report.rdpGraphicsFailureUpdatePayloadHex != nil
+                || report.rdpGraphicsFailureUpdateResponseHex != nil
+        else {
+            return "none"
+        }
+
+        let index = report.rdpGraphicsFailureUpdateMessageIndex.map { "message \($0)" } ?? "transport"
+        let messages = graphicsUpdateSummary(report.rdpGraphicsFailureUpdateMessages)
+        return messages == "not observed" ? index : "\(index): \(messages)"
     }
 
     private func clipboardState(_ snapshot: RemoteSessionDiagnosticsSnapshot) -> String {
@@ -673,10 +715,13 @@ struct RemoteSessionDiagnosticsWindowContent: View {
         guard let frame else {
             return "none"
         }
+        let codecDescription = frame.contentKind == .video
+            ? "\(frame.codecName)/\(frame.videoCodec.displayName)"
+            : frame.codecName
         var parts = [
-            "\(frame.codecName)/\(frame.videoCodec.displayName)",
+            codecDescription,
             "\(frame.width)x\(frame.height)",
-            "\(frame.videoByteCount) bytes",
+            "\(frame.payloadByteCount) bytes",
             "\(frame.regionCount) regions",
         ]
         if !frame.videoNalUnitTypes.isEmpty {
