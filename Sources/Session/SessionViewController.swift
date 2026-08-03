@@ -38,7 +38,13 @@ final class SessionViewController: NSViewController {
     private var activeConnectionID: UUID?
     private var activeCancellation: RDPConnectionCancellation?
     private var sessionEndReason: RDPSessionEndReason?
-    private var inputSession: RDPInputSession?
+    private var inputSession: RDPInputSession? {
+        didSet { publishRefreshRectInputs() }
+    }
+    private var activeDesktopArea: RDPFrameRect? {
+        didSet { publishRefreshRectInputs() }
+    }
+    private let refreshRectRequests = RDPRefreshRectRequestBox()
     private var displayControlSession: RDPDisplayControlSession?
     private var autoApplyViewerSize = true
     private var pendingDisplayResizeTask: Task<Void, Never>?
@@ -60,6 +66,7 @@ final class SessionViewController: NSViewController {
     private var previewFrameCount = 0
     private var viewerMetricsSummary: String?
     private var previewDecodeError: String?
+    private var previewVideoResyncStatus: String?
     private var hasPresentedFrame = false
     private var framePresentationBuffer = RDPFramePresentationBuffer()
     private var framePacing = RDPFramePacingState()
@@ -426,7 +433,7 @@ final class SessionViewController: NSViewController {
             report: report,
             previewFrame: previewFrame,
             previewFrameCount: previewFrameCount,
-            previewDecodeError: previewDecodeError,
+            previewDecodeError: previewDecodeStatus,
             renderMetrics: renderMetricsStore.metrics,
             framePacing: framePacing,
             sessionEndReason: sessionEndReason,
@@ -599,6 +606,8 @@ final class SessionViewController: NSViewController {
         previewFrameCount = 0
         viewerMetricsSummary = nil
         previewDecodeError = nil
+        previewVideoResyncStatus = nil
+        activeDesktopArea = nil
         resetFramePresentationState()
         renderMetricsStore.reset()
         certificateTrustedByApp = false
@@ -664,6 +673,12 @@ final class SessionViewController: NSViewController {
         let connectionID = UUID()
         let cancellation = RDPConnectionCancellation()
         let connectionStartedAt = Date()
+        activeDesktopArea = RDPFrameRect(
+            left: 0,
+            top: 0,
+            right: requestedDesktopSize.width,
+            bottom: requestedDesktopSize.height
+        )
         activeConnectionID = connectionID
         activeCancellation = cancellation
         renderMetricsStore.reset(connectionStartedAt: connectionStartedAt)
@@ -687,6 +702,7 @@ final class SessionViewController: NSViewController {
                 onDecoded: { presentation, receivedAt, decodedAt, timing in
                     sink.apply { controller in
                         controller.previewDecodeError = nil
+                        controller.previewVideoResyncStatus = nil
                         let shouldForceMetricsSnapshot = !controller.hasPresentedFrame
                         controller.renderMetricsStore.recordDecodedFrame(
                             presentation.frame,
@@ -725,6 +741,17 @@ final class SessionViewController: NSViewController {
                             controller.render()
                         }
                     }
+                },
+                onVideoResyncNeeded: { [refreshRectRequests = self.refreshRectRequests] surfaceID in
+                    let outcome = refreshRectRequests.requestWholeDesktopRefresh()
+                    sink.apply { controller in
+                        controller.previewVideoResyncStatus = SessionViewController.videoResyncStatus(
+                            surfaceID: surfaceID,
+                            outcome: outcome
+                        )
+                        controller.render()
+                    }
+                    return outcome != .unsupported
                 }
             )
             let wireReceiveCoalescer = RDPWireReceiveMetricsCoalescer(
@@ -754,7 +781,7 @@ final class SessionViewController: NSViewController {
                         shouldContinue: {
                             Task.isCancelled == false && cancellation.isCancelled == false
                         }
-                    ).requireDecoded()
+                    ).requireSessionCanContinue()
                 },
                 onInputReady: { session in
                     // Keychain writes can block on the access-approval
@@ -787,6 +814,9 @@ final class SessionViewController: NSViewController {
                     }
                     sink.apply { controller in
                         controller.inputSession = session
+                        if let serverDesktopArea = session.serverDesktopArea {
+                            controller.activeDesktopArea = serverDesktopArea
+                        }
                         controller.render()
                     }
                 },
@@ -934,6 +964,7 @@ final class SessionViewController: NSViewController {
                 // session objects so clipboard sync/polling and the input
                 // wiring can't keep talking to a dead channel.
                 controller.inputSession = nil
+                controller.activeDesktopArea = nil
                 controller.displayControlSession = nil
                 controller.clipboardSession = nil
                 controller.discardRemoteClipboardFileTransfer()
@@ -975,6 +1006,7 @@ final class SessionViewController: NSViewController {
         connectionTask = nil
         activeConnectionID = nil
         inputSession = nil
+        activeDesktopArea = nil
         displayControlSession = nil
         clipboardSession = nil
         discardRemoteClipboardFileTransfer()
@@ -996,6 +1028,31 @@ final class SessionViewController: NSViewController {
     }
 
     // MARK: - Frame presentation
+
+    private var previewDecodeStatus: String? {
+        let parts = [previewDecodeError, previewVideoResyncStatus].compactMap(\.self)
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
+    }
+
+    private func publishRefreshRectInputs() {
+        refreshRectRequests.update(session: inputSession, desktopArea: activeDesktopArea)
+    }
+
+    private static func videoResyncStatus(
+        surfaceID: UInt16,
+        outcome: RDPRefreshRectRequestOutcome
+    ) -> String {
+        switch outcome {
+        case .requested:
+            return "Requested a screen refresh to recover surface \(surfaceID)."
+        case .inputNotReady:
+            return "Waiting for a server keyframe to recover surface \(surfaceID) (input not ready)."
+        case .unknownDesktopSize:
+            return "Waiting for a server keyframe to recover surface \(surfaceID) (unknown desktop size)."
+        case .unsupported:
+            return "Waiting for a server keyframe to recover surface \(surfaceID) (no Refresh Rect support)."
+        }
+    }
 
     @discardableResult
     private func presentDecodedFrame(_ presentation: RDPDecodedFramePresentation) -> Bool {
@@ -1189,6 +1246,11 @@ final class SessionViewController: NSViewController {
         displayControlSession.send(request)
         lastRequestedDisplayRequest = request
         requestedDesktopSizeLabel = request.label
+        if let width = UInt16(exactly: request.width),
+           let height = UInt16(exactly: request.height)
+        {
+            activeDesktopArea = RDPFrameRect(left: 0, top: 0, right: width, bottom: height)
+        }
         render()
     }
 
@@ -1874,6 +1936,41 @@ extension SessionViewController: RDPSessionCommandHandling {
 }
 
 // MARK: - Support types
+
+private enum RDPRefreshRectRequestOutcome {
+    case requested
+    case inputNotReady
+    case unknownDesktopSize
+    case unsupported
+}
+
+private final class RDPRefreshRectRequestBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var session: RDPInputSession?
+    private var desktopArea: RDPFrameRect?
+
+    func update(session: RDPInputSession?, desktopArea: RDPFrameRect?) {
+        lock.lock()
+        self.session = session
+        self.desktopArea = desktopArea
+        lock.unlock()
+    }
+
+    func requestWholeDesktopRefresh() -> RDPRefreshRectRequestOutcome {
+        lock.lock()
+        let session = session
+        let desktopArea = desktopArea
+        lock.unlock()
+
+        guard let session else {
+            return .inputNotReady
+        }
+        guard let desktopArea else {
+            return .unknownDesktopSize
+        }
+        return session.requestRefreshRect([desktopArea]) ? .requested : .unsupported
+    }
+}
 
 private final class SessionMainActorSink: @unchecked Sendable {
     weak var controller: SessionViewController?

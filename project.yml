@@ -9,8 +9,7 @@ settings:
     DEAD_CODE_STRIPPING: YES
 packages:
   RDPKit:
-    url: https://github.com/steelbrain/RDPKit.git
-    exactVersion: 0.3.1
+    path: ../RDPKit
 targets:
   RDPeek:
     type: application
