@@ -680,6 +680,7 @@ final class SessionViewController: NSViewController {
         connectionTask = Task.detached(priority: .userInitiated) {
             var configuration = baseConfiguration
             configuration.storedClientLicense = try? clientLicenseStore.license(for: clientLicenseKey)
+            let decodeFailureGate = SessionDecodeFailureGate()
             let decodeQueue = RDPLatestFrameDecodeQueue(
                 shouldCancel: {
                     cancellation.isCancelled
@@ -748,13 +749,16 @@ final class SessionViewController: NSViewController {
             let nextReport = RDPPreflightClient().run(
                 configuration: configuration,
                 onGraphicsFrame: { frame in
-                    try decodeQueue.submitAndWait(
+                    let completion = decodeQueue.submitAndWait(
                         frame,
                         receivedAt: Date(),
                         shouldContinue: {
                             Task.isCancelled == false && cancellation.isCancelled == false
                         }
-                    ).requireDecoded()
+                    )
+                    if decodeFailureGate.shouldEndSession(after: completion) {
+                        try completion.requireDecoded()
+                    }
                 },
                 onInputReady: { session in
                     // Keychain writes can block on the access-approval

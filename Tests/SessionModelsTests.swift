@@ -45,6 +45,44 @@ final class SessionModelsTests: XCTestCase {
         XCTAssertEqual(reason.message, "Remote session disconnected.")
     }
 
+    func testSingleDecodeFailureDoesNotEndSession() {
+        let gate = SessionDecodeFailureGate()
+
+        XCTAssertFalse(gate.shouldEndSession(after: .failed(
+            errorDescription: "An AVC444 chroma-only update arrived before a luma subframe."
+        )))
+    }
+
+    func testSuccessfulDecodeResetsFailureStreak() {
+        let gate = SessionDecodeFailureGate(maxConsecutiveFailures: 2)
+
+        XCTAssertFalse(gate.shouldEndSession(after: .failed(errorDescription: "boom")))
+        XCTAssertFalse(gate.shouldEndSession(after: .decoded))
+        XCTAssertFalse(gate.shouldEndSession(after: .failed(errorDescription: "boom")))
+    }
+
+    func testSustainedDecodeFailuresEndSession() {
+        let gate = SessionDecodeFailureGate(maxConsecutiveFailures: 3)
+
+        XCTAssertFalse(gate.shouldEndSession(after: .failed(errorDescription: "boom")))
+        XCTAssertFalse(gate.shouldEndSession(after: .failed(errorDescription: "boom")))
+        XCTAssertTrue(gate.shouldEndSession(after: .failed(errorDescription: "boom")))
+    }
+
+    func testDroppedFrameNeitherEndsSessionNorResetsStreak() {
+        let gate = SessionDecodeFailureGate(maxConsecutiveFailures: 2)
+
+        XCTAssertFalse(gate.shouldEndSession(after: .failed(errorDescription: "boom")))
+        XCTAssertFalse(gate.shouldEndSession(after: .dropped))
+        XCTAssertTrue(gate.shouldEndSession(after: .failed(errorDescription: "boom")))
+    }
+
+    func testCancelledCompletionEndsSession() {
+        let gate = SessionDecodeFailureGate()
+
+        XCTAssertTrue(gate.shouldEndSession(after: .cancelled))
+    }
+
     private func makeReport(
         status: String = "success",
         graphicsChannelName: String? = nil,
