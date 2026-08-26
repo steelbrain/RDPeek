@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Sessions
+
+- Keep the session alive through transient frame decode failures, such as
+  an AVC444 chroma-only update arriving before its luma subframe. The
+  failure is still shown in Stats for Nerds, and the session now only
+  ends after a sustained streak of failed decodes.
+
 ## 1.1.1
 
 Compatibility and reliability improvements for Windows and KDE KRdp
