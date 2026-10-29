@@ -1,9 +1,45 @@
+import AppKit
 import AVFoundation
 import CoreVideo
 import RDPKit
 import XCTest
 
 final class RemoteDesktopRendererTests: XCTestCase {
+    @MainActor
+    func testViewportCropsSampleBufferLayerAndMasksExcludedDisplay() throws {
+        let monitors = [
+            RDPRemoteMonitor(rect: RDPFrameRect(left: 0, top: 0, right: 100, bottom: 100), isPrimary: false),
+            RDPRemoteMonitor(rect: RDPFrameRect(left: 100, top: 0, right: 200, bottom: 100), isPrimary: true),
+            RDPRemoteMonitor(rect: RDPFrameRect(left: 200, top: 0, right: 300, bottom: 100), isPrimary: false),
+        ]
+        let view = RemoteDesktopSampleBufferNSView(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
+        view.viewport = RemoteDisplayViewport(frameSize: CGSize(width: 300, height: 100), monitors: monitors,
+                                             selection: .only([monitors[1]]))
+        view.layoutSubtreeIfNeeded()
+        let container = try XCTUnwrap(view.layer?.sublayers?.first)
+        let video = try XCTUnwrap(container.sublayers?.first as? AVSampleBufferDisplayLayer)
+        let mask = try XCTUnwrap(container.mask as? CAShapeLayer)
+        let singlePath = try XCTUnwrap(mask.path)
+        XCTAssertEqual(container.frame, CGRect(x: 0, y: 0, width: 300, height: 200))
+        XCTAssertEqual(video.frame, CGRect(x: -150, y: 0, width: 600, height: 200))
+        XCTAssertEqual(video.videoGravity, .resize)
+        XCTAssertEqual(singlePath.boundingBox, CGRect(x: 50, y: 0, width: 200, height: 200))
+        XCTAssertFalse(singlePath.contains(CGPoint(x: 25, y: 100)))
+        XCTAssertTrue(singlePath.contains(CGPoint(x: 150, y: 100)))
+
+        view.viewport = RemoteDisplayViewport(frameSize: CGSize(width: 300, height: 100), monitors: monitors,
+                                             selection: .only([monitors[0], monitors[2]]))
+        view.layoutSubtreeIfNeeded()
+        let subsetPath = try XCTUnwrap(mask.path)
+        XCTAssertTrue(container.sublayers?.first === video)
+        XCTAssertEqual(video.frame, CGRect(x: 0, y: 50, width: 300, height: 100))
+        XCTAssertEqual(subsetPath.boundingBox, CGRect(x: 0, y: 50, width: 300, height: 100))
+        XCTAssertTrue(subsetPath.contains(CGPoint(x: 50, y: 100)))
+        XCTAssertTrue(subsetPath.contains(CGPoint(x: 250, y: 100)))
+        XCTAssertFalse(subsetPath.contains(CGPoint(x: 150, y: 100)))
+        XCTAssertFalse(subsetPath.contains(CGPoint(x: 50, y: 25)))
+    }
+
     func testHealthyRendererEnqueuesWithoutFlushing() {
         XCTAssertEqual(
             rdpSampleBufferDisplayDisposition(
@@ -85,7 +121,7 @@ final class RemoteDesktopSampleBufferViewTests: XCTestCase {
             throw XCTSkip("macOS 14 renders through the display layer itself")
         }
         let view = RemoteDesktopSampleBufferNSView(frame: CGRect(x: 0, y: 0, width: 64, height: 64))
-        let displayLayer = try XCTUnwrap(view.layer?.sublayers?.first as? AVSampleBufferDisplayLayer)
+        let displayLayer = try XCTUnwrap(view.layer?.sublayers?.first?.sublayers?.first as? AVSampleBufferDisplayLayer)
         let renderer = displayLayer.sampleBufferRenderer
         let presentation = try makePresentation()
         XCTAssertEqual(renderer.status, .unknown)

@@ -60,6 +60,7 @@ targets:
       - path: Tests
       - path: Sources/ConnectionCenter/DeviceGridNavigation.swift
       - path: Sources/ConnectionCenter/DeviceListModel.swift
+      - path: Sources/Session/RemoteDisplaySelection.swift
       - path: Sources/Diagnostics/DiagnosticsView.swift
       - path: Sources/Session/FramePacing.swift
       - path: Sources/Session/FramePresentationClockView.swift
@@ -69,6 +70,7 @@ targets:
       - path: Sources/Session/RemoteInputCaptureView.swift
       - path: Sources/Session/SessionClipboard.swift
       - path: Sources/Session/SessionCommandState.swift
+      - path: Sources/Session/SessionHUD.swift
       - path: Sources/Session/SessionCredentialPolicy.swift
       - path: Sources/Session/SessionModels.swift
       - path: Sources/Session/SessionWindowPlacement.swift

@@ -11,6 +11,55 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         let recorder: InputEventRecorder
     }
 
+    func testChangingViewportReleasesHeldInputsBeforeRemapping() {
+        let harness = makeHarness()
+        harness.view.flagsChanged(with: flagsEvent(keyCode: .leftCommand, flags: .leftCommandDown))
+        harness.view.mouseDown(with: mouseEvent(.leftMouseDown, location: NSPoint(x: 100, y: 50), flags: .leftCommandDown))
+        harness.recorder.events.removeAll()
+        let monitor = RDPRemoteMonitor(rect: RDPFrameRect(left: 0, top: 0, right: 100, bottom: 100), isPrimary: true)
+        harness.view.viewport = RemoteDisplayViewport(frameSize: CGSize(width: 100, height: 100), monitors: [monitor])
+        XCTAssertTrue(harness.recorder.events.contains { isPointerButton($0, button: .left, isDown: false) })
+        XCTAssertTrue(harness.recorder.events.contains(.keyboard(scancode: .leftWindows, isReleased: true)))
+        harness.recorder.events.removeAll()
+        harness.view.viewport = harness.view.viewport
+        XCTAssertTrue(harness.recorder.events.isEmpty)
+    }
+
+    func testSelectedViewportMapsPointerAndRejectsExcludedArea() {
+        let harness = makeHarness()
+        let monitors = [
+            RDPRemoteMonitor(rect: RDPFrameRect(left: 0, top: 0, right: 100, bottom: 100), isPrimary: true),
+            RDPRemoteMonitor(rect: RDPFrameRect(left: 100, top: 0, right: 200, bottom: 100), isPrimary: false),
+            RDPRemoteMonitor(rect: RDPFrameRect(left: 200, top: 0, right: 300, bottom: 100), isPrimary: false),
+        ]
+        harness.view.frame = CGRect(x: 0, y: 0, width: 300, height: 100)
+        harness.view.viewport = RemoteDisplayViewport(frameSize: CGSize(width: 300, height: 100), monitors: monitors,
+                                                     selection: .only([monitors[0], monitors[2]]))
+        harness.view.mouseMoved(with: mouseEvent(.mouseMoved, location: NSPoint(x: 150, y: 50)))
+        XCTAssertTrue(harness.recorder.events.isEmpty)
+        harness.view.mouseMoved(with: mouseEvent(.mouseMoved, location: NSPoint(x: 250, y: 50)))
+        XCTAssertEqual(harness.recorder.events, [.pointerMove(x: 250, y: 50)])
+    }
+
+    func testDraggingSelectedDisplayClampsToItsEdgeAndRejectsExcludedDisplay() {
+        let harness = makeHarness()
+        let monitors = [
+            RDPRemoteMonitor(rect: RDPFrameRect(left: 0, top: 0, right: 100, bottom: 100), isPrimary: true),
+            RDPRemoteMonitor(rect: RDPFrameRect(left: 100, top: 0, right: 200, bottom: 100), isPrimary: false),
+            RDPRemoteMonitor(rect: RDPFrameRect(left: 200, top: 0, right: 300, bottom: 100), isPrimary: false),
+        ]
+        harness.view.frame = CGRect(x: 0, y: 0, width: 300, height: 100)
+        harness.view.viewport = RemoteDisplayViewport(frameSize: CGSize(width: 300, height: 100), monitors: monitors,
+                                                     selection: .only([monitors[2]]))
+        harness.view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: 280, y: 50)))
+        XCTAssertEqual(harness.recorder.events, [.pointerMove(x: 299, y: 50)])
+        harness.recorder.events.removeAll()
+        harness.view.viewport = RemoteDisplayViewport(frameSize: CGSize(width: 300, height: 100), monitors: monitors,
+                                                     selection: .only([monitors[0], monitors[2]]))
+        harness.view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: 150, y: 50)))
+        XCTAssertTrue(harness.recorder.events.isEmpty)
+    }
+
     // MARK: - Modifier state derived from event flags
 
     func testModifierPressAndReleaseFollowDeviceFlags() {

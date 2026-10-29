@@ -34,6 +34,31 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         XCTAssertEqual(inputView(of: canvas)?.frame, canvas.bounds)
     }
 
+    func testChangingDisplaySelectionKeepsVideoAndInputAlignedToWholePixels() throws {
+        let canvas = makeCanvas(size: CGSize(width: 301, height: 200), showing: makeFrameMetadata(width: 300, height: 100))
+        let monitors = [
+            RDPRemoteMonitor(rect: RDPFrameRect(left: 0, top: 0, right: 100, bottom: 100), isPrimary: true),
+            RDPRemoteMonitor(rect: RDPFrameRect(left: 100, top: 0, right: 300, bottom: 100), isPrimary: false),
+        ]
+        for monitor in monitors {
+            let viewport = RemoteDisplayViewport(frameSize: CGSize(width: 300, height: 100), monitors: monitors,
+                                                 selection: .only([monitor]))
+            canvas.update(frame: makeFrameMetadata(width: 300, height: 100), hasPresentedFrame: true,
+                          inputSession: nil, viewport: viewport)
+            canvas.layoutSubtreeIfNeeded()
+
+            let input = try XCTUnwrap(inputView(of: canvas))
+            XCTAssertEqual(input.frame, canvas.displayView.frame)
+            XCTAssertEqual(input.viewport, viewport)
+            XCTAssertEqual(canvas.displayView.viewport, viewport)
+            let desktop = viewport.destinationRect(in: canvas.displayView.bounds)
+            let origin = CGPoint(x: canvas.displayView.frame.minX + desktop.minX,
+                                 y: canvas.displayView.frame.minY + desktop.minY)
+            XCTAssertEqual(origin.x, origin.x.rounded(), accuracy: 1e-9)
+            XCTAssertEqual(origin.y, origin.y.rounded(), accuracy: 1e-9)
+        }
+    }
+
     // MARK: - Helpers
 
     private func makeCanvas(size: CGSize, showing frame: RDPFrameMetadata) -> RemoteDesktopCanvasNSView {

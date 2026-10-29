@@ -36,9 +36,9 @@ struct HelpView: View {
 
                 HelpSection(title: "In a Session", systemImage: "display") {
                     HelpBody(
-                        "The remote desktop follows the window: resize the window and " +
-                            "the desktop re-fits a moment later. Full screen works as a " +
-                            "primary full-screen window."
+                        "The remote display layout is preserved by default. For a " +
+                            "single-display session, enable Match Window Size in the ⋯ " +
+                            "menu to resize the remote desktop with the window."
                     )
                     HelpBody(
                         "The ⋯ menu in the titlebar holds Disconnect, clipboard sharing " +
@@ -48,6 +48,13 @@ struct HelpView: View {
                             "Stats for Nerds. While the remote desktop has your keyboard, " +
                             "RDPeek's own ⌘ shortcuts go to it too, so use this menu or the " +
                             "Session menu in the menu bar instead."
+                    )
+                    HelpBody(
+                        "Use the Displays menu in the titlebar to view all server-reported " +
+                            "displays or any subset together. Numbers follow the server's " +
+                            "order and may differ from the remote OS. Physical desktop " +
+                            "sharing and virtual sessions use the same controls; the RDP " +
+                            "server must expose the displays you want to view."
                     )
                     HelpBody(
                         "Clipboard sharing can be turned on, or shared for 30 seconds, " +

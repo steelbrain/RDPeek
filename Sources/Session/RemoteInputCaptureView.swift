@@ -14,6 +14,11 @@ extension RDPInputSession: RemoteInputEventSink {}
 
 final class RemoteInputCaptureNSView: NSView {
     var rdpFrame: RDPFrameMetadata?
+    var viewport: RemoteDisplayViewport? {
+        willSet {
+            if viewport != newValue { releasePressedInputs() }
+        }
+    }
     /// The layout the session announced; it decides which keys can go as scancodes.
     var keyboardLayout = RDPKeyboardLayout.unitedStates
     /// Whether the Mac's layout makes a key a dead key with these modifiers; tests replace it.
@@ -498,16 +503,15 @@ final class RemoteInputCaptureNSView: NSView {
         guard let rdpFrame else {
             return nil
         }
-        let viewport = RDPRemoteDisplayViewport(frame: rdpFrame, bounds: bounds, coordinateOrigin: .bottomLeft)
-        // Where the video view draws the desktop: the canvas lays both views out on the same
-        // pixel-aligned frame.
-        let desktop = viewport.contentRect
+        let viewport = viewport ?? RemoteDisplayViewport(frame: rdpFrame)
+        // Video and input share the canvas's pixel-aligned frame.
+        let desktop = viewport.destinationRect(in: bounds)
         var localPoint = convert(event.locationInWindow, from: nil)
         if clampingToDesktop {
             localPoint.x = min(max(localPoint.x, desktop.minX), desktop.maxX.nextDown)
             localPoint.y = min(max(localPoint.y, desktop.minY), desktop.maxY.nextDown)
         }
-        return viewport.remotePoint(from: localPoint, contentRect: desktop)
+        return viewport.remotePoint(from: localPoint, in: bounds)
     }
 }
 

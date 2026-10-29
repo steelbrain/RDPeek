@@ -45,13 +45,16 @@ final class RemoteDesktopCanvasNSView: NSView {
     func update(
         frame: RDPFrameMetadata?,
         hasPresentedFrame: Bool,
-        inputSession: RDPInputSession?
+        inputSession: RDPInputSession?,
+        viewport: RemoteDisplayViewport? = nil
     ) {
         let shouldShowDesktop = frame != nil && hasPresentedFrame
-        let desktopSizeChanged = inputView.rdpFrame?.width != frame?.width
-            || inputView.rdpFrame?.height != frame?.height
+        let viewport = viewport ?? frame.map { RemoteDisplayViewport(frame: $0) }
+        let desktopSizeChanged = inputView.viewport != viewport
         displayView.isHidden = !shouldShowDesktop
         inputView.isHidden = !shouldShowDesktop
+        inputView.viewport = viewport
+        displayView.viewport = viewport
         inputView.rdpFrame = frame
         inputView.inputSession = shouldShowDesktop ? inputSession : nil
         if desktopSizeChanged {
@@ -87,11 +90,8 @@ final class RemoteDesktopCanvasNSView: NSView {
         guard let frame = inputView.rdpFrame else {
             return bounds
         }
-        let desktop = RDPRemoteDisplayViewport(
-            frame: frame,
-            bounds: bounds,
-            coordinateOrigin: .bottomLeft
-        ).contentRect
+        let viewport = inputView.viewport ?? RemoteDisplayViewport(frame: frame)
+        let desktop = viewport.destinationRect(in: bounds)
         guard desktop.isEmpty == false else {
             return bounds
         }

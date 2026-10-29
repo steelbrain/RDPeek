@@ -69,7 +69,8 @@ final class SessionViewController: NSViewController {
     private var sessionEndReason: RDPSessionEndReason?
     private var inputSession: RDPInputSession?
     private var displayControlSession: RDPDisplayControlSession?
-    private var autoApplyViewerSize = true
+    private var autoApplyViewerSize = false
+    private var displaySelection = RemoteDisplaySelection.all
     private var pendingDisplayResizeTask: Task<Void, Never>?
     private var lastRequestedDisplayRequest: RDPDisplayRequest?
     private var viewerPixelSize: RDPViewerPixelSize?
@@ -306,6 +307,16 @@ final class SessionViewController: NSViewController {
         hudModel.onSetFollowWindowSize = { [weak self] enabled in
             self?.setFollowWindowSize(enabled)
         }
+        hudModel.onSelectAllDisplays = { [weak self] in
+            self?.displaySelection = .all
+            self?.render()
+        }
+        hudModel.onToggleDisplay = { [weak self] monitor in
+            guard let self, let frame = self.previewFrame else { return }
+            let monitors = RemoteDisplayViewport(frame: frame).monitors
+            self.displaySelection.toggle(monitor, in: monitors)
+            self.render()
+        }
         hudModel.onSetMetricsOverlayVisible = { [weak self] visible in
             self?.setMetricsOverlayVisible(visible)
         }
@@ -318,10 +329,14 @@ final class SessionViewController: NSViewController {
     /// It runs for every state change, so it publishes only what changed;
     /// the diagnostics loop picks up the rest.
     private func render() {
+        // Only displayed frames may change the active input/render topology.
+        let frame = previewFrame
+        let viewport = frame.map { RemoteDisplayViewport(frame: $0, selection: displaySelection) }
         canvasView.update(
             frame: previewFrame,
             hasPresentedFrame: hasPresentedFrame,
-            inputSession: inputSession
+            inputSession: inputSession,
+            viewport: viewport
         )
 
         hudModel.update(\.deviceName, to: draft.displayName)
@@ -340,6 +355,18 @@ final class SessionViewController: NSViewController {
             updateOverlayVisibility(for: nextPhase)
             startMetricsOverlayLoopIfNeeded()
         }
+        let monitors = viewport?.monitors ?? []
+        let selected = displaySelection.selected(in: monitors)
+        let displays = monitors.enumerated().map { index, monitor in
+            SessionDisplayChoice(id: index, label: "Display \(index + 1) — \(monitor.rect.width) × \(monitor.rect.height)",
+                                 monitor: monitor, isSelected: selected.contains(monitor), canToggle: selected.count > 1 || !selected.contains(monitor))
+        }
+        hudModel.update(\.displays, to: displays)
+        hudModel.update(\.areAllDisplaysSelected, to: displaySelection == .all)
+        hudModel.update(\.canMatchWindowSize, to: isConnecting && displayControlSession != nil
+            && remoteDisplayAllowsWindowMatching(hasPresentedFrame: hasPresentedFrame,
+                                                reportedMonitorCount: frame?.monitors.count ?? 0))
+
         hudModel.update(
             \.connectingStatusDetail,
             to: nextPhase == .connecting ? autoRetryReason?.statusDetail : nil
@@ -788,7 +815,6 @@ final class SessionViewController: NSViewController {
 
         startSessionThread(
             configuration: configuration,
-            desktopSize: desktopSize,
             sink: SessionMainActorSink(controller: self, connectionID: connectionID),
             liveReport: liveReport,
             cancellation: cancellation
@@ -858,7 +884,6 @@ final class SessionViewController: NSViewController {
 
     private func startSessionThread(
         configuration baseConfiguration: RDPConnectionConfiguration,
-        desktopSize requestedDesktopSize: RDPDesktopSize,
         sink: SessionMainActorSink,
         liveReport: RDPLiveConnectionReport,
         cancellation: RDPConnectionCancellation
@@ -869,6 +894,7 @@ final class SessionViewController: NSViewController {
         let trustedCertificateStore = trustedCertificateStore
         let acceptsUntrustedCertificates = draft.hideCertificateWarnings
         let port = baseConfiguration.port
+        let initialScaleFactors = baseConfiguration.scaleFactors
         // RDPSessionClient.run blocks for the whole session and waits on
         // the decode queue, so it gets its own thread rather than pinning a
         // Swift concurrency worker per session, which could starve the
@@ -954,8 +980,11 @@ final class SessionViewController: NSViewController {
                         }
                     )
                     try keyframeRequests.finishGraphicsFrame(frame, decoded: completion, at: Date()) {
+                        let monitors = frame.monitors
+                        let graphicsOutputRect = frame.graphicsOutputRect
                         sink.apply { controller in
-                            controller.requestKeyframe(desktopSize: requestedDesktopSize)
+                            controller.requestKeyframe(monitors: monitors, graphicsOutputRect: graphicsOutputRect,
+                                                       initialScaleFactors: initialScaleFactors)
                         }
                     }
                 },
@@ -1273,25 +1302,46 @@ final class SessionViewController: NSViewController {
     }
 
     /// Returns whether the canvas needs a render: on the first frame and
-    /// when the desktop size changes. Every frame is kept for Stats for
-    /// Nerds without a render; AVC444 can alternate codecs frame by frame.
+    /// when the desktop size or monitor layout changes. Every frame is kept
+    /// for Stats for Nerds without a render; AVC444 can alternate codecs frame by frame.
     @discardableResult
     private func applyFramePresentation(_ presentation: RDPDecodedFramePresentation) -> Bool {
         let wasFirstPresentedFrame = hasPresentedFrame == false
         let frame = presentation.frame
-        let sizeChanged = previewFrame?.width != frame.width || previewFrame?.height != frame.height
+        let shouldUpdateFrameMetadata = shouldPublishFrameMetadata(frame)
         presentedFrameCount += 1
-        remoteDesktopRenderer.present(presentation, id: presentedFrameCount)
+        guard remoteDesktopRenderer.present(presentation, id: presentedFrameCount) else {
+            return false
+        }
         latestPresentedFrame = frame
-        if sizeChanged {
-            previewFrame = RDPFrameMetadata(frame)
+        if shouldUpdateFrameMetadata {
+            let metadata = RDPFrameMetadata(frame)
+            previewFrame = metadata
+            let monitors = RemoteDisplayViewport(frame: metadata).monitors
+            displaySelection.reconcile(with: monitors)
+            if metadata.monitors.count > 1 {
+                autoApplyViewerSize = false
+                cancelPendingDisplayResize()
+            }
+            // Commit crop and input with the accepted frame when its topology changes.
+            canvasView.update(frame: metadata, hasPresentedFrame: true, inputSession: inputSession,
+                              viewport: RemoteDisplayViewport(frame: metadata, selection: displaySelection))
         }
         if wasFirstPresentedFrame {
             hasPresentedFrame = true
             hasEverPresentedFrame = true
             autoRetryCount = 0
         }
-        return wasFirstPresentedFrame || sizeChanged
+        return wasFirstPresentedFrame || shouldUpdateFrameMetadata
+    }
+
+    private func shouldPublishFrameMetadata(_ frame: RDPGraphicsFrameSnapshot) -> Bool {
+        guard let currentFrame = previewFrame else {
+            return true
+        }
+        return currentFrame.width != frame.width
+            || currentFrame.height != frame.height
+            || currentFrame.monitors != frame.monitors
     }
 
     @discardableResult
@@ -1328,6 +1378,9 @@ final class SessionViewController: NSViewController {
 
     private func resetFramePresentationState() {
         framePresentationBuffer.clear()
+        previewFrame = nil
+        displaySelection = .all
+        autoApplyViewerSize = false
         hasPresentedFrame = false
         remoteDesktopRenderer.clear()
     }
@@ -1346,6 +1399,10 @@ final class SessionViewController: NSViewController {
 
     private func scheduleAutoDisplaySizeUpdate() {
         guard autoApplyViewerSize,
+              hasPresentedFrame,
+              let previewFrame,
+              remoteDisplayAllowsWindowMatching(hasPresentedFrame: hasPresentedFrame,
+                                               reportedMonitorCount: previewFrame.monitors.count),
               isConnecting,
               displayControlSession != nil,
               let viewerPixelSize
@@ -1374,6 +1431,10 @@ final class SessionViewController: NSViewController {
     private func applyAutoDisplayRequest(_ displayRequest: RDPDisplayRequest) {
         pendingDisplayResizeTask = nil
         guard autoApplyViewerSize,
+              hasPresentedFrame,
+              let previewFrame,
+              remoteDisplayAllowsWindowMatching(hasPresentedFrame: hasPresentedFrame,
+                                               reportedMonitorCount: previewFrame.monitors.count),
               isConnecting,
               displayControlSession != nil,
               lastRequestedDisplayRequest != displayRequest
@@ -1394,19 +1455,17 @@ final class SessionViewController: NSViewController {
         requestedDesktopSizeLabel = request.label
     }
 
-    /// Windows and gnome-remote-desktop send no keyframe by themselves, but
-    /// answer the monitor layout sent again with one. Before any layout was
-    /// sent, the server still has the desktop it connected with, at 100%
-    /// scale: send that, so a keyframe request never rescales the desktop.
-    private func requestKeyframe(desktopSize: RDPDesktopSize) {
-        guard let displayControlSession else {
-            return
-        }
-        let request = lastRequestedDisplayRequest ?? RDPDisplayRequest(
-            width: UInt32(desktopSize.width),
-            height: UInt32(desktopSize.height),
-            scaleFactors: RDPDisplayScaleFactors(backingScaleFactor: 1)
-        )
+    /// Some servers answer a repeated layout with a keyframe. Re-send only a
+    /// known single-display layout, so recovery never collapses multiple monitors.
+    private func requestKeyframe(
+        monitors: [RDPRemoteMonitor],
+        graphicsOutputRect: RDPFrameRect?,
+        initialScaleFactors: RDPDisplayScaleFactors
+    ) {
+        guard let displayControlSession,
+              let request = remoteDisplayKeyframeRequest(monitors: monitors, graphicsOutputRect: graphicsOutputRect,
+                                                         initialScaleFactors: initialScaleFactors,
+                                                         lastRequest: lastRequestedDisplayRequest) else { return }
         displayControlSession.send(request)
     }
 
@@ -1419,6 +1478,7 @@ final class SessionViewController: NSViewController {
     }
 
     private func setFollowWindowSize(_ enabled: Bool) {
+        guard enabled == false || hudModel.canMatchWindowSize else { return }
         autoApplyViewerSize = enabled
         if enabled {
             scheduleAutoDisplaySizeUpdate()
