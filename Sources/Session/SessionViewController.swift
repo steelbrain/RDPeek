@@ -868,6 +868,7 @@ final class SessionViewController: NSViewController {
         let presentsStoredClientLicense = omitsStoredClientLicense == false
         let trustedCertificateStore = trustedCertificateStore
         let acceptsUntrustedCertificates = draft.hideCertificateWarnings
+        let remoteAudioPlayer = remoteAudioPlayer
         let port = baseConfiguration.port
         // RDPSessionClient.run blocks for the whole session and waits on
         // the decode queue, so it gets its own thread rather than pinning a
@@ -1017,6 +1018,12 @@ final class SessionViewController: NSViewController {
                     sink.apply { controller in
                         controller.playAudioSample(sample)
                     }
+                },
+                // Read before each onAudioSample: the queue ahead of that
+                // sample is the one the player holds, once the samples
+                // before it have reached the main thread.
+                audioPlaybackDelay: {
+                    remoteAudioPlayer.playbackDelay
                 },
                 onCertificate: { info in
                     // Runs before any credential is sent, so cancelling

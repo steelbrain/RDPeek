@@ -234,6 +234,10 @@ struct RDPSessionEndReason: Equatable {
             return logonMessage(status)
         case .earlyUserAuthorizationDenied:
             return "The remote computer denied this account access."
+        case .rdSTLS:
+            // The redirection named the user and password, so typing
+            // others would not help.
+            return "The remote computer refused the sign-in it passed the session on with."
         case .licensing:
             return licensingMessage
         case let .serverTermination(termination):

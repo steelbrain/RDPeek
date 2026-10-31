@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+### Connecting
+
+- GNOME Remote Login gets past the system sign-in to the user's
+  desktop. A refusal of the sign-in it passes the session on with is
+  explained, not asked about again.
+- Windows 11 sessions no longer end when the server confirms graphics
+  with both AVC flags, and Network Level Authentication works with
+  certificates signed with RSASSA-PSS and SHA-384 or SHA-512.
+
+### Sessions
+
+- Remote audio tells the server when each sample is heard, so it can
+  keep video in step with the sound.
+
+### Clipboard
+
+- Once the remote computer copies something, it can no longer read the
+  Mac's earlier copy.
+- Pasted remote files are never saved under a hidden name, and none is
+  saved over another whose name the Mac treats as the same.
+- Remote copies keep coming after one that failed to arrive, or after
+  the remote clipboard restarts.
+
+### Under the hood
+
+- Updated to RDPKit 0.6.0.
+
 ## 1.2.0
 
 Security, input, clipboard, and session fixes, on RDPKit 0.5.0.

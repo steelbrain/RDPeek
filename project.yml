@@ -13,7 +13,7 @@ settings:
 packages:
   RDPKit:
     url: https://github.com/steelbrain/RDPKit.git
-    exactVersion: 0.5.0
+    exactVersion: 0.6.0
 targets:
   RDPeek:
     type: application

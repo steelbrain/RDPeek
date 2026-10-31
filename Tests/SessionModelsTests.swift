@@ -400,6 +400,17 @@ final class SessionModelsTests: XCTestCase {
         }
     }
 
+    func testRefusedRedirectedSignInEndsWithoutAskingToSignIn() {
+        // gnome-remote-desktop's one-time credentials are its own, so
+        // typing others would not help.
+        let report = makeReport(stage: "rdstls", redirectionDepth: 1, failure: .rdSTLS(resultCode: .logonFailure))
+
+        XCTAssertEqual(outcome(after: report), .end(RDPSessionEndReason(
+            kind: .failed,
+            message: "The remote computer refused the sign-in it passed the session on with."
+        )))
+    }
+
     func testConnectionClosedDuringSignInAsksToSignInAgain() {
         for failure in [RDPConnectionFailure.connectionClosed, .connectionLost] {
             let report = makeReport(stage: "credssp", failure: failure)
