@@ -199,16 +199,20 @@ final class DeviceListModel: ObservableObject {
 
         // A session's sign-in may have given a PC with no user name the
         // account it signed in with since. When the user left the account
-        // empty, that account stands, as if the sheet had opened on it.
+        // empty, or typed that account, it stands, as if the sheet had
+        // opened on it, and so does the session's Remember.
         var snapshot = editor.device
         if let current,
            current.identity.credentialAccountName != nil,
            snapshot.identity.credentialAccountName == nil,
-           device.username.isEmpty,
-           snapshot.identity.hasSameConnectionIdentity(as: device.identity)
+           device.username.isEmpty
+           ? snapshot.identity.hasSameConnectionIdentity(as: device.identity)
+           : device.identity.hasSameConnectionIdentity(as: current.identity)
         {
-            device.username = current.username
-            device.domain = current.domain
+            if device.username.isEmpty {
+                device.username = current.username
+                device.domain = current.domain
+            }
             snapshot.username = current.username
             snapshot.domain = current.domain
         }

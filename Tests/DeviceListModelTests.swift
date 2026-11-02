@@ -1024,6 +1024,35 @@ final class DeviceListModelTests: XCTestCase {
         XCTAssertEqual(harness.credentials.deletedAccounts, [])
     }
 
+    func testSaveKeepsRememberASessionGaveThePCWhenItsAccountIsTyped() async throws {
+        let device = makeDevice(username: "")
+        let harness = try makeHarness(devices: [device])
+        let editor = DeviceEditorState(device: device, isNew: false)
+        // After the sheet opened, a session signed in as bob and saved the
+        // password.
+        let signIn = RDPConnectionIdentity(host: device.host, username: "bob")
+        let account = try XCTUnwrap(signIn.credentialAccountName)
+        harness.credentials.passwords[account] = "from-session"
+        harness.model.recordCredentialPersistence(deviceID: device.id, identity: signIn, remembered: true)
+        var edited = device
+        edited.username = "bob"
+
+        let saved = try await harness.model.save(
+            editor: editor,
+            editedDevice: edited,
+            password: "",
+            loadedPassword: nil,
+            hadRememberedPassword: false
+        )
+
+        XCTAssertEqual(saved.username, "bob")
+        XCTAssertTrue(saved.rememberPassword)
+        XCTAssertEqual(try DeviceProfileStore(defaults: harness.defaults).devices(), [saved])
+        XCTAssertEqual(harness.credentials.passwords[account], "from-session")
+        XCTAssertEqual(harness.credentials.savedAccounts, [])
+        XCTAssertEqual(harness.credentials.deletedAccounts, [])
+    }
+
     // MARK: - addNewDevice
 
     func testAddNewDeviceKeepsAnEditorThatIsAlreadyOpen() throws {
