@@ -315,6 +315,22 @@ final class RemoteInputMappingTests: XCTestCase {
         XCTAssertEqual(output(kVK_ANSI_L, .option), "¬")
         XCTAssertEqual(output(kVK_ANSI_E, .option), "")
         XCTAssertEqual(output(kVK_Return, []), "\r")
+        // Right after Option-E, E types "é", Shift-A "Á", Return "´\r" and Option-E "´"; after a
+        // key that starts no dead key, nothing is composed.
+        func output(_ keyCode: Int, _ modifierFlags: NSEvent.ModifierFlags, after deadKey: (Int, NSEvent.ModifierFlags)) -> String? {
+            MacRDPDeadKeys.output(
+                keyCode: UInt16(keyCode),
+                modifierFlags: modifierFlags,
+                afterDeadKey: UInt16(deadKey.0),
+                deadKeyModifierFlags: deadKey.1,
+                in: us
+            )
+        }
+        XCTAssertEqual(output(kVK_ANSI_E, [], after: (kVK_ANSI_E, .option)), "é")
+        XCTAssertEqual(output(kVK_ANSI_A, .shift, after: (kVK_ANSI_E, .option)), "Á")
+        XCTAssertEqual(output(kVK_Return, [], after: (kVK_ANSI_E, .option)), "´\r")
+        XCTAssertEqual(output(kVK_ANSI_E, .option, after: (kVK_ANSI_E, .option)), "´")
+        XCTAssertNil(output(kVK_ANSI_E, [], after: (kVK_ANSI_L, .option)))
 
         // The remembered answer for the Mac's own layout, asked twice, is that layout's.
         let current = try XCTUnwrap(TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue())

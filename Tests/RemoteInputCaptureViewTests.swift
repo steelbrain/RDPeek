@@ -1018,6 +1018,43 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         ])
     }
 
+    func testADeadKeyRightAfterALeftOptionDeadKeyComposesTheKeyAfterIt() {
+        // US left Option-E goes as Alt-E, and macOS spends right Option-E after it on that dead
+        // key's accent, typing "´", which goes nowhere. The second dead key is the user's, so E
+        // after it types "é", whether or not macOS left a dead key pending.
+        let harness = makeHarness()
+        let eKey = UInt16(kVK_ANSI_E)
+        harness.view.uncomposedOutput = { keyCode, modifierFlags in
+            keyCode == eKey && modifierFlags.contains(.option) ? "" : nil
+        }
+        harness.view.composedOutput = { keyCode, modifierFlags, deadKeyCode, deadKeyModifierFlags in
+            keyCode == eKey && modifierFlags.isEmpty && deadKeyCode == eKey && deadKeyModifierFlags.contains(.option) ? "é" : nil
+        }
+        harness.view.flagsChanged(with: flagsEvent(keyCode: UInt16(kVK_Option), flags: .leftOptionDown))
+        harness.view.keyDown(with: keyEvent(.keyDown, keyCode: eKey, charactersIgnoringModifiers: "e", flags: .leftOptionDown))
+        harness.view.keyUp(with: keyEvent(.keyUp, keyCode: eKey, charactersIgnoringModifiers: "e", flags: .leftOptionDown))
+        harness.view.flagsChanged(with: flagsEvent(keyCode: UInt16(kVK_Option), flags: []))
+        harness.view.flagsChanged(with: flagsEvent(keyCode: .rightOption, flags: .rightOptionDown))
+        harness.view.keyDown(with: keyEvent(.keyDown, keyCode: eKey, characters: "´", charactersIgnoringModifiers: "e", flags: .rightOptionDown))
+        harness.view.keyUp(with: keyEvent(.keyUp, keyCode: eKey, characters: "´", charactersIgnoringModifiers: "e", flags: .rightOptionDown))
+        harness.view.flagsChanged(with: flagsEvent(keyCode: .rightOption, flags: []))
+        harness.view.keyDown(with: keyEvent(.keyDown, keyCode: eKey, characters: "e"))
+        harness.view.keyUp(with: keyEvent(.keyUp, keyCode: eKey, characters: "e"))
+        // Only the key right after it is composed.
+        harness.view.keyDown(with: keyEvent(.keyDown, keyCode: eKey, characters: "e"))
+
+        let eScancode = RDPKeyboardScancode(code: 0x12)
+        XCTAssertEqual(harness.recorder.events, [
+            .keyboard(scancode: .leftAlt, isReleased: false),
+            .keyboard(scancode: eScancode, isReleased: false),
+            .keyboard(scancode: eScancode, isReleased: true),
+            .keyboard(scancode: .leftAlt, isReleased: true),
+            .unicode(codeUnit: 0xE9, isReleased: false),
+            .unicode(codeUnit: 0xE9, isReleased: true),
+            .keyboard(scancode: eScancode, isReleased: false),
+        ])
+    }
+
     func testOptionFoundHeldWithoutSideBitsTypesTheMacCharacter() {
         // A keyboard that reports no side bits, with Option held before the window became key:
         // the view never saw which Option it is, so no Alt is on the server, and German

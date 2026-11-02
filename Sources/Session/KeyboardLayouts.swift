@@ -192,7 +192,7 @@ enum MacRDPKeyboardLayout {
 /// types nothing, and the next key types the accent. A custom layout can also give a key no
 /// output with Option without making it a dead key; that key then goes as Alt and the key.
 /// Also what a key types with no dead key pending, for the key after a dead key that went to
-/// the server as an Alt chord.
+/// the server as an Alt chord, and what it types right after one dead key alone.
 @MainActor
 enum MacRDPDeadKeys {
     private struct Keystroke: Hashable {
@@ -242,9 +242,45 @@ enum MacRDPDeadKeys {
         translate(keyCode: keyCode, modifierFlags: modifierFlags, in: source)?.output
     }
 
+    /// What the key types with the current layout right after the dead key `deadKeyCode` starts,
+    /// with nothing else pending. Nil when that key starts no dead key or the layout data cannot
+    /// be read.
+    static func output(
+        keyCode: UInt16,
+        modifierFlags: NSEvent.ModifierFlags,
+        afterDeadKey deadKeyCode: UInt16,
+        deadKeyModifierFlags: NSEvent.ModifierFlags
+    ) -> String? {
+        TISCopyCurrentKeyboardLayoutInputSource().flatMap {
+            output(
+                keyCode: keyCode,
+                modifierFlags: modifierFlags,
+                afterDeadKey: deadKeyCode,
+                deadKeyModifierFlags: deadKeyModifierFlags,
+                in: $0.takeRetainedValue()
+            )
+        }
+    }
+
+    static func output(
+        keyCode: UInt16,
+        modifierFlags: NSEvent.ModifierFlags,
+        afterDeadKey deadKeyCode: UInt16,
+        deadKeyModifierFlags: NSEvent.ModifierFlags,
+        in source: TISInputSource
+    ) -> String? {
+        guard let deadKey = translate(keyCode: deadKeyCode, modifierFlags: deadKeyModifierFlags, in: source),
+              deadKey.deadKeyState != 0
+        else {
+            return nil
+        }
+        return translate(keyCode: keyCode, modifierFlags: modifierFlags, deadKeyState: deadKey.deadKeyState, in: source)?.output
+    }
+
     private static func translate(
         keyCode: UInt16,
         modifierFlags: NSEvent.ModifierFlags,
+        deadKeyState initialDeadKeyState: UInt32 = 0,
         in source: TISInputSource
     ) -> (output: String, deadKeyState: UInt32)? {
         guard let data = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData),
@@ -252,7 +288,7 @@ enum MacRDPDeadKeys {
         else {
             return nil
         }
-        var deadKeyState: UInt32 = 0
+        var deadKeyState = initialDeadKeyState
         var characters = [UniChar](repeating: 0, count: 4)
         var length = 0
         let status = UCKeyTranslate(
