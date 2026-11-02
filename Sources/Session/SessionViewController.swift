@@ -922,6 +922,11 @@ final class SessionViewController: NSViewController {
             // clipboard for it (checked on Windows 11; gnome-remote-desktop
             // keeps its own).
             clipboardEnabled: true,
+            // The server's first copy can come before the bridge attaches
+            // on the main thread, so nothing is fetched until it applies
+            // the sharing choice; on, fetching then gets a copy that came
+            // in between.
+            clipboardFetchesRemoteCopies: false,
             audioPlaybackEnabled: audioPlaybackEnabled,
             // RDPeek never exposes a graphics-profile picker: automatic lets
             // RDPKit negotiate the best path per host (Windows included).
@@ -1102,11 +1107,6 @@ final class SessionViewController: NSViewController {
                     }
                 },
                 onClipboardReady: { session in
-                    // The server's first copy can come before the
-                    // bridge attaches on the main thread, so nothing is
-                    // fetched until it applies the sharing choice; on,
-                    // fetching then gets a copy that came in between.
-                    session.fetchesRemoteCopies = false
                     sink.apply { controller in
                         controller.clipboard.attach(session)
                         controller.render()

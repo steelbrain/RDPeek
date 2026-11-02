@@ -142,8 +142,9 @@ final class SessionClipboard {
         return max(0, Int(ceil(remainingSeconds)))
     }
 
-    /// `onClipboardReady` turned the session's fetching off until this
-    /// applies the sharing choice.
+    /// Applies the sharing choice to a session, which starts with fetching
+    /// off (`clipboardFetchesRemoteCopies`). A restart of the server's
+    /// clipboard keeps the fetching this set before.
     func attach(_ session: any SessionClipboardSending) {
         // A Server Redirection, or the server's clipboard restarting,
         // attaches again without a detach. A download in flight gets no
@@ -165,7 +166,8 @@ final class SessionClipboard {
             return
         }
         // Turning fetching on fetches a copy the server announced before
-        // the bridge attached. It is newer than the pasteboard, which
+        // the bridge attached, and a restarted clipboard, still fetching,
+        // may be fetching one. It is newer than the pasteboard, which
         // publishing now would put in its place on the server; should it
         // never arrive, Sync Now sends the pasteboard.
         guard session.isAwaitingRemoteCopy == false else {

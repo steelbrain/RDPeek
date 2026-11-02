@@ -10,8 +10,9 @@ private final class RecordedClipboard: SessionClipboardSending {
         var requestedByteCount: UInt32
     }
 
-    /// Turned on, fetches `unfetchedRemoteCopy` as RDPClipboardSession does.
-    var fetchesRemoteCopies = true {
+    /// Starts off, as RDPeek's connection configuration has it. Turned on,
+    /// fetches `unfetchedRemoteCopy` as RDPClipboardSession does.
+    var fetchesRemoteCopies = false {
         didSet {
             if fetchesRemoteCopies, !oldValue, unfetchedRemoteCopy {
                 isAwaitingRemoteCopy = true
@@ -407,7 +408,6 @@ final class SessionClipboardTests: XCTestCase {
         pasteboard.clearContents()
         pasteboard.setString("local", forType: .string)
         let session = RecordedClipboard()
-        session.fetchesRemoteCopies = false
         session.unfetchedRemoteCopy = true
         let clipboard = makeClipboard()
 
@@ -427,7 +427,6 @@ final class SessionClipboardTests: XCTestCase {
         pasteboard.clearContents()
         pasteboard.setString("local", forType: .string)
         let session = RecordedClipboard()
-        session.fetchesRemoteCopies = false
         session.unfetchedRemoteCopy = true
         let clipboard = makeClipboard()
 
@@ -824,8 +823,10 @@ final class SessionClipboardTests: XCTestCase {
     }
 
     /// A server whose clipboard restarts, or one redirected to, can announce
-    /// a copy before the bridge attaches again. That copy is newer than
-    /// files whose read was in flight, which do not replace it.
+    /// a copy before the bridge attaches again: the restarted one, still
+    /// fetching, fetches it, and the one redirected to, which starts with
+    /// fetching off, once the bridge turns fetching on. That copy is newer
+    /// than files whose read was in flight, which do not replace it.
     func testAttachingAgainWhileTheServersCopyIsAwaitedDropsAFileReadInFlight() async throws {
         let fileURL = try makeLocalFile(named: "notes.txt", contents: Data("hello".utf8))
         let session = RecordedClipboard()
@@ -837,8 +838,11 @@ final class SessionClipboardTests: XCTestCase {
             pasteboard.writeObjects([fileURL as NSURL])
             clipboard.poll()
             let staleRead = try XCTUnwrap(clipboard.localFileRead)
-            server.fetchesRemoteCopies = false
-            server.unfetchedRemoteCopy = true
+            if server === session {
+                server.isAwaitingRemoteCopy = true
+            } else {
+                server.unfetchedRemoteCopy = true
+            }
             clipboard.attach(server)
             XCTAssertTrue(server.isAwaitingRemoteCopy)
             await staleRead.value
