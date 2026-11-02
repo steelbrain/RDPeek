@@ -74,6 +74,7 @@ targets:
       - path: Sources/Session/SessionCommandState.swift
       - path: Sources/Session/SessionHUD.swift
       - path: Sources/Session/SessionCredentialPolicy.swift
+      - path: Sources/Session/SessionDisplayControlPolicy.swift
       - path: Sources/Session/SessionModels.swift
       - path: Sources/Session/SessionWindowPlacement.swift
       - path: Sources/Session/WindowsKeyboardLayoutTables.swift
