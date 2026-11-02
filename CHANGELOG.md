@@ -77,6 +77,9 @@
 - With Match Window Size off, recovering from a video glitch keeps
   the remote desktop's size instead of returning it to the size the
   window last asked for.
+- A video glitch on a remote desktop with several displays now also
+  gets the server to send a fresh picture, asked for with its displays
+  laid out as they are.
 - Turning Match Window Size back on fits the remote desktop to the
   window again, even when the remote desktop changed its size while it
   was off.
