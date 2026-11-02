@@ -1219,6 +1219,28 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         }
     }
 
+    func testCommandOrRightOptionPressedAfterAMissedShiftReleaseStillTaps() {
+        // Shift's release went to another app, such as Spotlight, while the window stayed key.
+        // The press shows Shift up, so Shift goes up first, and the key released alone is a tap.
+        let heldBack: [(keyCode: UInt16, flags: NSEvent.ModifierFlags, scancode: RDPKeyboardScancode)] = [
+            (.rightOption, .rightOptionDown, .rightAlt),
+            (.leftCommand, .leftCommandDown, .leftWindows),
+        ]
+        for key in heldBack {
+            let harness = makeHarness()
+            harness.view.flagsChanged(with: flagsEvent(keyCode: UInt16(kVK_Shift), flags: .leftShiftDown))
+            harness.view.flagsChanged(with: flagsEvent(keyCode: key.keyCode, flags: key.flags))
+            harness.view.flagsChanged(with: flagsEvent(keyCode: key.keyCode, flags: []))
+
+            XCTAssertEqual(harness.recorder.events, [
+                .keyboard(scancode: .leftShift, isReleased: false),
+                .keyboard(scancode: .leftShift, isReleased: true),
+                .keyboard(scancode: key.scancode, isReleased: false),
+                .keyboard(scancode: key.scancode, isReleased: true),
+            ])
+        }
+    }
+
     func testCommandPressedDuringADragTapsNoWindowsKey() {
         // A Win tap mid-drag would open the Start menu and cancel the drag.
         let harness = makeHarness()

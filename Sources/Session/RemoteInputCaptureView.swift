@@ -301,6 +301,11 @@ final class RemoteInputCaptureNSView: NSView {
             // report no side bits the side-independent flag tells its state.
             let isDown = modifier.isDown(in: event.modifierFlags)
             if isDown != isModifierPressed(modifier.scancode) {
+                // Before a press, a modifier whose release the view missed goes up, so that
+                // Command or right Option pressed after it is not taken for part of a chord.
+                if isDown {
+                    events += modifierReleaseEvents(missingFrom: event.modifierFlags)
+                }
                 events += modifierEvents(modifier.scancode, isDown: isDown)
             }
         }
