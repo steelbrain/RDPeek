@@ -1477,13 +1477,7 @@ final class SessionViewController: NSViewController {
         // still waiting when matching pauses must not go out.
         pendingDisplayResizeTask?.cancel()
         pendingDisplayResizeTask = nil
-        guard isWindowMatchingInEffect,
-              let viewerPixelSize
-        else {
-            return
-        }
-        let displayRequest = viewerPixelSize.displayRequest
-        guard lastRequestedDisplayRequest != displayRequest else {
+        guard case let .send(displayRequest) = resizeDecision(for: viewerPixelSize?.displayRequest) else {
             return
         }
 
@@ -1498,13 +1492,20 @@ final class SessionViewController: NSViewController {
 
     private func applyAutoDisplayRequest(_ displayRequest: RDPDisplayRequest) {
         pendingDisplayResizeTask = nil
-        guard isWindowMatchingInEffect,
-              lastRequestedDisplayRequest != displayRequest
-        else {
+        // Asked again: matching may have paused during the delay.
+        guard resizeDecision(for: displayRequest) == .send(displayRequest) else {
             return
         }
 
         applyDisplayRequestToActiveSession(displayRequest)
+    }
+
+    private func resizeDecision(for viewerRequest: RDPDisplayRequest?) -> SessionResizeDecision {
+        SessionDisplayControlPolicy.resizeDecision(
+            isWindowMatchingInEffect: isWindowMatchingInEffect,
+            viewerRequest: viewerRequest,
+            lastSent: lastRequestedDisplayRequest
+        )
     }
 
     /// Records the request only once it goes out. Keyframe requests send the
@@ -1515,9 +1516,10 @@ final class SessionViewController: NSViewController {
             return
         }
 
-        do {
-            try displayControlSession.send(SessionDisplayControlPolicy.monitorLayout(for: request))
-        } catch {
+        let didSend = SessionDisplayControlPolicy.sendResize(request) { layout in
+            try displayControlSession.send(layout)
+        }
+        guard didSend else {
             return
         }
         lastRequestedDisplayRequest = request

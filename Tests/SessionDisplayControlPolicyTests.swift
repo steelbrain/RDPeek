@@ -8,6 +8,12 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         height: 900,
         scaleFactors: RDPDisplayScaleFactors(backingScaleFactor: 1)
     )
+    /// What a 1440x900-point window asks for on a Retina display.
+    private let retinaRequest = RDPDisplayRequest(
+        width: 2880,
+        height: 1800,
+        scaleFactors: RDPDisplayScaleFactors(backingScaleFactor: 2)
+    )
 
     // MARK: - Window matching
 
@@ -61,6 +67,36 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         for (name, monitors, isSeveral) in cases {
             XCTAssertEqual(SessionDisplayControlPolicy.reportsSeveralMonitors(monitors), isSeveral, name)
         }
+    }
+
+    // MARK: - Resizing
+
+    func testNoResizeGoesOutWhileMatchingIsNotInEffect() {
+        // Paused or turned off, matching drops a resize still waiting too.
+        let cases: [(String, Bool, RDPDisplayRequest?)] = [
+            ("not in effect", false, retinaRequest),
+            ("no viewer size", true, nil),
+        ]
+        for (name, isInEffect, viewerRequest) in cases {
+            XCTAssertEqual(resizeDecision(isInEffect: isInEffect, viewerRequest: viewerRequest), .cancel, name)
+        }
+    }
+
+    func testANewWindowSizeIsSent() {
+        // The connection's first resize, and each new size after it.
+        for lastSent in [nil, connectLayout] {
+            XCTAssertEqual(
+                resizeDecision(viewerRequest: retinaRequest, lastSent: lastSent),
+                .send(retinaRequest),
+                "last sent: \(lastSent?.label ?? "none")"
+            )
+        }
+    }
+
+    func testTheSizeSentLastIsNotSentAgain() {
+        // A window resized away and back within the delay leaves the
+        // desktop as it is.
+        XCTAssertEqual(resizeDecision(viewerRequest: retinaRequest, lastSent: retinaRequest), .skip)
     }
 
     // MARK: - Keyframe request
@@ -213,6 +249,27 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         }
     }
 
+    func testAResizeGoesOutAsTheOneMonitorItAsksFor() {
+        // The session records the request, so what goes out must be it.
+        var sentLayouts: [RDPMonitorLayout] = []
+        let didSend = SessionDisplayControlPolicy.sendResize(retinaRequest) { layout in
+            sentLayouts.append(layout)
+        }
+
+        XCTAssertTrue(didSend)
+        XCTAssertEqual(sentLayouts, [SessionDisplayControlPolicy.monitorLayout(for: retinaRequest)])
+    }
+
+    func testARefusedResizeDoesNotCountAsSent() {
+        // Keyframe requests send the last request sent again; one the
+        // server's capabilities refused would go nowhere.
+        let didSend = SessionDisplayControlPolicy.sendResize(retinaRequest) { _ in
+            throw RefusedLayout()
+        }
+
+        XCTAssertFalse(didSend)
+    }
+
     // MARK: - Helpers
 
     private func isWindowMatchingInEffect(
@@ -228,6 +285,18 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
             hasDisplayControl: hasDisplayControl,
             hasViewerPixelSize: hasViewerPixelSize,
             reportedMonitors: reportedMonitors
+        )
+    }
+
+    private func resizeDecision(
+        isInEffect: Bool = true,
+        viewerRequest: RDPDisplayRequest?,
+        lastSent: RDPDisplayRequest? = nil
+    ) -> SessionResizeDecision {
+        SessionDisplayControlPolicy.resizeDecision(
+            isWindowMatchingInEffect: isInEffect,
+            viewerRequest: viewerRequest,
+            lastSent: lastSent
         )
     }
 
@@ -276,3 +345,6 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         RDPFrameRect(left: left, top: top, right: right, bottom: bottom)
     }
 }
+
+/// What a session's send throws when the server's capabilities refuse a layout.
+private struct RefusedLayout: Error {}

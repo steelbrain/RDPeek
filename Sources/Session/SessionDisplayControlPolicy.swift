@@ -34,6 +34,40 @@ enum SessionDisplayControlPolicy {
             && reportsSeveralMonitors(reportedMonitors) == false
     }
 
+    /// What the session does with the window's size when it reschedules a
+    /// resize. Only a size the server was not sent last goes out.
+    static func resizeDecision(
+        isWindowMatchingInEffect: Bool,
+        viewerRequest: RDPDisplayRequest?,
+        lastSent: RDPDisplayRequest?
+    ) -> SessionResizeDecision {
+        guard isWindowMatchingInEffect,
+              let viewerRequest
+        else {
+            return .cancel
+        }
+        guard viewerRequest != lastSent else {
+            return .skip
+        }
+        return .send(viewerRequest)
+    }
+
+    /// Sends `request` as `RDPDisplayControlSession.send(_:)` would, but
+    /// through `send`, the call that throws, and says whether it went out.
+    /// A request the server's capabilities refuse must not count as sent:
+    /// keyframe requests send the last one sent again.
+    static func sendResize(
+        _ request: RDPDisplayRequest,
+        through send: (RDPMonitorLayout) throws -> Void
+    ) -> Bool {
+        do {
+            try send(monitorLayout(for: request))
+        } catch {
+            return false
+        }
+        return true
+    }
+
     /// What to send to ask the server for a keyframe, or nil to send
     /// nothing. Windows and gnome-remote-desktop send no keyframe by
     /// themselves, but answer the monitor layout sent again with one; KRdp
@@ -82,8 +116,7 @@ enum SessionDisplayControlPolicy {
     }
 
     /// The layout `RDPDisplayControlSession.send(_:)` sends for `request`,
-    /// so a session can send it with the call that throws, and record the
-    /// request only once the server's capabilities let it go out.
+    /// so a session can send it with the call that throws instead.
     static func monitorLayout(for request: RDPDisplayRequest) -> RDPMonitorLayout {
         .singlePrimary(
             width: request.width,
@@ -92,6 +125,18 @@ enum SessionDisplayControlPolicy {
             deviceScaleFactor: request.scaleFactors.deviceScaleFactor
         )
     }
+}
+
+/// What a session does with the window's size. A resize still waiting is
+/// dropped first, whatever the answer.
+enum SessionResizeDecision: Equatable {
+    /// Window matching is not in effect, so no resize goes out.
+    case cancel
+    /// The server was sent this size last. Dropping the one still waiting
+    /// means a window resized away and back leaves the desktop as it is.
+    case skip
+    /// Send this size once the window has stayed at it a moment.
+    case send(RDPDisplayRequest)
 }
 
 /// What a session sends to ask the server for a keyframe.
