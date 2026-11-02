@@ -368,11 +368,9 @@ final class RemoteInputCaptureNSView: NSView {
     /// A menu, such as the menu bar or the ⋯ menu, takes the keyboard while it tracks without the
     /// window resigning key, so the key-ups of keys held as it opens go to the menu. They are
     /// released as on focus loss, and the next key, click or modifier presses the modifiers still
-    /// held.
+    /// held. With no session, nothing is sent, but the keys are no longer tracked as held, so the
+    /// next session's attach does not press them there.
     @objc private func menuDidBeginTracking(_: Notification) {
-        guard inputSession != nil else {
-            return
-        }
         releasePressedInputs()
     }
 

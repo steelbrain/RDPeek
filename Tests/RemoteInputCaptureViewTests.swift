@@ -519,6 +519,21 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         ])
     }
 
+    func testAMenuOpeningWithNoSessionLeavesNoKeyHeldForTheNextOne() {
+        // Left Arrow held as a menu opens while connecting: the menu takes its key-up, so the
+        // session attached after it must not get it down. With no session, nothing goes anywhere.
+        let harness = makeHarness()
+        harness.view.inputSession = nil
+        harness.recorder.events.removeAll()
+        harness.view.keyDown(with: keyEvent(.keyDown, keyCode: UInt16(kVK_LeftArrow)))
+
+        NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: NSMenu())
+        let nextSession = InputEventRecorder()
+        harness.view.inputSession = nextSession
+        XCTAssertEqual(harness.recorder.events, [])
+        XCTAssertEqual(nextSession.events, [.synchronize(toggleFlags: currentToggleFlags)])
+    }
+
     // MARK: - Toggle-key synchronization
 
     func testBecomingFirstResponderSynchronizesToggleKeys() {
