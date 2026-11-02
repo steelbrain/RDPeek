@@ -11,7 +11,9 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # A newer push to a pull request cancels its run in progress; a push to
+  # main lets the run in progress finish, so that commit gets a result.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # Build with a pinned Xcode, not whichever one the runner image defaults
