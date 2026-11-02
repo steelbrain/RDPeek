@@ -36,18 +36,21 @@ struct HelpView: View {
 
                 HelpSection(title: "In a Session", systemImage: "display") {
                     HelpBody(
-                        "The remote desktop follows the window: resize the window and " +
-                            "the desktop re-fits a moment later. Full screen works as a " +
-                            "primary full-screen window."
+                        "With Match Window Size on, as it is by default, the remote " +
+                            "desktop follows the window: resize the window and the desktop " +
+                            "re-fits a moment later. Turn it off in the ⋯ or Session menu " +
+                            "to keep the desktop's size, scaled to fit the window; turning " +
+                            "it back on fits the desktop to the window again. Full screen " +
+                            "works as a primary full-screen window."
                     )
                     HelpBody(
                         "The ⋯ menu in the titlebar holds Disconnect, clipboard sharing " +
-                            "(for the session or for 30 seconds, and Sync Now to send the " +
-                            "clipboard again), remote audio, window size matching, the " +
-                            "performance overlay, and " +
-                            "Stats for Nerds. While the remote desktop has your keyboard, " +
-                            "RDPeek's own ⌘ shortcuts go to it too, so use this menu or the " +
-                            "Session menu in the menu bar instead."
+                            "(for the session or for 30 seconds, and Sync Now to send a " +
+                            "copy the remote doesn't have yet), remote audio, window size " +
+                            "matching, the performance overlay, and Stats for Nerds. While " +
+                            "the remote desktop has your keyboard, RDPeek's own ⌘ shortcuts " +
+                            "go to it too, so use this menu or the Session menu in the menu " +
+                            "bar instead."
                     )
                     HelpBody(
                         "A remote desktop with more than one display keeps its own " +
@@ -106,9 +109,10 @@ struct HelpView: View {
                     HelpBody(
                         "PC profiles live in app preferences and never contain " +
                             "passwords. Passwords are stored in your macOS Keychain, one " +
-                            "item per user and host, and are removed when you delete the " +
-                            "last PC that remembers them or turn off remembering. Trusted " +
-                            "certificate fingerprints are pinned per host and port."
+                            "item per account (user name, domain, host and port), and are " +
+                            "removed when you delete the last PC that remembers them or " +
+                            "turn off remembering. Trusted certificate fingerprints are " +
+                            "pinned per host and port."
                     )
                 }
 
@@ -129,8 +133,9 @@ struct HelpView: View {
                             "Note that some servers report a wrong password only as a timeout."
                     )
                     HelpBody(
-                        "No sound — enable “Play remote audio” on the PC and reconnect; " +
-                            "audio is negotiated when the connection starts."
+                        "No sound — turn on Remote Audio in the ⋯ menu, or “Play remote " +
+                            "audio” on the PC, and reconnect; audio is negotiated when the " +
+                            "connection starts."
                     )
                     HelpBody(
                         "Choppy video — open Stats for Nerds or the performance overlay " +
