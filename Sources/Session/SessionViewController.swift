@@ -33,6 +33,10 @@ final class SessionViewController: NSViewController {
     private var sentClientName: String?
     /// The password the Keychain holds for the draft's identity, when known.
     private var rememberedPassword: String?
+    /// The Keychain read under way: a connection started for the same
+    /// account waits on it, as a read cannot be stopped and a second one
+    /// could ask the user to allow access again.
+    private var keychainPasswordRead: KeychainPasswordRead?
     private var isAwaitingCredentials = false
     /// Why the sign-in overlay asks again, if it does.
     private var credentialsErrorMessage: String?
@@ -42,6 +46,8 @@ final class SessionViewController: NSViewController {
     /// The automatic retries left to the connection the user started, and
     /// whether its sign-in was dealt with.
     private var attemptBudget = SessionAttemptBudget()
+    /// The client license the connection the user started presents.
+    private var clientLicense: SessionClientLicense
     private var isConnecting = false
     private var hasEverPresentedFrame = false
     private var isAutoRetryPending = false
@@ -144,6 +150,7 @@ final class SessionViewController: NSViewController {
         self.launchStore = launchStore
         self.credentialStore = credentialStore
         self.credentialCache = credentialCache
+        clientLicense = SessionClientLicense(key: ClientLicenseStoreKey(identity: draft.identity))
         clipboard = SessionClipboard(isSharingEnabled: draft.clipboardSharingEnabled)
         audioPlaybackEnabled = draft.audioPlaybackEnabled
         super.init(nibName: nil, bundle: nil)
@@ -751,6 +758,12 @@ final class SessionViewController: NSViewController {
         attemptBudget.userStarted()
         isAutoRetryPending = false
         autoRetryReason = nil
+        // A license read still under way for this sign-in is waited on, not
+        // read again.
+        let clientLicenseKey = ClientLicenseStoreKey(identity: draft.identity)
+        if clientLicense.key != clientLicenseKey || clientLicense.isKnown {
+            clientLicense = SessionClientLicense(key: clientLicenseKey)
+        }
         connect(using: credentialSource(remembersPassword: draft.rememberPassword))
     }
 
@@ -891,8 +904,11 @@ final class SessionViewController: NSViewController {
         cancellation: RDPConnectionCancellation
     ) {
         let clientLicenseStore = clientLicenseStore
-        let clientLicenseKey = ClientLicenseStoreKey(identity: draft.identity)
+        let clientLicense = clientLicense
         let presentsStoredClientLicense = attemptBudget.omitsStoredClientLicense == false
+        let saveIssuedClientLicense: @Sendable (RDPStoredClientLicense) -> Void = { license in
+            try? clientLicenseStore.saveLicense(license, for: clientLicense.key)
+        }
         let trustedCertificateStore = trustedCertificateStore
         let acceptsUntrustedCertificates = draft.hideCertificateWarnings
         let remoteAudioPlayer = remoteAudioPlayer
@@ -912,8 +928,11 @@ final class SessionViewController: NSViewController {
             var configuration = baseConfiguration
             // Read here, not on the main thread: the Keychain can block on
             // its access-approval dialog. No connection deadline runs yet.
+            // Automatic retries present what the first attempt read.
             if presentsStoredClientLicense {
-                configuration.storedClientLicense = try? clientLicenseStore.license(for: clientLicenseKey)
+                configuration.storedClientLicense = clientLicense.license {
+                    try? clientLicenseStore.license(for: clientLicense.key)
+                }
             }
             var keyframeRequests = RDPKeyframeRequestThrottle()
             // The monitors the server reported last, so the main thread
@@ -1013,12 +1032,19 @@ final class SessionViewController: NSViewController {
                         }
                     }
                 },
-                // Both read the redirection depth here, on the session
-                // thread, where the live report follows the connection
-                // that calls them: a redirection the main thread hears of
-                // first must not count for them.
+                // Both read the live report here, on the session thread,
+                // where it follows the connection that calls them: a
+                // redirection the main thread hears of first must not count
+                // for them.
                 onInputReady: { session in
-                    let redirectionDepth = liveReport.snapshot?.redirectionDepth ?? 0
+                    let report = liveReport.snapshot
+                    let redirectionDepth = report?.redirectionDepth ?? 0
+                    // Licensing ends before activation; the license is saved
+                    // now rather than when the session ends, which a quit or
+                    // a crash could prevent.
+                    if let license = report?.rdpIssuedClientLicense {
+                        clientLicense.issue(license, save: saveIssuedClientLicense)
+                    }
                     sink.apply { controller in
                         controller.sessionActivated(session, redirectionDepth: redirectionDepth)
                     }
@@ -1102,8 +1128,9 @@ final class SessionViewController: NSViewController {
             )
             // A license the server issued stays valid even when closing the
             // window cancelled the session; the next connection presents it.
+            // One issued after activation, on a reactivation, is saved here.
             if let license = report.rdpIssuedClientLicense {
-                try? clientLicenseStore.saveLicense(license, for: clientLicenseKey)
+                clientLicense.issue(license, save: saveIssuedClientLicense)
             }
             guard cancellation.isCancelled == false else {
                 return
@@ -1729,11 +1756,9 @@ final class SessionViewController: NSViewController {
     private func readKeychainAndConnect(_ key: KeychainCredentialKey) {
         isResolvingStoredCredentials = true
         render()
-        let store = credentialStore
+        let read = keychainPasswordReadTask(for: key)
         credentialResolutionTask = Task { @MainActor [weak self] in
-            let savedPassword = await Task.detached(priority: .userInitiated) {
-                try? store.password(for: key)
-            }.value
+            let savedPassword = try? await read.value
 
             guard Task.isCancelled == false, let self, didClose == false else {
                 return
@@ -1750,6 +1775,27 @@ final class SessionViewController: NSViewController {
                 connect(using: credentialSource(remembersPassword: false))
             }
         }
+    }
+
+    /// The read under way for `key`, or a new one.
+    private func keychainPasswordReadTask(for key: KeychainCredentialKey) -> Task<String?, any Error> {
+        if let keychainPasswordRead, keychainPasswordRead.key == key {
+            return keychainPasswordRead.task
+        }
+        let store = credentialStore
+        let readID = UUID()
+        let task = Task { @MainActor [weak self] () throws -> String? in
+            defer {
+                if self?.keychainPasswordRead?.id == readID {
+                    self?.keychainPasswordRead = nil
+                }
+            }
+            return try await KeychainQueue.run {
+                try store.password(for: key)
+            }
+        }
+        keychainPasswordRead = KeychainPasswordRead(id: readID, key: key, task: task)
+        return task
     }
 
     /// Keeps the password the server just accepted: in the Keychain when
@@ -1792,9 +1838,14 @@ final class SessionViewController: NSViewController {
         let launchStore = launchStore
         let deviceID = draft.deviceID
         Task { @MainActor [weak self, weak launchStore] in
-            let result = await Task.detached(priority: .utility) {
-                persistCredentials(request, store: store)
-            }.value
+            let result: Result<CredentialPersistenceResult, any Error>
+            do {
+                result = try await .success(KeychainQueue.run {
+                    try persistCredentials(request, store: store).get()
+                })
+            } catch {
+                result = .failure(error)
+            }
             let identity = request.key.identity
             switch result {
             case .success(.saved):
@@ -1836,6 +1887,13 @@ final class SessionViewController: NSViewController {
 }
 
 // MARK: - Support types
+
+/// A Keychain password read under way, and the account it reads.
+private struct KeychainPasswordRead {
+    let id: UUID
+    let key: KeychainCredentialKey
+    let task: Task<String?, any Error>
+}
 
 private final class SessionMainActorSink: @unchecked Sendable {
     weak var controller: SessionViewController?
