@@ -390,9 +390,16 @@ final class SessionModelsTests: XCTestCase {
             kind: .failed,
             message: "“broker” passed the session on to “host2”, which this Mac could not find."
         )))
-        XCTAssertEqual(outcome(.connectionClosed, target: "host2:3390"), .end(RDPSessionEndReason(
+        XCTAssertEqual(
+            outcome(.noConnectionConfirm(reason: .unexpectedReply(firstBytes: Data("SSH-2.0".utf8))), target: "host2:3390"),
+            .end(RDPSessionEndReason(
+                kind: .failed,
+                message: "“broker” passed the session on to “host2:3390”, which did not answer as a Remote Desktop server."
+            ))
+        )
+        XCTAssertEqual(outcome(.noConnectionConfirm(reason: .reset)), .end(RDPSessionEndReason(
             kind: .failed,
-            message: "“broker” passed the session on to “host2:3390”, which did not answer as a Remote Desktop server."
+            message: "“broker” passed the session on to “host2”, which stopped answering before the connection was set up."
         )))
         // A redirection by routing token alone keeps the address typed in.
         XCTAssertEqual(outcome(.connect(error: RDPSocketError(errno: ECONNREFUSED)), target: "broker:3389"), .end(
@@ -412,15 +419,36 @@ final class SessionModelsTests: XCTestCase {
         )))
     }
 
-    func testFailedConnectionRequestIsNotRetried() {
-        for failure in [RDPConnectionFailure.connectionClosed, .connectionLost, .timedOut, .protocolViolation] {
-            let outcome = outcome(after: makeReport(stage: "x224-rdp-negotiation", failure: failure))
-
-            XCTAssertEqual(outcome, .end(RDPSessionEndReason(
+    func testAConnectionRequestWithNoConnectionConfirmIsNotRetried() {
+        // Another service's reply says so for sure; a close, a reset or
+        // silence can also be a server at its connection limit or a
+        // firewall, which a moment does not change.
+        XCTAssertEqual(
+            outcome(after: makeReport(
+                stage: "x224-rdp-negotiation",
+                failure: .noConnectionConfirm(reason: .unexpectedReply(firstBytes: Data("SSH-2.0-OpenSSH".utf8)))
+            )),
+            .end(RDPSessionEndReason(
                 kind: .failed,
-                message: "“winbox” did not answer as a Remote Desktop server."
-            )))
+                message: "“winbox” did not answer as a Remote Desktop server; check the host and port."
+            ))
+        )
+        for reason in [RDPNoConnectionConfirmReason.closed, .reset, .timedOut] {
+            XCTAssertEqual(
+                outcome(after: makeReport(stage: "x224-rdp-negotiation", failure: .noConnectionConfirm(reason: reason))),
+                .end(RDPSessionEndReason(
+                    kind: .failed,
+                    message: "“winbox” stopped answering before the connection was set up; it may be at its "
+                        + "connection limit, or a firewall may block Remote Desktop."
+                )),
+                "\(reason)"
+            )
         }
+        // The stage no longer says what a close means: RDPKit does.
+        XCTAssertEqual(
+            endReason(makeReport(stage: "x224-rdp-negotiation", failure: .connectionClosed)).message,
+            "The remote computer closed the connection."
+        )
     }
 
     func testKeyUsageFailureEndsAsRDPKitFellBackToRSA() {
@@ -482,14 +510,25 @@ final class SessionModelsTests: XCTestCase {
         )))
     }
 
-    func testConnectionClosedDuringSignInAsksToSignInAgain() {
-        for failure in [RDPConnectionFailure.connectionClosed, .connectionLost] {
-            let report = makeReport(stage: "credssp", failure: failure)
+    func testConnectionClosedAfterTheCredentialsAsksToSignInAgain() {
+        let report = makeReport(stage: "credssp", failure: .credSSPClosedAfterCredentials)
 
-            XCTAssertEqual(outcome(after: report), .promptForCredentials(
-                message: "The remote computer did not accept the sign-in. Check the user name and password."
-            ))
-        }
+        XCTAssertEqual(outcome(after: report), .promptForCredentials(
+            message: "The remote computer did not accept the sign-in. Check the user name and password."
+        ))
+        XCTAssertEqual(
+            endReason(report).message,
+            "The remote computer did not accept the sign-in. Check the user name and password."
+        )
+        // Closed before the credentials went out, it is no sign-in problem.
+        XCTAssertEqual(
+            outcome(after: makeReport(stage: "credssp", failure: .connectionClosed)),
+            .end(RDPSessionEndReason(kind: .failed, message: "The remote computer closed the connection."))
+        )
+        XCTAssertEqual(
+            outcome(after: makeReport(stage: "credssp", failure: .connectionLost)),
+            .end(RDPSessionEndReason(kind: .failed, message: "The connection to the remote computer was lost."))
+        )
     }
 
     func testConnectingWithoutCredentialsToASignInServerAsksForThem() {

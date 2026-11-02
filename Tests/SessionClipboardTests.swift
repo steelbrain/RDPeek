@@ -1220,7 +1220,7 @@ final class SessionClipboardTests: XCTestCase {
         try await expectFailure(saying: "Remote file transfer timed out")
 
         // A size past 32 MiB the file list left out.
-        server.answersFileRequests = true
+        server.fileRequestAnswer = { _ in .answer }
         server.copyFiles([RDPClipboardLocalFile(
             descriptor: RDPClipboardFileDescriptorW(flags: 0, fileAttributes: 0, fileSize: 0, fileName: "big.bin"),
             contents: Data(count: 32 * 1024 * 1024 + 1)
@@ -1358,7 +1358,7 @@ final class SessionClipboardTests: XCTestCase {
         try await copyFilesUnanswered([RDPClipboardLocalFile(fileName: "older.bin", contents: Data("older".utf8))], on: server)
         let older = try XCTUnwrap(serverHandOff.downloadTasks.last)
         let olderFolder = try XCTUnwrap(downloadRootContents().first)
-        server.answersFileRequests = true
+        server.fileRequestAnswer = { _ in .answer }
         server.copyFiles([RDPClipboardLocalFile(fileName: "newer.bin", contents: Data("newer".utf8))])
         try await finishLastDownload(from: server)
         await older.value
@@ -1822,7 +1822,7 @@ final class SessionClipboardTests: XCTestCase {
         line: UInt = #line
     ) async throws {
         let requestCount = server.fileRequestCount
-        server.answersFileRequests = false
+        server.fileRequestAnswer = { _ in .hold }
         server.copyFiles(files)
         try await waitUntil({ server.fileRequestCount > requestCount }, file: file, line: line)
         await settle(server)

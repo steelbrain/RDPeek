@@ -194,10 +194,6 @@ struct RDPSessionEndReason: Equatable {
         report: RDPConnectionReport,
         host: String
     ) -> String {
-        // A connection that broke off during the X.224 exchange did not
-        // reach a Remote Desktop server.
-        let didNotAnswer = (report.connectionStage.map { $0 == .negotiation } ?? true)
-            && [.connectionLost, .connectionClosed, .timedOut, .protocolViolation].contains(failure)
         if report.redirectionDepth > 0 {
             let passedOn = { (clause: String) in
                 redirectionMessage(host: host, target: report.target, clause: clause)
@@ -213,14 +209,13 @@ struct RDPSessionEndReason: Equatable {
                 // The user did not choose that server, so nothing is offered.
                 return passedOn("signs in with CredSSP \(version), an outdated version of Network Level "
                     + "Authentication that RDPeek refuses before sending it any password")
+            case .noConnectionConfirm(reason: .unexpectedReply):
+                return passedOn("did not answer as a Remote Desktop server")
+            case .noConnectionConfirm:
+                return passedOn("stopped answering before the connection was set up")
             default:
-                if didNotAnswer {
-                    return passedOn("did not answer as a Remote Desktop server")
-                }
+                break
             }
-        }
-        if didNotAnswer {
-            return "“\(host)” did not answer as a Remote Desktop server."
         }
         switch failure {
         case .addressResolution:
@@ -229,6 +224,14 @@ struct RDPSessionEndReason: Equatable {
             return connectMessage(socketError, host: host)
         case let .negotiation(code):
             return negotiationMessage(code)
+        case .noConnectionConfirm(reason: .unexpectedReply):
+            // Another service answered, such as SSH or a web server.
+            return "“\(host)” did not answer as a Remote Desktop server; check the host and port."
+        case .noConnectionConfirm:
+            // A close, a reset or silence: also a server at its connection
+            // limit, or a firewall that drops Remote Desktop.
+            return "“\(host)” stopped answering before the connection was set up; it may be at its "
+                + "connection limit, or a firewall may block Remote Desktop."
         case .unsupportedSecurityProtocol:
             return "The remote computer chose a security protocol RDPeek does not support, "
                 + "such as Standard RDP Security."
@@ -244,6 +247,8 @@ struct RDPSessionEndReason: Equatable {
             return credentialsRequiredMessage
         case let .credSSP(status):
             return logonMessage(status)
+        case .credSSPClosedAfterCredentials:
+            return signInNotAcceptedMessage
         case .earlyUserAuthorizationDenied:
             return "The remote computer denied this account access."
         case .rdSTLS:
@@ -332,6 +337,10 @@ struct RDPSessionEndReason: Equatable {
     static let credentialsRequiredMessage = "The remote computer requires a user name and password."
 
     static let wrongCredentialsMessage = "The user name or password is incorrect."
+
+    /// A server that closed the connection once it had the credentials,
+    /// without saying why, as a CredSSP version 2 server rejects a sign-in.
+    static let signInNotAcceptedMessage = "The remote computer did not accept the sign-in. Check the user name and password."
 
     /// STATUS_LOGON_FAILURE, STATUS_WRONG_PASSWORD, and STATUS_NO_SUCH_USER:
     /// signing in again can fix these.
@@ -454,7 +463,10 @@ enum SessionAttemptOutcome: Equatable {
     /// - A server that could not be reached is tried again, up to
     ///   `maximumUnreachableRetries` times. A host name that does not
     ///   resolve stays wrong, and a server that refused the connection or a
-    ///   connection macOS did not allow is not tried again.
+    ///   connection macOS did not allow is not tried again. Nor is one that
+    ///   took the connection but sent no Connection Confirm
+    ///   (`noConnectionConfirm`): another service, a server at its
+    ///   connection limit or a firewall, which a moment does not change.
     /// - A session that activated but showed no desktop in time, which
     ///   RDPKit ends with `noFramePresented`, gets one more attempt, with
     ///   the same credentials.
@@ -488,20 +500,21 @@ enum SessionAttemptOutcome: Equatable {
             case .refused, .notPermitted:
                 break
             }
+        case .noConnectionConfirm:
+            // The host took the connection, so the network is there.
+            break
         case let .credSSP(status) where RDPSessionEndReason.isWrongCredentials(status):
             return .promptForCredentials(message: RDPSessionEndReason.wrongCredentialsMessage)
         case .credentialsRequired, .negotiation(code: .hybridRequiredByServer):
             // Connecting with every sign-in field empty sends nothing, so
             // asking again is safe.
             return .promptForCredentials(message: RDPSessionEndReason.credentialsRequiredMessage)
-        case .connectionClosed where report.connectionStage == .credSSP,
-             .connectionLost where report.connectionStage == .credSSP:
+        case .credSSPClosedAfterCredentials:
             // Some servers close the connection on a rejected sign-in
-            // instead of naming the reason. A timeout or a CredSSP protocol
-            // error is not a sign-in problem.
-            return .promptForCredentials(
-                message: "The remote computer did not accept the sign-in. Check the user name and password."
-            )
+            // instead of naming the reason. A close before the credentials
+            // went out, a timeout or a CredSSP protocol error is not a
+            // sign-in problem.
+            return .promptForCredentials(message: RDPSessionEndReason.signInNotAcceptedMessage)
         case .noFramePresented:
             return retriedFirstFrameTimeout ? .end(endReason) : .retry(.firstFrameTimeout)
         default:
