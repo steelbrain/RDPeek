@@ -189,29 +189,45 @@ final class DeviceListModel: ObservableObject {
         // change.
         let current = try store.devices().first { $0.id == device.id }
 
+        // A session's sign-in may have given a PC with no user name the
+        // account it signed in with since. When the user left the account
+        // empty, that account stands, as if the sheet had opened on it.
+        var snapshot = editor.device
+        if let current,
+           current.identity.credentialAccountName != nil,
+           snapshot.identity.credentialAccountName == nil,
+           device.username.isEmpty,
+           snapshot.identity.hasSameConnectionIdentity(as: device.identity)
+        {
+            device.username = current.username
+            device.domain = current.domain
+            snapshot.username = current.username
+            snapshot.domain = current.domain
+        }
+
         // A session's sign-in may also have turned Remember on or off since,
         // saving or deleting the keychain item itself. When the user left the
         // toggle alone and the account is unchanged, that newer choice
         // stands and the keychain is already right: writing the snapshot's
         // flag back would orphan the item or re-save an old password.
         let keepsSessionRemember = current.map {
-            device.rememberPassword == editor.device.rememberPassword
+            device.rememberPassword == snapshot.rememberPassword
                 && $0.rememberPassword != device.rememberPassword
-                && editor.device.identity.hasSameConnectionIdentity(as: device.identity)
+                && snapshot.identity.hasSameConnectionIdentity(as: device.identity)
         } ?? false
         // Likewise, a session's sign-in may have saved a newer password over
         // the one the sheet loaded. When Remember stays on for the same
         // account and the user left the password as loaded, the keychain
         // already holds it or a newer one: writing it back would revert.
-        let keepsSavedPassword = editor.device.rememberPassword
+        let keepsSavedPassword = snapshot.rememberPassword
             && device.rememberPassword
             && password == loadedPassword
-            && editor.device.identity.hasSameConnectionIdentity(as: device.identity)
+            && snapshot.identity.hasSameConnectionIdentity(as: device.identity)
         if let current, keepsSessionRemember {
             device.rememberPassword = current.rememberPassword
         } else {
             try await applyKeychainChange(
-                from: editor.device,
+                from: snapshot,
                 to: device,
                 password: password,
                 savesPassword: keepsSavedPassword == false,
@@ -371,18 +387,57 @@ final class DeviceListModel: ObservableObject {
         }
     }
 
-    /// Keeps the profile's remember-password flag in sync when a session
-    /// saves or deletes the keychain credential via the in-session prompt.
-    /// Ignored when the session signed in to a different account than the
-    /// profile — that credential is not the profile's saved password.
-    func recordCredentialPersistence(deviceID: UUID, identity: RDPConnectionIdentity, remembered: Bool) {
+    /// Gives a PC with no user name the account a session just signed in
+    /// to it with, so its next connection finds the password kept for that
+    /// sign-in. A PC with a user name keeps its own.
+    func recordAcceptedSignIn(deviceID: UUID, identity: RDPConnectionIdentity) {
         guard var device = devices.first(where: { $0.id == deviceID }),
-              device.identity.hasSameConnectionIdentity(as: identity),
-              device.rememberPassword != remembered
+              takesAccount(of: identity, device: device)
         else {
             return
         }
+        device.username = identity.username
+        device.domain = identity.domain ?? ""
+        saveFromSession(device)
+    }
+
+    /// Keeps the profile's remember-password flag in sync when a session
+    /// saves or deletes the keychain credential via the in-session prompt.
+    /// A PC with no user name takes the account too, as with
+    /// `recordAcceptedSignIn`. Otherwise ignored when the session signed in
+    /// to a different account than the profile — that credential is not
+    /// the profile's saved password.
+    func recordCredentialPersistence(deviceID: UUID, identity: RDPConnectionIdentity, remembered: Bool) {
+        guard var device = devices.first(where: { $0.id == deviceID }) else {
+            return
+        }
+        if takesAccount(of: identity, device: device) {
+            device.username = identity.username
+            device.domain = identity.domain ?? ""
+        } else if device.identity.hasSameConnectionIdentity(as: identity) == false
+            || device.rememberPassword == remembered
+        {
+            return
+        }
         device.rememberPassword = remembered
+        saveFromSession(device)
+    }
+
+    /// Whether `device` has no user name and `identity` signs in with one
+    /// to its host and port.
+    private func takesAccount(of identity: RDPConnectionIdentity, device: DeviceProfile) -> Bool {
+        device.identity.credentialAccountName == nil
+            && identity.credentialAccountName != nil
+            && RDPConnectionIdentity(
+                host: device.host,
+                port: device.port,
+                username: identity.username,
+                domain: identity.domain
+            ).hasSameConnectionIdentity(as: identity)
+    }
+
+    private func saveFromSession(_ device: DeviceProfile) {
+        var device = device
         device.updatedAt = Date()
         do {
             devices = try store.save(device)

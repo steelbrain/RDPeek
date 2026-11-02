@@ -677,6 +677,19 @@ final class DeviceListModelTests: XCTestCase {
         XCTAssertEqual(harness.model.devices.first?.rememberPassword, true)
     }
 
+    func testRecordCredentialPersistenceGivesAPCWithNoUserNameTheAccount() throws {
+        let device = makeDevice(username: "", rememberPassword: true)
+        let harness = try makeHarness(devices: [device])
+        let signIn = RDPConnectionIdentity(host: device.host, username: "bob")
+
+        harness.model.recordCredentialPersistence(deviceID: device.id, identity: signIn, remembered: false)
+
+        let saved = try XCTUnwrap(DeviceProfileStore(defaults: harness.defaults).devices().first)
+        XCTAssertEqual(saved.username, "bob")
+        XCTAssertEqual(saved.domain, "")
+        XCTAssertFalse(saved.rememberPassword)
+    }
+
     func testRecordCredentialPersistenceIgnoresIdentityMismatch() throws {
         let device = makeDevice()
         let harness = try makeHarness(devices: [device])
@@ -717,6 +730,95 @@ final class DeviceListModelTests: XCTestCase {
 
         XCTAssertNil(harness.model.errorMessage)
         XCTAssertEqual(try DeviceProfileStore(defaults: harness.defaults).devices(), persistedBefore)
+    }
+
+    // MARK: - recordAcceptedSignIn
+
+    func testAcceptedSignInGivesAPCWithNoUserNameItsAccount() throws {
+        let device = makeDevice(username: "")
+        let harness = try makeHarness(devices: [device])
+        let signIn = RDPConnectionIdentity(host: "HOST.example", port: device.port, username: "bob", domain: "CORP")
+
+        harness.model.recordAcceptedSignIn(deviceID: device.id, identity: signIn)
+
+        let saved = try XCTUnwrap(DeviceProfileStore(defaults: harness.defaults).devices().first)
+        XCTAssertEqual(saved.username, "bob")
+        XCTAssertEqual(saved.domain, "CORP")
+        XCTAssertEqual(saved.host, "host.example")
+        XCTAssertFalse(saved.rememberPassword)
+        XCTAssertEqual(harness.model.devices, [saved])
+    }
+
+    func testAcceptedSignInLeavesOtherPCsAlone() throws {
+        let named = makeDevice(name: "Named", username: "alice")
+        let hostOnly = makeDevice(name: "Host Only", username: "")
+        let harness = try makeHarness(devices: [named, hostOnly])
+        let persistedBefore = try DeviceProfileStore(defaults: harness.defaults).devices()
+
+        let signIns = [
+            (named.id, RDPConnectionIdentity(host: named.host, username: "bob")),
+            (hostOnly.id, RDPConnectionIdentity(host: "other.example", username: "bob")),
+            (hostOnly.id, RDPConnectionIdentity(host: hostOnly.host, port: 3390, username: "bob")),
+            (hostOnly.id, RDPConnectionIdentity(host: hostOnly.host, domain: "CORP")),
+            (UUID(), RDPConnectionIdentity(host: hostOnly.host, username: "bob")),
+        ]
+        for (deviceID, identity) in signIns {
+            harness.model.recordAcceptedSignIn(deviceID: deviceID, identity: identity)
+        }
+
+        XCTAssertEqual(try DeviceProfileStore(defaults: harness.defaults).devices(), persistedBefore)
+        XCTAssertNil(harness.model.errorMessage)
+    }
+
+    /// The session reports the sign-in and the keychain save separately,
+    /// in either order.
+    func testRememberedSignInOnAPCWithNoUserNameKeepsTheAccountAndRemember() throws {
+        let signIn = RDPConnectionIdentity(host: "host.example", username: "bob", domain: "CORP")
+        for signInFirst in [true, false] {
+            let device = makeDevice(username: "")
+            let harness = try makeHarness(devices: [device])
+
+            if signInFirst {
+                harness.model.recordAcceptedSignIn(deviceID: device.id, identity: signIn)
+            }
+            harness.model.recordCredentialPersistence(deviceID: device.id, identity: signIn, remembered: true)
+            if signInFirst == false {
+                harness.model.recordAcceptedSignIn(deviceID: device.id, identity: signIn)
+            }
+
+            let saved = try XCTUnwrap(DeviceProfileStore(defaults: harness.defaults).devices().first)
+            XCTAssertTrue(saved.identity.hasSameConnectionIdentity(as: signIn), "Sign-in first: \(signInFirst)")
+            XCTAssertEqual(saved.domain, "CORP", "Sign-in first: \(signInFirst)")
+            XCTAssertTrue(saved.rememberPassword, "Sign-in first: \(signInFirst)")
+        }
+    }
+
+    func testSaveKeepsAnAccountASessionGaveThePCWhileEditing() async throws {
+        let device = makeDevice(username: "")
+        let harness = try makeHarness(devices: [device])
+        let editor = DeviceEditorState(device: device, isNew: false)
+        // After the sheet opened, a session signed in as bob and saved the
+        // password.
+        let signIn = RDPConnectionIdentity(host: device.host, username: "bob", domain: "CORP")
+        harness.model.recordCredentialPersistence(deviceID: device.id, identity: signIn, remembered: true)
+        var edited = device
+        edited.name = "Renamed"
+
+        let saved = try await harness.model.save(
+            editor: editor,
+            editedDevice: edited,
+            password: "",
+            loadedPassword: nil,
+            hadRememberedPassword: false
+        )
+
+        XCTAssertEqual(saved.name, "Renamed")
+        XCTAssertEqual(saved.username, "bob")
+        XCTAssertEqual(saved.domain, "CORP")
+        XCTAssertTrue(saved.rememberPassword)
+        XCTAssertEqual(try DeviceProfileStore(defaults: harness.defaults).devices(), [saved])
+        XCTAssertEqual(harness.credentials.savedAccounts, [])
+        XCTAssertEqual(harness.credentials.deletedAccounts, [])
     }
 
     // MARK: - addNewDevice
