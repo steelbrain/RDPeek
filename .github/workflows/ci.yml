@@ -55,6 +55,9 @@ jobs:
       - name: Generate project
         run: xcodegen generate
 
+      # Swift leaves some warnings as warnings despite warnings-as-errors,
+      # such as Sendable checks that a @preconcurrency API downgrades, so
+      # each step that compiles fails on any Swift warning in its log.
       - name: Build
         run: |
           set -o pipefail
@@ -66,7 +69,11 @@ jobs:
             -clonedSourcePackagesDirPath DerivedData/SourcePackages \
             -onlyUsePackageVersionsFromResolvedFile \
             CODE_SIGNING_ALLOWED=NO \
-            build
+            build 2>&1 | tee build.log
+          if grep -E '\.swift:[0-9]+:[0-9]+: warning:' build.log; then
+            echo "::error::The build has Swift warnings (listed above)."
+            exit 1
+          fi
 
       - name: Test
         run: |
@@ -79,4 +86,8 @@ jobs:
             -clonedSourcePackagesDirPath DerivedData/SourcePackages \
             -onlyUsePackageVersionsFromResolvedFile \
             CODE_SIGNING_ALLOWED=NO \
-            test
+            test 2>&1 | tee test.log
+          if grep -E '\.swift:[0-9]+:[0-9]+: warning:' test.log; then
+            echo "::error::The test build has Swift warnings (listed above)."
+            exit 1
+          fi
