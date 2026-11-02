@@ -111,7 +111,8 @@
   prompt waits; the editor's buttons wait for a save, and a deletion
   finishes in the background.
 - A PC can be saved when the editor could not read its password, and a
-  password typed while a session turned on Remember is the one kept.
+  password typed while a session turned Remember on or off is the one
+  used.
 - A password a session saves just as its PC is deleted is removed too,
   and deleting one of two PCs that share an account no longer gives the
   other the deleted one's password saved by RDPeek 1.0.
