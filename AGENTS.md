@@ -21,11 +21,12 @@ Layer boundaries:
   client licenses (Keychain), the in-memory cache of passwords signed
   in with or saved this app run, trusted certificates (UserDefaults).
 
-The session core (`SessionViewController`, renderer, input capture, frame
-clock) is adapted from RDPKit's example client. When changing connection,
-clipboard, display-control, or credential behavior, compare against
-`Examples/RDPClient` in the RDPKit repository first — it is the reference
-implementation.
+The session core (`SessionViewController`) is adapted from RDPKit's
+example client; it runs each connection attempt on RDPKit's
+`RDPLiveSession`, and the input view, video view and frame clock come
+from RDPKitAppKit. When changing connection, clipboard, display-control,
+or credential behavior, compare against `Examples/RDPClient` in the
+RDPKit repository first — it is the reference implementation.
 
 ## UI Conventions
 
