@@ -31,7 +31,8 @@ protocol CredentialStoring: Sendable {
     func deletePassword(for key: KeychainCredentialKey) throws
     /// For a PC deleted while `others` still remember its account's
     /// password: moves one saved under the PC's earlier account names,
-    /// which their reads may not try, to the account's current name.
+    /// which their reads may not try, to the account's current name, after
+    /// moving any saved under their own.
     func moveLegacyPasswords(for key: KeychainCredentialKey, keptBy others: [RDPConnectionIdentity]) throws
 }
 
@@ -91,8 +92,17 @@ struct KeychainCredentialStore: CredentialStoring {
     /// name in one step, as a read moves it, or goes when that name has a
     /// password already. An earlier name one of `others` spells alike stays
     /// for that PC's own read. Nothing is read.
+    ///
+    /// The others' own passwords under earlier names move first, as their
+    /// reads would move them: one left under its earlier name would lose
+    /// the current name to the deleted PC's, which its read finds first.
     func moveLegacyPasswords(for key: KeychainCredentialKey, keptBy others: [RDPConnectionIdentity]) throws {
         let namesInUse = Set(others.flatMap(\.legacyCredentialAccountNames))
+        for legacyAccount in namesInUse.sorted() {
+            // Not found: there is none. Name taken: a read finds the one
+            // under the current name first, so this one stays as it is.
+            _ = try keychain.rename(account: legacyAccount, to: key.account)
+        }
         for legacyAccount in key.identity.legacyCredentialAccountNames where namesInUse.contains(legacyAccount) == false {
             if try keychain.rename(account: legacyAccount, to: key.account) == .newNameTaken {
                 try keychain.delete(account: legacyAccount)

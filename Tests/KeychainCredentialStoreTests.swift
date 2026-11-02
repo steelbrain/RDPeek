@@ -88,7 +88,7 @@ final class KeychainCredentialStoreTests: XCTestCase {
     /// Deleting a PC for "WinBox" while one for "winbox" remembers the
     /// account: that one never tries the deleted one's legacy name, so a
     /// password under it moves to the account's name, or goes when that
-    /// name has one already. One spelled alike tries it itself.
+    /// name has one already. One spelled alike would move it itself.
     func testDeletedPCsLegacyPasswordMovesToTheAccountName() throws {
         let key = try typedKey()
         let spelledOtherwise = RDPConnectionIdentity(host: "winbox", username: "anees")
@@ -97,7 +97,8 @@ final class KeychainCredentialStoreTests: XCTestCase {
             ([legacyAccount: "secret"], spelledOtherwise, [currentAccount: "secret"]),
             ([legacyAccount: "older", currentAccount: "newer"], spelledOtherwise, [currentAccount: "newer"]),
             ([currentAccount: "secret"], spelledOtherwise, [currentAccount: "secret"]),
-            ([legacyAccount: "secret"], spelledAlike, [legacyAccount: "secret"]),
+            ([legacyAccount: "secret"], spelledAlike, [currentAccount: "secret"]),
+            ([legacyAccount: "older", currentAccount: "newer"], spelledAlike, [legacyAccount: "older", currentAccount: "newer"]),
         ]
         for (saved, keptBy, left) in cases {
             let keychain = KeychainItemsFake(saved)
@@ -106,6 +107,37 @@ final class KeychainCredentialStoreTests: XCTestCase {
 
             XCTAssertEqual(keychain.passwords, left, "Saved: \(saved.keys.sorted())")
             XCTAssertEqual(keychain.readAccounts, [])
+        }
+    }
+
+    /// The PC that keeps the account, for "WINBOX", has its own password
+    /// under its legacy name: that one, not the deleted PC's, ends up under
+    /// the account's name, where its read finds it.
+    func testKeepersOwnLegacyPasswordWinsOverTheDeletedPCs() throws {
+        let key = try typedKey()
+        let keeper = RDPConnectionIdentity(host: "WINBOX", username: "anees")
+        let keepersLegacyAccount = "anees@WINBOX:3389"
+        let cases: [(saved: [String: String], left: [String: String])] = [
+            (
+                [legacyAccount: "deleted-pcs", keepersLegacyAccount: "keepers-own"],
+                [currentAccount: "keepers-own"]
+            ),
+            (
+                [legacyAccount: "deleted-pcs", keepersLegacyAccount: "keepers-older", currentAccount: "newer"],
+                [keepersLegacyAccount: "keepers-older", currentAccount: "newer"]
+            ),
+        ]
+        for (saved, left) in cases {
+            let keychain = KeychainItemsFake(saved)
+            let store = KeychainCredentialStore(keychain: keychain)
+
+            try store.moveLegacyPasswords(for: key, keptBy: [keeper])
+
+            XCTAssertEqual(keychain.passwords, left, "Saved: \(saved.keys.sorted())")
+            XCTAssertEqual(
+                try store.password(for: XCTUnwrap(KeychainCredentialKey(identity: keeper))),
+                left[currentAccount]
+            )
         }
     }
 }
