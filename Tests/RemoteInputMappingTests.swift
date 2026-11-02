@@ -416,6 +416,70 @@ final class RemoteInputMappingTests: XCTestCase {
         }
     }
 
+    /// Command and Control chords go as the keys' scancodes, which the server reads with the
+    /// announced layout, so each Latin letter an Apple layout types has to sit on the key where
+    /// the announced Windows layout types it, or ⌃Z arrives as Ctrl+Y. A Windows key counts when
+    /// it types the letter, or its capital with Shift, as Turkish Q's I key types "ı" and "I".
+    /// Only the layouts installed on this Mac are checked, with its keyboard type.
+    @MainActor
+    func testInstalledAppleLayoutsAnnounceAWindowsLayoutWithTheirLettersOnTheSameKeys() throws {
+        let filter = [kTISPropertyInputSourceType as String: kTISTypeKeyboardLayout as String] as CFDictionary
+        let sources = try XCTUnwrap(TISCreateInputSourceList(filter, true)?.takeRetainedValue() as? [TISInputSource])
+        let prefix = "com.apple.keylayout."
+        var letterCounts: [String: Int] = [:]
+        for source in sources {
+            guard let identifier = TISGetInputSourceProperty(source, kTISPropertyInputSourceID).map({
+                      Unmanaged<CFString>.fromOpaque($0).takeUnretainedValue() as String
+                  }),
+                  identifier.hasPrefix(prefix)
+            else {
+                continue
+            }
+            let name = String(identifier.dropFirst(prefix.count))
+            let layout = MacRDPKeyboardLayout.windowsLayout(forInputSourceID: identifier)
+            let table = try XCTUnwrap(MacRDPWindowsKeyboardLayout.layout(layout), name)
+            var letterCount = 0
+            var misplacedLetters: [String] = []
+            // The ANSI character keys and the ISO key left of "1" (with Return, Tab and Space).
+            for keyCode in 0 ... UInt16(kVK_ANSI_Grave) {
+                guard let letter = MacRDPDeadKeys.output(keyCode: keyCode, modifierFlags: [], in: source),
+                      letter.count == 1, letter.unicodeScalars.allSatisfy({ ("a" ... "z").contains($0) }),
+                      let scancode = MacRDPKeyboardMapping.scancode(forKeyCode: keyCode)
+                else {
+                    continue
+                }
+                letterCount += 1
+                let unshifted = table.character(for: scancode, isShifted: false, isCapsLocked: false)
+                let shifted = table.character(for: scancode, isShifted: true, isCapsLocked: false)
+                if unshifted.map(String.init) != letter, shifted.map(String.init) != letter.uppercased() {
+                    misplacedLetters.append(letter)
+                }
+            }
+            letterCounts[name] = letterCount
+            let announced = String(format: "0x%08X", layout.rawValue)
+            if Self.layoutsWhoseLettersNoTableMatches.contains(name) {
+                XCTAssertNotEqual(misplacedLetters, [], "\(name) now matches \(announced); take it off the list")
+            } else {
+                XCTAssertEqual(misplacedLetters.sorted(), [], "\(name) is announced as \(announced)")
+            }
+        }
+        // Not vacuous: the layouts were found and their letters read.
+        XCTAssertEqual(letterCounts["US"], 26, "Found \(letterCounts.count) Apple layouts")
+    }
+
+    /// Apple layouts whose letters no captured Windows table places as they do.
+    private static let layoutsWhoseLettersNoTableMatches: Set<String> = [
+        // Windows has no such layout.
+        "Anjal", "Colemak", "Croatian", "Italian", "Serbian-Latin", "Slovenian", "Tibetan-Wylie",
+        // Turkish F – Legacy, which has Q, W and X where Windows' Turkish F does not.
+        "Turkish",
+        // Windows' layouts for these have no table yet: Lithuanian (QWERTY), 0x0001_0427,
+        // Hungarian 101-key, 0x0001_040E, and Albanian, 0x0000_041C.
+        "Albanian", "Hungarian-QWERTY", "Lithuanian",
+        // Not mapped: Kabyle – AZERTY and Lithuanian – ĄŽERTY.
+        "Kabyle-AZERTY", "Lithuanian-LST1582",
+    ]
+
     private func windowsTypes(
         _ characters: String,
         ignoringModifiers: String? = nil,
