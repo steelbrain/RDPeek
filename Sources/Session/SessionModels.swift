@@ -534,7 +534,9 @@ enum SessionAttemptOutcome: Equatable {
     /// for its credentials is repeated: a rejected sign-in asks again. A
     /// session that activated but showed no desktop in time, which RDPKit
     /// ends with `noFramePresented`, gets one more attempt, with the same
-    /// credentials.
+    /// credentials, unless it `acceptedLegacyCredSSP`: the user agreed to
+    /// the outdated CredSSP for that one attempt, so another would be
+    /// refused.
     ///
     /// RDPKit already made the other attempts within the run, and a
     /// failure any of them ends the run with stays:
@@ -555,7 +557,8 @@ enum SessionAttemptOutcome: Equatable {
     static func after(
         _ report: RDPConnectionReport,
         host: String,
-        retriedFirstFrameTimeout: Bool = false
+        retriedFirstFrameTimeout: Bool = false,
+        acceptedLegacyCredSSP: Bool = false
     ) -> Self {
         let endReason = RDPSessionEndReason(report: report, host: host)
         guard report.showedDesktop == false, let failure = report.failure else {
@@ -575,7 +578,7 @@ enum SessionAttemptOutcome: Equatable {
             // sign-in problem.
             return .promptForCredentials(message: RDPSessionEndReason.signInNotAcceptedMessage)
         case .noFramePresented:
-            return retriedFirstFrameTimeout ? .end(endReason) : .retry(.firstFrameTimeout)
+            return retriedFirstFrameTimeout || acceptedLegacyCredSSP ? .end(endReason) : .retry(.firstFrameTimeout)
         default:
             break
         }
@@ -596,6 +599,9 @@ struct SessionAttemptBudget {
     /// The attempt under way sent credentials, which its first activation
     /// decides on.
     private var isAwaitingSignIn = false
+    /// The attempt under way accepts an outdated CredSSP, which the user
+    /// agreed to for it alone, so it is not retried.
+    private var attemptAcceptsLegacyCredSSP = false
     /// The sign-in was decided on for the connection the user started.
     private var hasDecidedSignIn = false
 
@@ -604,9 +610,11 @@ struct SessionAttemptBudget {
         self = SessionAttemptBudget()
     }
 
-    /// An attempt starts, with credentials or without.
-    mutating func attemptStarted(sendsCredentials: Bool) {
+    /// An attempt starts, with credentials or without, and accepting an
+    /// outdated CredSSP or not.
+    mutating func attemptStarted(sendsCredentials: Bool, acceptsLegacyCredSSP: Bool) {
         isAwaitingSignIn = sendsCredentials
+        attemptAcceptsLegacyCredSSP = acceptsLegacyCredSSP
     }
 
     /// What follows an attempt that ended without the user ending it, with
@@ -619,7 +627,8 @@ struct SessionAttemptBudget {
         SessionAttemptOutcome.after(
             report,
             host: host,
-            retriedFirstFrameTimeout: retriedFirstFrameTimeout
+            retriedFirstFrameTimeout: retriedFirstFrameTimeout,
+            acceptedLegacyCredSSP: attemptAcceptsLegacyCredSSP
         )
     }
 
@@ -658,9 +667,26 @@ struct SessionAttemptBudget {
 /// connection learn the sign-in (CVE-2018-0886). It is offered once the
 /// server an attempt connected to answers with one, until the user starts
 /// another connection, and allowed only for the first attempt of the
-/// connection the user's agreement starts: any other, an automatic retry
-/// or a later connection to the same server included, refuses it again.
+/// connection the user's agreement starts, to the server offered. Signing
+/// in on the sheet that connection asks with, as when the Keychain has no
+/// password to give, keeps the agreement until that attempt starts;
+/// cancelling, closing the window or starting any other connection
+/// forgets it. Any other attempt refuses the outdated version again: the
+/// one that accepted it is not retried (`SessionAttemptBudget`), and a
+/// later connection to the same server is offered it again.
 struct SessionLegacyCredSSPConsent {
+    /// How the user starts a connection, as far as the agreement goes.
+    enum Start {
+        /// Connect Anyway, on the ended session that offers it.
+        case connectAnyway
+        /// Signing in on the sheet the connection asked with: still that
+        /// connection.
+        case signIn
+        /// Any other way: the window opening, Reconnect, Connect on the PC,
+        /// or trusting a certificate.
+        case other
+    }
+
     /// The server the attempt that ended last was refused for, until the
     /// user starts a connection.
     private var offeredTarget: RDPConnectionTarget?
@@ -674,13 +700,26 @@ struct SessionLegacyCredSSPConsent {
         offeredTarget != nil
     }
 
-    /// The user starts a connection: the one Connect Anyway starts
-    /// (`agreed`) may accept the outdated version, once, for the server
-    /// offered; any other start forgets an agreement whose attempt never
-    /// started. The offer goes either way.
-    mutating func userStartsConnection(agreed: Bool) {
-        allowedTarget = agreed ? offeredTarget : nil
+    /// The user starts a connection: the one Connect Anyway starts may
+    /// accept the outdated version, once, for the server offered; signing
+    /// in keeps an agreement whose attempt has not started, and any other
+    /// start forgets it. The offer goes either way.
+    mutating func userStartsConnection(_ start: Start) {
+        switch start {
+        case .connectAnyway:
+            allowedTarget = offeredTarget
+        case .signIn:
+            break
+        case .other:
+            allowedTarget = nil
+        }
         offeredTarget = nil
+    }
+
+    /// The user cancelled the connection, or closed its window: an
+    /// agreement whose attempt has not started goes with it.
+    mutating func userCancelled() {
+        allowedTarget = nil
     }
 
     /// An attempt starts, to `target`, or to none for one that fails before

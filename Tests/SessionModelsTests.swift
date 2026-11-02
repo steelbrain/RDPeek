@@ -705,23 +705,64 @@ final class SessionModelsTests: XCTestCase {
     func testConnectAnywayAcceptsTheOutdatedCredSSPForItsOneAttempt() throws {
         let winbox = try RDPConnectionTarget(host: "winbox")
         var consent = SessionLegacyCredSSPConsent()
-        consent.userStartsConnection(agreed: false)
+        consent.userStartsConnection(.other)
         XCTAssertFalse(consent.attemptStarts(to: winbox))
         XCTAssertFalse(consent.isOffered)
 
         consent.attemptEnded(with: makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 3)))
         XCTAssertTrue(consent.isOffered)
-        consent.userStartsConnection(agreed: true)
+        consent.userStartsConnection(.connectAnyway)
         XCTAssertFalse(consent.isOffered)
         XCTAssertTrue(consent.attemptStarts(to: winbox))
 
-        // An automatic retry, and a later connection to the same server,
+        // Any later attempt, and a later connection to the same server,
         // refuse it again.
         consent.attemptEnded(with: makeReport(failure: .noFramePresented(framesReceived: 0, lastNotPresentedReason: nil)))
         XCTAssertFalse(consent.isOffered)
         XCTAssertFalse(consent.attemptStarts(to: winbox))
-        consent.userStartsConnection(agreed: false)
+        consent.userStartsConnection(.other)
         XCTAssertFalse(consent.attemptStarts(to: winbox))
+    }
+
+    func testSigningInBeforeTheAgreedAttemptKeepsTheAgreement() throws {
+        let winbox = try RDPConnectionTarget(host: "winbox")
+        let refused = makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 3))
+        var consent = SessionLegacyCredSSPConsent()
+        consent.attemptStarts(to: winbox)
+
+        // Connect Anyway found no password to sign in with, as when the
+        // Keychain could not be read: the sign-in it asks for is still the
+        // connection the user agreed to.
+        consent.attemptEnded(with: refused)
+        consent.userStartsConnection(.connectAnyway)
+        consent.userStartsConnection(.signIn)
+        XCTAssertTrue(consent.attemptStarts(to: winbox))
+
+        // Once that attempt ran, signing in again, as after a rejected
+        // password, starts another.
+        consent.attemptEnded(with: makeReport(stage: "credssp", failure: .credSSP(status: .logonFailure)))
+        consent.userStartsConnection(.signIn)
+        XCTAssertFalse(consent.attemptStarts(to: winbox))
+
+        // Cancelling, as while the Keychain is read, ends the agreement
+        // before the sign-in the cancel asks for.
+        consent.attemptEnded(with: refused)
+        consent.userStartsConnection(.connectAnyway)
+        consent.userCancelled()
+        consent.userStartsConnection(.signIn)
+        XCTAssertFalse(consent.attemptStarts(to: winbox))
+
+        // Signing in without agreeing agrees to nothing, and the offer goes.
+        consent.attemptEnded(with: refused)
+        consent.userStartsConnection(.signIn)
+        XCTAssertFalse(consent.isOffered)
+        XCTAssertFalse(consent.attemptStarts(to: winbox))
+
+        // The PC was edited to another server meanwhile.
+        consent.attemptEnded(with: refused)
+        consent.userStartsConnection(.connectAnyway)
+        consent.userStartsConnection(.signIn)
+        XCTAssertFalse(try consent.attemptStarts(to: RDPConnectionTarget(host: "winbox", port: 3390)))
     }
 
     func testOnlyConnectAnywayAcceptsTheOutdatedCredSSP() throws {
@@ -730,25 +771,25 @@ final class SessionModelsTests: XCTestCase {
         var consent = SessionLegacyCredSSPConsent()
 
         // Nothing offered, nothing to agree to.
-        consent.userStartsConnection(agreed: true)
+        consent.userStartsConnection(.connectAnyway)
         XCTAssertFalse(consent.attemptStarts(to: winbox))
 
         // Reconnect forgets the offer.
         consent.attemptEnded(with: refused)
-        consent.userStartsConnection(agreed: false)
+        consent.userStartsConnection(.other)
         XCTAssertFalse(consent.isOffered)
         XCTAssertFalse(consent.attemptStarts(to: winbox))
 
         // An agreement whose attempt never started, as when the user
         // cancelled while the Keychain was read, goes with the next start.
         consent.attemptEnded(with: refused)
-        consent.userStartsConnection(agreed: true)
-        consent.userStartsConnection(agreed: false)
+        consent.userStartsConnection(.connectAnyway)
+        consent.userStartsConnection(.other)
         XCTAssertFalse(consent.attemptStarts(to: winbox))
 
         // An attempt that fails before it connects forgets the agreement.
         consent.attemptEnded(with: refused)
-        consent.userStartsConnection(agreed: true)
+        consent.userStartsConnection(.connectAnyway)
         XCTAssertFalse(consent.attemptStarts(to: nil))
         XCTAssertFalse(consent.attemptStarts(to: winbox))
     }
@@ -760,7 +801,7 @@ final class SessionModelsTests: XCTestCase {
         consent.attemptEnded(with: makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 3)))
 
         // The PC was edited to another server or port since.
-        consent.userStartsConnection(agreed: true)
+        consent.userStartsConnection(.connectAnyway)
         XCTAssertFalse(try consent.attemptStarts(to: RDPConnectionTarget(host: "winbox", port: 3390)))
 
         // A server a redirection led to was not the user's choice, and
@@ -778,6 +819,29 @@ final class SessionModelsTests: XCTestCase {
 
     // MARK: - Attempt budget
 
+    func testAnAttemptThatAcceptedTheOutdatedCredSSPIsNotRetried() {
+        // The user agreed to it for that attempt alone: a retry would be
+        // refused, so the attempt ends with its own failure.
+        let report = makeReport(failure: .noFramePresented(framesReceived: 0, lastNotPresentedReason: nil))
+        let noDesktop = SessionAttemptOutcome.end(RDPSessionEndReason(
+            kind: .failed,
+            message: "The remote computer did not show the desktop in time."
+        ))
+        XCTAssertEqual(outcome(after: report, acceptedLegacyCredSSP: true), noDesktop)
+
+        var budget = SessionAttemptBudget()
+        budget.userStarted()
+        budget.attemptStarted(sendsCredentials: true, acceptsLegacyCredSSP: true)
+        XCTAssertEqual(budget.outcome(after: report, host: "winbox"), noDesktop)
+        XCTAssertEqual(retriesUntilTheEnd(of: &budget, feeding: report), 0)
+
+        // A connection the user starts again, which refuses it, gets its
+        // retry.
+        budget.userStarted()
+        budget.attemptStarted(sendsCredentials: true, acceptsLegacyCredSSP: false)
+        XCTAssertEqual(budget.outcome(after: report, host: "winbox"), .retry(.firstFrameTimeout))
+    }
+
     func testEachAutomaticRetryHappensOnce() {
         let report = makeReport(failure: .noFramePresented(framesReceived: 0, lastNotPresentedReason: nil))
         var budget = SessionAttemptBudget()
@@ -789,28 +853,28 @@ final class SessionModelsTests: XCTestCase {
     func testTheSignInIsDecidedOnOncePerConnectionTheUserStarts() {
         var budget = SessionAttemptBudget()
         budget.userStarted()
-        budget.attemptStarted(sendsCredentials: true)
+        budget.attemptStarted(sendsCredentials: true, acceptsLegacyCredSSP: false)
 
         XCTAssertTrue(budget.sessionActivated())
         // A reactivation, or a server redirection's target.
         XCTAssertFalse(budget.sessionActivated())
         // An automatic retry signs in with the same password.
-        budget.attemptStarted(sendsCredentials: true)
+        budget.attemptStarted(sendsCredentials: true, acceptsLegacyCredSSP: false)
         XCTAssertFalse(budget.sessionActivated())
 
         budget.userStarted()
-        budget.attemptStarted(sendsCredentials: true)
+        budget.attemptStarted(sendsCredentials: true, acceptsLegacyCredSSP: false)
         XCTAssertTrue(budget.sessionActivated())
     }
 
     func testASessionWithoutCredentialsHasNoSignInToDecideOn() {
         var budget = SessionAttemptBudget()
         budget.userStarted()
-        budget.attemptStarted(sendsCredentials: false)
+        budget.attemptStarted(sendsCredentials: false, acceptsLegacyCredSSP: false)
 
         XCTAssertFalse(budget.sessionActivated())
         // A retry that sends credentials still decides on them.
-        budget.attemptStarted(sendsCredentials: true)
+        budget.attemptStarted(sendsCredentials: true, acceptsLegacyCredSSP: false)
         XCTAssertTrue(budget.sessionActivated())
     }
 
@@ -875,12 +939,14 @@ final class SessionModelsTests: XCTestCase {
     private func outcome(
         after report: RDPConnectionReport,
         host: String = "winbox",
-        retriedFirstFrameTimeout: Bool = false
+        retriedFirstFrameTimeout: Bool = false,
+        acceptedLegacyCredSSP: Bool = false
     ) -> SessionAttemptOutcome {
         SessionAttemptOutcome.after(
             report,
             host: host,
-            retriedFirstFrameTimeout: retriedFirstFrameTimeout
+            retriedFirstFrameTimeout: retriedFirstFrameTimeout,
+            acceptedLegacyCredSSP: acceptedLegacyCredSSP
         )
     }
 

@@ -703,7 +703,7 @@ final class SessionViewController: NSViewController {
         credentialsErrorMessage = nil
         // The password typed here wins over one the editor saved.
         _ = savedPasswordChanges.takeChange(for: draft.identity)
-        startConnection()
+        startConnection(as: .signIn)
     }
 
     // MARK: - Saved PC
@@ -772,11 +772,12 @@ final class SessionViewController: NSViewController {
 
     /// The one way a connection starts: the window opening, Reconnect, ⌘R,
     /// Connect on the PC, signing in, trusting a certificate, and Connect
-    /// Anyway, which alone `acceptsLegacyCredSSP`. Takes the PC's saved
+    /// Anyway, which alone agrees to an outdated CredSSP; signing in keeps
+    /// that agreement until its attempt starts. Takes the PC's saved
     /// changes, resets the automatic retries, and finds the password first
     /// when the session has none.
-    func startConnection(acceptsLegacyCredSSP: Bool = false) {
-        legacyCredSSPConsent.userStartsConnection(agreed: acceptsLegacyCredSSP)
+    func startConnection(as start: SessionLegacyCredSSPConsent.Start = .other) {
+        legacyCredSSPConsent.userStartsConnection(start)
         followSavedDraft()
         if savedPasswordChanges.takeChange(for: draft.identity) {
             draft.password = ""
@@ -832,7 +833,7 @@ final class SessionViewController: NSViewController {
             return
         }
         // Only the attempt Connect Anyway starts accepts an outdated
-        // CredSSP; starting forgets that agreement.
+        // CredSSP, and it is not retried; starting forgets that agreement.
         let acceptsLegacyCredSSP = legacyCredSSPConsent.attemptStarts(to: target)
         let desktopSize = initialDesktopSize()
         let configuration = makeConnectionConfiguration(
@@ -846,7 +847,10 @@ final class SessionViewController: NSViewController {
         let session = RDPLiveSession(threadName: "RDPeek session")
         activeSession = session
         liveReport = session.liveReport
-        attemptBudget.attemptStarted(sendsCredentials: credentials != nil)
+        attemptBudget.attemptStarted(
+            sendsCredentials: credentials != nil,
+            acceptsLegacyCredSSP: acceptsLegacyCredSSP
+        )
         renderMetricsStore.reset(connectionStartedAt: Date())
         updateViewerMetricsSummary(renderMetricsStore.metrics)
         isConnecting = true
@@ -1166,6 +1170,10 @@ final class SessionViewController: NSViewController {
         let shouldRecordCancellation = shouldRecordCancellation
             && (isConnecting || activeSession != nil
                 || isResolvingStoredCredentials || isAutoRetryPending)
+        // An agreement to an outdated CredSSP goes with the connection it
+        // was for, even before its attempt: the sign-in a cancel asks for
+        // is not that connection.
+        legacyCredSSPConsent.userCancelled()
         autoRetryTask?.cancel()
         autoRetryTask = nil
         credentialResolutionTask?.cancel()
@@ -1496,7 +1504,7 @@ final class SessionViewController: NSViewController {
         guard sessionCommandState.canStart, legacyCredSSPConsent.isOffered else {
             return
         }
-        startConnection(acceptsLegacyCredSSP: true)
+        startConnection(as: .connectAnyway)
     }
 
     // MARK: - Certificate trust
