@@ -138,7 +138,7 @@ final class SessionViewController: NSViewController {
     private let canvasView = RemoteDesktopCanvasNSView()
     private let titlebarBackdrop = NSVisualEffectView()
     private let frameClockView = FramePresentationClockNSView()
-    private var overlayHost: NSHostingView<SessionOverlayRoot>?
+    private var overlayHost: PassThroughHostingView<SessionOverlayRoot>?
     private var bannerHost: NSHostingView<SessionBannerRoot>?
     private var toastHost: PassThroughHostingView<SessionToastRoot>?
     private var metricsHost: PassThroughHostingView<SessionMetricsRoot>?
@@ -254,7 +254,8 @@ final class SessionViewController: NSViewController {
 
         // Full-bleed hosts must not report an intrinsic size, or the window
         // shrinks to fit the overlay content on first layout.
-        let overlayHost = NSHostingView(rootView: SessionOverlayRoot(model: hudModel))
+        let overlayHost = PassThroughHostingView(rootView: SessionOverlayRoot(model: hudModel))
+        overlayHost.passesEventsThrough = false
         overlayHost.sizingOptions = []
         overlayHost.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(overlayHost)
@@ -456,9 +457,10 @@ final class SessionViewController: NSViewController {
     }
 
     /// Keeps the full-window overlay around long enough for its fade-out
-    /// animation, then removes it from hit testing entirely.
+    /// animation, then hides it. Clicks reach the desktop as soon as it shows.
     private func updateOverlayVisibility(for phase: SessionPhase) {
         overlayVisibilityTask?.cancel()
+        overlayHost?.passesEventsThrough = phase.isActive
         guard phase.isActive else {
             overlayHost?.isHidden = false
             return

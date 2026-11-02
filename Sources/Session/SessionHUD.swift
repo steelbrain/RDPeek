@@ -779,10 +779,14 @@ private struct SessionStatusPill: View {
 
 // MARK: - Hosting helpers
 
-/// A hosting view that never participates in hit testing, for purely
-/// informational layers above the input capture view.
+/// A hosting view that by default never participates in hit testing, for
+/// purely informational layers above the input capture view.
 final class PassThroughHostingView<Content: View>: NSHostingView<Content> {
-    override func hitTest(_: NSPoint) -> NSView? {
-        nil
+    /// False lets the content take events; SwiftUI's `allowsHitTesting`
+    /// alone still leaves the hosting view as the hit view.
+    var passesEventsThrough = true
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        passesEventsThrough ? nil : super.hitTest(point)
     }
 }
