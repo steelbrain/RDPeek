@@ -23,7 +23,10 @@ struct HelpView: View {
                     HelpBody(
                         "Double-click a card, hover it and press the play button, or " +
                             "select it and press Return. If no password is available, the " +
-                            "session window asks you to sign in."
+                            "session window asks you to sign in. A password typed there is " +
+                            "kept only when the server checks it before showing the " +
+                            "desktop; for servers that ask on their own sign-in screen " +
+                            "instead, such as xrdp, save it in the PC's settings."
                     )
                     HelpBody(
                         "Transient network failures — like the first-time local-network " +
