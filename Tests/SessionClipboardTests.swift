@@ -83,6 +83,9 @@ private final class RecordedClipboard: SessionClipboardSending, @unchecked Senda
     /// publish has replaced.
     var unfetchedRemoteCopy = false
     var isAwaitingRemoteCopy = false
+    /// Whether a copy that turning fetching on fetches comes before the
+    /// call returns, as an in-memory server's can.
+    var fetchedCopyComesAtOnce = false
     var publishedTexts: [String?] = []
     var publishedFiles: [[RDPClipboardLocalFile]] = []
     /// Copies, remote and published, are numbered in the order they come,
@@ -114,6 +117,15 @@ private final class RecordedClipboard: SessionClipboardSending, @unchecked Senda
         lastCopyNumber += 1
         serverHoldsLocalCopy = false
         return lastCopyNumber
+    }
+
+    func startFetchingRemoteCopies() -> Bool {
+        fetchesRemoteCopies = true
+        let isFetching = isAwaitingRemoteCopy
+        if fetchedCopyComesAtOnce {
+            isAwaitingRemoteCopy = false
+        }
+        return isFetching
     }
 
     func hasPublished(since remoteCopyNumber: Int) -> Bool {
@@ -598,6 +610,27 @@ final class SessionClipboardTests: XCTestCase {
         clipboard.receiveText("remote", copyNumber: session.announceRemoteCopy())
         clipboard.poll()
         clipboard.syncNow()
+        XCTAssertEqual(pasteboard.string(forType: .string), "remote")
+        XCTAssertTrue(session.publishedTexts.isEmpty)
+    }
+
+    /// A first copy that comes as fetching turns on, before the call
+    /// returns, is not replaced by the pasteboard either: RDPKit says it
+    /// was being fetched, though it is no longer awaited by then.
+    func testTheServersFirstCopyWinsWhenItComesAsFetchingTurnsOn() {
+        pasteboard.clearContents()
+        pasteboard.setString("local", forType: .string)
+        let session = RecordedClipboard()
+        session.unfetchedRemoteCopy = true
+        session.fetchedCopyComesAtOnce = true
+        let clipboard = makeClipboard()
+
+        clipboard.attach(session)
+        XCTAssertTrue(session.fetchesRemoteCopies)
+        XCTAssertFalse(session.isAwaitingRemoteCopy)
+        XCTAssertTrue(session.publishedTexts.isEmpty)
+        clipboard.receiveText("remote", copyNumber: session.announceRemoteCopy())
+        clipboard.poll()
         XCTAssertEqual(pasteboard.string(forType: .string), "remote")
         XCTAssertTrue(session.publishedTexts.isEmpty)
     }

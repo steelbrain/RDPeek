@@ -16,8 +16,10 @@ protocol SessionClipboardSending: AnyObject, Sendable {
     /// fetched. Turned on, it fetches a copy the server announced while it
     /// was off, unless a publish has replaced that copy since.
     var fetchesRemoteCopies: Bool { get set }
-    /// Whether a copy the server announced is being fetched.
-    var isAwaitingRemoteCopy: Bool { get }
+    /// Turns fetching on, and says whether a copy the server announced is
+    /// being fetched then, even one already handed over by the time it
+    /// returns.
+    func startFetchingRemoteCopies() -> Bool
     /// Whether a publish since replaced, on the server, the remote copy
     /// numbered `remoteCopyNumber`: the `copyNumber` its handler got.
     func hasPublished(since remoteCopyNumber: Int) -> Bool
@@ -165,8 +167,8 @@ final class SessionClipboard {
             remoteCopyChangeCount = nil
         }
         self.session = session
-        session.fetchesRemoteCopies = isSharingEnabled
         guard isSharingEnabled else {
+            session.fetchesRemoteCopies = false
             session.publishLocalUnicodeText(nil)
             return
         }
@@ -174,7 +176,9 @@ final class SessionClipboard {
         // the bridge attached, also after a restart. It is newer than the
         // pasteboard, which publishing now would put in its place on the
         // server; should it never arrive, Sync Now sends the pasteboard.
-        guard session.isAwaitingRemoteCopy == false else {
+        // Asked as fetching turns on, since the copy can come before a
+        // later look.
+        guard session.startFetchingRemoteCopies() == false else {
             pasteboardChangeCount = pasteboard.changeCount
             localCopyIsUnsent = true
             return
