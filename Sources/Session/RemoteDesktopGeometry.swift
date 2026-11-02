@@ -34,6 +34,11 @@ struct RemoteDesktopGeometry: Equatable {
     private let visibleRects: [CGRect]?
     /// Maps points to pixels of `sourceRect`, which keeps RDPKit's edge convention.
     private let viewport: RDPRemoteDisplayViewport
+    /// Where the viewport fits the shown area, and how far `contentRect` moves it onto a device
+    /// pixel. A point moved back by the shift maps against the fitted rect, which is the
+    /// arithmetic the canvas used before, so even a point exactly on an edge maps as it did.
+    private let fittedRect: CGRect
+    private let alignment: CGVector
 
     /// `visibleRects` are the displays to show, in remote pixels; nil shows the whole frame.
     init(frameSize: CGSize, visibleRects: [CGRect]?, bounds: CGRect, backingScaleFactor: CGFloat) {
@@ -63,6 +68,8 @@ struct RemoteDesktopGeometry: Equatable {
         self.contentRect = contentRect
         self.sourceRect = sourceRect
         self.viewport = viewport
+        self.fittedRect = fitted
+        self.alignment = alignment
         if isWholeFrame {
             // The layer the canvas used before displays could be chosen: canvas-sized, it
             // letterboxes the video itself, so a frame of a new size never stretches while its
@@ -125,17 +132,18 @@ struct RemoteDesktopGeometry: Equatable {
     func nearestRemotePoint(to local: CGPoint) -> RDPRemotePoint? {
         guard local.x.isFinite,
               local.y.isFinite,
-              contentRect.isEmpty == false
+              fittedRect.isEmpty == false
         else {
             return nil
         }
         // As the canvas always did for a drag, a point past the content first stops on its
         // edge, so how far the pointer leaves the window never changes where it lands.
+        let fittedPoint = unshifted(local)
         let clamped = CGPoint(
-            x: min(max(local.x, contentRect.minX), contentRect.maxX.nextDown),
-            y: min(max(local.y, contentRect.minY), contentRect.maxY.nextDown)
+            x: min(max(fittedPoint.x, fittedRect.minX), fittedRect.maxX.nextDown),
+            y: min(max(fittedPoint.y, fittedRect.minY), fittedRect.maxY.nextDown)
         )
-        guard let point = sourcePoint(at: clamped) else {
+        guard let point = sourcePoint(atFitted: clamped) else {
             return nil
         }
         guard let visibleRects,
@@ -154,13 +162,22 @@ struct RemoteDesktopGeometry: Equatable {
 
     /// The pixel of `sourceRect` under `local`, in frame coordinates.
     private func sourcePoint(at local: CGPoint) -> RDPRemotePoint? {
-        guard let offset = viewport.remotePoint(from: local, contentRect: contentRect),
+        sourcePoint(atFitted: unshifted(local))
+    }
+
+    /// The pixel of `sourceRect` under a point already moved back by the alignment shift.
+    private func sourcePoint(atFitted point: CGPoint) -> RDPRemotePoint? {
+        guard let offset = viewport.remotePoint(from: point, contentRect: fittedRect),
               let x = UInt16(exactly: Int(sourceRect.minX) + Int(offset.x)),
               let y = UInt16(exactly: Int(sourceRect.minY) + Int(offset.y))
         else {
             return nil
         }
         return RDPRemotePoint(x: x, y: y)
+    }
+
+    private func unshifted(_ local: CGPoint) -> CGPoint {
+        CGPoint(x: local.x - alignment.dx, y: local.y - alignment.dy)
     }
 
     private func isShown(_ point: RDPRemotePoint) -> Bool {

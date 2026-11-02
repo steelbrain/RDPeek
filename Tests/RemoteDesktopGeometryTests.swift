@@ -64,6 +64,29 @@ final class RemoteDesktopGeometryTests: XCTestCase {
         }
     }
 
+    func testWholeFrameMapsTheContentsEdgesAsTheCanvasDidBefore() {
+        // Exactly on an edge, and a fraction of a device pixel either side, is where rounding
+        // could tell two ways of mapping apart: 1280 x 800 in 1283 x 805 at 2x once took a hover
+        // on its top edge that the canvas had ignored.
+        for scale in [1.0, 2.0] {
+            for (frame, canvas) in wholeFrameCases {
+                let baseline = makeBaseline(frame: frame, canvas: canvas, scale: scale)
+                let geometry = RemoteDesktopGeometry(
+                    frameSize: frame,
+                    visibleRects: nil,
+                    bounds: CGRect(origin: .zero, size: canvas),
+                    backingScaleFactor: scale
+                )
+                let mismatches = edgeBands(of: baseline.drawnRect, around: canvas).filter { point in
+                    geometry.remotePoint(at: point) != baseline.remotePoint(at: point)
+                        || geometry.nearestRemotePoint(to: point) != baseline.draggedPoint(to: point)
+                }
+
+                XCTAssertEqual(mismatches, [], "\(frame) in \(canvas) at \(scale)x")
+            }
+        }
+    }
+
     // MARK: - Chosen displays
 
     func testOneOfTwoDisplaysFillsARetinaWindow() {
@@ -295,11 +318,31 @@ final class RemoteDesktopGeometryTests: XCTestCase {
         )
     }
 
+    /// Points on each of the content's edges and on the eighth-of-a-point lattice up to 3 points
+    /// either side of it, as pointer events report them, against the grid along the other axis
+    /// and the other edges.
+    private func edgeBands(of content: CGRect, around canvas: CGSize) -> [CGPoint] {
+        let near = { (edge: CGFloat) in
+            [edge] + (-24...24).map { (edge * 8).rounded() / 8 + CGFloat($0) / 8 }
+        }
+        let edgeXs = [content.minX, content.maxX].flatMap(near)
+        let edgeYs = [content.minY, content.maxY].flatMap(near)
+        let lines = gridLines(around: canvas)
+        return edgeXs.flatMap { x in (lines.ys + edgeYs).map { CGPoint(x: x, y: $0) } }
+            + edgeYs.flatMap { y in lines.xs.map { CGPoint(x: $0, y: y) } }
+    }
+
     /// Points over the canvas and a little past each edge, off any pixel boundary.
     private func grid(around canvas: CGSize) -> [CGPoint] {
-        let xs = stride(from: -7.37, through: canvas.width + 7, by: canvas.width / 37.3)
-        let ys = stride(from: -5.13, through: canvas.height + 5, by: canvas.height / 31.7)
-        return xs.flatMap { x in ys.map { y in CGPoint(x: x, y: y) } }
+        let lines = gridLines(around: canvas)
+        return lines.xs.flatMap { x in lines.ys.map { y in CGPoint(x: x, y: y) } }
+    }
+
+    private func gridLines(around canvas: CGSize) -> (xs: [CGFloat], ys: [CGFloat]) {
+        (
+            Array(stride(from: -7.37, through: canvas.width + 7, by: canvas.width / 37.3)),
+            Array(stride(from: -5.13, through: canvas.height + 5, by: canvas.height / 31.7))
+        )
     }
 
     /// A rect in points as device pixels at 2x.
