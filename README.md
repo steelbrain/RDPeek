@@ -83,14 +83,15 @@ Sources/Storage/          Device profiles, Keychain passwords and client
                           licenses, in-memory password cache, trusted certs
 Sources/Resources/        Asset catalog and the app-icon pipeline
 Tests/                    Unit tests (stores, session gating, clipboard
-                          bridge, display policy)
+                          toasts, display policy)
 website/                  rdpeek.com (Next.js, deployed on Vercel)
 ```
 
 The connection, clipboard, display-control, audio, and credential logic in
 `Sources/Session` is adapted from RDPKit's example client, the reference
 implementation: each connection attempt runs on RDPKit's `RDPLiveSession`,
-and the input view, video view and frame presenter come from RDPKitAppKit.
+and the input view, video view, frame presenter and pasteboard bridge come
+from RDPKitAppKit.
 
 Contributing? [AGENTS.md](AGENTS.md) documents the conventions this repo
 holds itself to — layer boundaries, build and lint gates, and commit style.
