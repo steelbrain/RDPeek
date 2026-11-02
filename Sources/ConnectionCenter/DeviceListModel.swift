@@ -307,6 +307,8 @@ final class DeviceListModel: ObservableObject {
                     try await KeychainQueue.run { try credentialStore.savePassword(password, for: key) }
                 }
             } else if hadRememberedPassword,
+                      // The item the editor found is the old account's, deleted below.
+                      snapshot.identity.hasSameConnectionIdentity(as: device.identity),
                       rememberedPasswordIsShared(device.identity, excluding: device.id) == false
             {
                 try await KeychainQueue.run { try credentialStore.deletePassword(for: key) }

@@ -353,6 +353,27 @@ final class DeviceListModelTests: XCTestCase {
         XCTAssertEqual(harness.credentials.savedAccounts, [])
     }
 
+    func testSaveWithAnotherAccountAndRememberOffDeletesOnlyTheOldAccountsCredential() async throws {
+        let device = makeDevice(username: "alice", rememberPassword: true)
+        let harness = try makeHarness(devices: [device])
+        var edited = device
+        edited.username = "bob"
+        edited.rememberPassword = false
+        let bobsAccount = try account(for: edited)
+        harness.credentials.passwords[bobsAccount] = "bobs"
+
+        _ = try await harness.model.save(
+            editor: DeviceEditorState(device: device, isNew: false),
+            editedDevice: edited,
+            password: "",
+            loadedPassword: "alices",
+            hadRememberedPassword: true
+        )
+
+        XCTAssertEqual(harness.credentials.deletedAccounts, [try account(for: device)])
+        XCTAssertEqual(harness.credentials.passwords[bobsAccount], "bobs")
+    }
+
     func testSaveDeletesCredentialWhenRememberTurnedOffAfterAFailedRead() async throws {
         let device = makeDevice(rememberPassword: true)
         let harness = try makeHarness(devices: [device])
