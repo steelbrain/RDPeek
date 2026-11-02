@@ -30,8 +30,7 @@ protocol SessionClipboardSending: AnyObject {
     /// Whether a copy the server announced is being fetched.
     var isAwaitingRemoteCopy: Bool { get }
     /// Whether a publish since replaced, on the server, the remote copy
-    /// numbered `remoteCopyNumber`: the session's
-    /// `deliveredRemoteCopyNumber` in its handler.
+    /// numbered `remoteCopyNumber`: the `copyNumber` its handler got.
     func hasPublished(since remoteCopyNumber: Int) -> Bool
     func publishLocalUnicodeText(_ text: String?)
     func publishLocalFiles(_ files: [RDPClipboardLocalFile])
@@ -831,6 +830,8 @@ final class SessionClipboard {
             "Remote file index is not valid"
         case .totalByteLimitExceeded:
             "Remote files exceed 32 MiB"
+        case .fileCountLimitExceeded:
+            "Remote copy has more than 1,000 files"
         }
     }
 

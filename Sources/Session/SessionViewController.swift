@@ -1,5 +1,4 @@
 import AppKit
-import os
 import QuartzCore
 import RDPKit
 import SwiftUI
@@ -978,13 +977,6 @@ final class SessionViewController: NSViewController {
             // every frame.
             var reportedMonitors: [RDPRemoteMonitor] = []
             var reportedOutputRect: RDPFrameRect?
-            // Which remote copy a clipboard handler is called for, so the
-            // bridge can drop one that a publish on the main thread
-            // replaced before the copy got there.
-            let clipboardSession = OSAllocatedUnfairLock<RDPClipboardSession?>(initialState: nil)
-            let deliveredRemoteCopyNumber: @Sendable () -> Int = {
-                clipboardSession.withLock { $0?.deliveredRemoteCopyNumber } ?? 0
-            }
             let decodeQueue = RDPFrameDecodeQueue(
                 shouldCancel: {
                     cancellation.isCancelled
@@ -1115,21 +1107,21 @@ final class SessionViewController: NSViewController {
                     // fetched until it applies the sharing choice; on,
                     // fetching then gets a copy that came in between.
                     session.fetchesRemoteCopies = false
-                    clipboardSession.withLock { $0 = session }
                     sink.apply { controller in
                         controller.clipboard.attach(session)
                         controller.render()
                     }
                 },
-                onClipboardText: { text in
-                    let copyNumber = deliveredRemoteCopyNumber()
+                // Each remote copy comes with its number, so the bridge can
+                // drop one that a publish on the main thread replaced
+                // before the copy got there.
+                onClipboardText: { text, copyNumber in
                     sink.apply { controller in
                         controller.clipboard.receiveText(text, copyNumber: copyNumber)
                         controller.render()
                     }
                 },
-                onClipboardFileGroupDescriptor: { descriptorList in
-                    let copyNumber = deliveredRemoteCopyNumber()
+                onClipboardFileGroupDescriptor: { descriptorList, copyNumber in
                     sink.apply { controller in
                         controller.clipboard.receiveFileList(descriptorList, copyNumber: copyNumber)
                         controller.render()
@@ -1141,8 +1133,7 @@ final class SessionViewController: NSViewController {
                         controller.render()
                     }
                 },
-                onClipboardRemoteCopyUnavailable: { isEmpty in
-                    let copyNumber = deliveredRemoteCopyNumber()
+                onClipboardRemoteCopyUnavailable: { isEmpty, copyNumber in
                     sink.apply { controller in
                         controller.clipboard.receiveRemoteCopyUnavailable(isEmpty: isEmpty, copyNumber: copyNumber)
                         controller.render()
