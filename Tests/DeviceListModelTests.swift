@@ -572,6 +572,10 @@ final class DeviceListModelTests: XCTestCase {
         let editor = DeviceEditorState(device: device, isNew: false)
         var missingUsername = device
         missingUsername.username = ""
+        var notRemembering = device
+        notRemembering.rememberPassword = false
+        var otherAccount = device
+        otherAccount.username = "bob"
 
         await assertSaveThrows(
             try await harness.model.save(
@@ -582,16 +586,52 @@ final class DeviceListModelTests: XCTestCase {
                 hadRememberedPassword: false
             )
         )
+        // Remember turned on, or kept on for another account.
         await assertSaveThrows(
             try await harness.model.save(
-                editor: editor,
+                editor: DeviceEditorState(device: notRemembering, isNew: false),
                 editedDevice: device,
                 password: "",
                 loadedPassword: nil,
                 hadRememberedPassword: false
             )
         )
+        await assertSaveThrows(
+            try await harness.model.save(
+                editor: editor,
+                editedDevice: otherAccount,
+                password: "",
+                loadedPassword: nil,
+                hadRememberedPassword: true
+            )
+        )
         XCTAssertEqual(harness.credentials.savedAccounts, [])
+        XCTAssertEqual(harness.credentials.deletedAccounts, [])
+    }
+
+    func testSaveAfterAFailedReadKeepsTheSavedPassword() async throws {
+        let device = makeDevice(rememberPassword: true)
+        let harness = try makeHarness(devices: [device])
+        let account = try account(for: device)
+        harness.credentials.passwords[account] = "secret"
+        var edited = device
+        edited.name = "Renamed"
+
+        // The editor could not read the item, so it loaded no password but
+        // counts the item as there.
+        let saved = try await harness.model.save(
+            editor: DeviceEditorState(device: device, isNew: false),
+            editedDevice: edited,
+            password: "",
+            loadedPassword: nil,
+            hadRememberedPassword: true
+        )
+
+        XCTAssertEqual(saved.name, "Renamed")
+        XCTAssertTrue(saved.rememberPassword)
+        XCTAssertEqual(harness.credentials.passwords[account], "secret")
+        XCTAssertEqual(harness.credentials.savedAccounts, [])
+        XCTAssertEqual(harness.credentials.deletedAccounts, [])
     }
 
     func testSaveKeepsRememberThatASessionTurnedOnWhileEditing() async throws {

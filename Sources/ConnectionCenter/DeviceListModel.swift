@@ -290,14 +290,20 @@ final class DeviceListModel: ObservableObject {
         if device.rememberPassword, device.username.isEmpty {
             throw DeviceValidationError.missingUsernameForKeychain
         }
-        if device.rememberPassword, password.isEmpty {
+        // With Remember left on for the same account, no password keeps
+        // the saved one: the editor may not have been able to read it.
+        let keepsSavedItem = password.isEmpty
+            && snapshot.rememberPassword
+            && device.rememberPassword
+            && snapshot.identity.credentialAccountName == device.identity.credentialAccountName
+        if device.rememberPassword, password.isEmpty, keepsSavedItem == false {
             throw DeviceValidationError.missingPasswordForKeychain
         }
 
         let credentialStore = credentialStore
         if let key = KeychainCredentialKey(identity: device.identity) {
             if device.rememberPassword {
-                if savesPassword {
+                if savesPassword, keepsSavedItem == false {
                     try await KeychainQueue.run { try credentialStore.savePassword(password, for: key) }
                 }
             } else if hadRememberedPassword,
