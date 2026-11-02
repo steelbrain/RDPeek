@@ -932,7 +932,9 @@ final class SessionViewController: NSViewController {
     /// window cancels it; RDPeek's own handlers decide on the certificate,
     /// the client license, the clipboard and audio.
     private func start(_ session: RDPLiveSession, configuration: RDPConnectionConfiguration) {
-        let sink = SessionMainActorSink(controller: self, session: session)
+        // The handlers hold the window weakly, so a closed one is not kept
+        // alive by the session's thread.
+        let recipient = session.recipient(self)
         let clientLicenseStore = clientLicenseStore
         let clientLicenseKey = ClientLicenseStoreKey(identity: draft.identity)
         let trustedCertificateStore = trustedCertificateStore
@@ -996,7 +998,7 @@ final class SessionViewController: NSViewController {
                 // Not called for a session the window cancelled, or whose
                 // certificate it refused.
                 onEnd: { report in
-                    sink.apply { controller in
+                    recipient.deliver { controller in
                         controller.finishConnection(report, configuration: configuration)
                     }
                 }
@@ -1015,17 +1017,17 @@ final class SessionViewController: NSViewController {
                 // redirection the main thread hears of first does not move
                 // on, as it does the live report.
                 onInputReady: { session in
-                    sink.apply { controller in
+                    recipient.deliver { controller in
                         controller.sessionActivated(session)
                     }
                 },
                 onDisplayControlReady: { session in
-                    sink.apply { controller in
+                    recipient.deliver { controller in
                         controller.displayControlReady(session)
                     }
                 },
                 onClipboardReady: { session in
-                    sink.apply { controller in
+                    recipient.deliver { controller in
                         controller.clipboard.attach(session)
                         controller.render()
                     }
@@ -1034,25 +1036,25 @@ final class SessionViewController: NSViewController {
                 // drop one that a publish on the main thread replaced
                 // before the copy got there.
                 onClipboardText: { text, copyNumber in
-                    sink.apply { controller in
+                    recipient.deliver { controller in
                         controller.clipboard.receiveText(text, copyNumber: copyNumber)
                         controller.render()
                     }
                 },
                 onClipboardFileGroupDescriptor: { descriptorList, copyNumber in
-                    sink.apply { controller in
+                    recipient.deliver { controller in
                         controller.clipboard.receiveFileList(descriptorList, copyNumber: copyNumber)
                         controller.render()
                     }
                 },
                 onClipboardRemoteCopyUnavailable: { isEmpty, copyNumber in
-                    sink.apply { controller in
+                    recipient.deliver { controller in
                         controller.clipboard.receiveRemoteCopyUnavailable(isEmpty: isEmpty, copyNumber: copyNumber)
                         controller.render()
                     }
                 },
                 onAudioSample: { sample in
-                    sink.apply { controller in
+                    recipient.deliver { controller in
                         controller.playAudioSample(sample)
                     }
                 },
@@ -1075,7 +1077,7 @@ final class SessionViewController: NSViewController {
                     if refusal != nil {
                         run.cancellation.cancel()
                     }
-                    sink.apply { controller in
+                    recipient.deliver { controller in
                         controller.receiveCertificate(info, port: port, refusal: refusal)
                     }
                 },
@@ -1747,26 +1749,4 @@ private struct KeychainPasswordRead {
     let id: UUID
     let key: KeychainCredentialKey
     let task: Task<String?, any Error>
-}
-
-/// Hands what the session thread hears of to the controller, on the main
-/// queue through the session: in order, and none of it once the session is
-/// cancelled. It holds the controller weakly, so it forms no cycle.
-private final class SessionMainActorSink: Sendable {
-    private weak let controller: SessionViewController?
-    private let session: RDPLiveSession
-
-    init(controller: SessionViewController, session: RDPLiveSession) {
-        self.controller = controller
-        self.session = session
-    }
-
-    func apply(_ operation: @escaping @MainActor (SessionViewController) -> Void) {
-        session.deliver { [self] in
-            guard let controller else {
-                return
-            }
-            operation(controller)
-        }
-    }
 }
