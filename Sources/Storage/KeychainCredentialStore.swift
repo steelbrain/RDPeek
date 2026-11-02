@@ -52,11 +52,11 @@ struct KeychainCredentialStore: CredentialStoring {
         // is renamed in one step rather than saved again, so one deleted
         // meanwhile, with its PC say, stays deleted, and one saved under
         // the current name meanwhile, which is newer, stays.
-        for legacyAccount in key.identity.legacyCredentialAccountNames {
-            guard let password = try password(account: legacyAccount) else {
+        for move in key.identity.legacyCredentialMoves() {
+            guard let password = try password(account: move.legacyAccountName) else {
                 continue
             }
-            let rename = try? keychain.rename(account: legacyAccount, to: key.account)
+            let rename = try? keychain.rename(account: move.legacyAccountName, to: move.accountName)
             switch rename {
             case .renamed, nil:
                 // A rename that failed leaves the item to the next read.
@@ -65,7 +65,9 @@ struct KeychainCredentialStore: CredentialStoring {
                 // Deleted, or moved by another read, meanwhile.
                 return try self.password(account: key.account)
             case .newNameTaken:
-                try? keychain.delete(account: legacyAccount)
+                if move.deletesLegacyPasswordWhenTaken {
+                    try? keychain.delete(account: move.legacyAccountName)
+                }
                 return try self.password(account: key.account)
             }
         }
@@ -96,16 +98,15 @@ struct KeychainCredentialStore: CredentialStoring {
     /// The others' own passwords under earlier names move first, as their
     /// reads would move them: one left under its earlier name would lose
     /// the current name to the deleted PC's, which its read finds first.
+    /// RDPKit plans the moves; this does them.
     func moveLegacyPasswords(for key: KeychainCredentialKey, keptBy others: [RDPConnectionIdentity]) throws {
-        let namesInUse = Set(others.flatMap(\.legacyCredentialAccountNames))
-        for legacyAccount in namesInUse.sorted() {
+        for move in key.identity.legacyCredentialMoves(keptBy: others) {
             // Not found: there is none. Name taken: a read finds the one
-            // under the current name first, so this one stays as it is.
-            _ = try keychain.rename(account: legacyAccount, to: key.account)
-        }
-        for legacyAccount in key.identity.legacyCredentialAccountNames where namesInUse.contains(legacyAccount) == false {
-            if try keychain.rename(account: legacyAccount, to: key.account) == .newNameTaken {
-                try keychain.delete(account: legacyAccount)
+            // under the current name first.
+            if try keychain.rename(account: move.legacyAccountName, to: move.accountName) == .newNameTaken,
+               move.deletesLegacyPasswordWhenTaken
+            {
+                try keychain.delete(account: move.legacyAccountName)
             }
         }
     }

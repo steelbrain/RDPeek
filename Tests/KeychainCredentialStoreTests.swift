@@ -88,7 +88,8 @@ final class KeychainCredentialStoreTests: XCTestCase {
     /// Deleting a PC for "WinBox" while one for "winbox" remembers the
     /// account: that one never tries the deleted one's legacy name, so a
     /// password under it moves to the account's name, or goes when that
-    /// name has one already. One spelled alike would move it itself.
+    /// name has one already. One spelled alike moves it itself, on its
+    /// next read.
     func testDeletedPCsLegacyPasswordMovesToTheAccountName() throws {
         let key = try typedKey()
         let spelledOtherwise = RDPConnectionIdentity(host: "winbox", username: "anees")
@@ -97,16 +98,23 @@ final class KeychainCredentialStoreTests: XCTestCase {
             ([legacyAccount: "secret"], spelledOtherwise, [currentAccount: "secret"]),
             ([legacyAccount: "older", currentAccount: "newer"], spelledOtherwise, [currentAccount: "newer"]),
             ([currentAccount: "secret"], spelledOtherwise, [currentAccount: "secret"]),
-            ([legacyAccount: "secret"], spelledAlike, [currentAccount: "secret"]),
+            ([legacyAccount: "secret"], spelledAlike, [legacyAccount: "secret"]),
             ([legacyAccount: "older", currentAccount: "newer"], spelledAlike, [legacyAccount: "older", currentAccount: "newer"]),
         ]
         for (saved, keptBy, left) in cases {
             let keychain = KeychainItemsFake(saved)
+            let store = KeychainCredentialStore(keychain: keychain)
 
-            try KeychainCredentialStore(keychain: keychain).moveLegacyPasswords(for: key, keptBy: [keptBy])
+            try store.moveLegacyPasswords(for: key, keptBy: [keptBy])
 
             XCTAssertEqual(keychain.passwords, left, "Saved: \(saved.keys.sorted())")
             XCTAssertEqual(keychain.readAccounts, [])
+            // The PC that keeps the account reads the newest password.
+            XCTAssertEqual(
+                try store.password(for: XCTUnwrap(KeychainCredentialKey(identity: keptBy))),
+                left[currentAccount] ?? left[legacyAccount],
+                "Saved: \(saved.keys.sorted())"
+            )
         }
     }
 
