@@ -118,3 +118,20 @@ final class ConnectionReportSummaryTests: XCTestCase {
         )
     }
 }
+
+@MainActor
+final class DiagnosticsWindowControllerTests: XCTestCase {
+    func testTheTitleFollowsARename() {
+        let model = RemoteSessionDiagnosticsModel()
+        var snapshot = RemoteSessionDiagnosticsSnapshot()
+        snapshot.title = "Office PC"
+        model.updateSnapshot(snapshot)
+        let controller = DiagnosticsWindowController(sessionID: UUID(), title: snapshot.title, model: model)
+        XCTAssertEqual(controller.window?.title, "Office PC Stats for Nerds")
+
+        snapshot.title = "Studio PC"
+        model.updateSnapshot(snapshot)
+
+        XCTAssertEqual(controller.window?.title, "Studio PC Stats for Nerds")
+    }
+}

@@ -61,6 +61,7 @@ targets:
       - path: Sources/ConnectionCenter/DeviceGridNavigation.swift
       - path: Sources/ConnectionCenter/DeviceListModel.swift
       - path: Sources/Diagnostics/DiagnosticsView.swift
+      - path: Sources/Diagnostics/DiagnosticsWindowController.swift
       - path: Sources/Session/FramePacing.swift
       - path: Sources/Session/FramePresentationClockView.swift
       - path: Sources/Session/KeyboardLayouts.swift
