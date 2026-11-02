@@ -19,6 +19,12 @@ env:
   # Build with a pinned Xcode, not whichever one the runner image defaults
   # to; the image installs each Xcode as /Applications/Xcode_<version>.app.
   DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+  HOMEBREW_NO_AUTO_UPDATE: 1
+  # Homebrew installs its current SwiftLint and XcodeGen, not a pinned
+  # release; each install warns when it differs from the versions the
+  # gates are run with locally.
+  SWIFTLINT_VERSION: 0.65.1
+  XCODEGEN_VERSION: 2.46.0
 
 jobs:
   lint:
@@ -29,7 +35,13 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install SwiftLint
-        run: brew install swiftlint
+        run: |
+          brew install swiftlint
+          version=$(swiftlint version)
+          echo "SwiftLint $version"
+          if [ "$version" != "$SWIFTLINT_VERSION" ]; then
+            echo "::warning::CI has SwiftLint $version, not $SWIFTLINT_VERSION."
+          fi
 
       - name: Lint
         run: swiftlint lint --strict --reporter github-actions-logging
@@ -45,7 +57,13 @@ jobs:
         run: xcodebuild -version
 
       - name: Install XcodeGen
-        run: brew install xcodegen
+        run: |
+          brew install xcodegen
+          version=$(xcodegen --version | sed 's/^Version: //')
+          echo "XcodeGen $version"
+          if [ "$version" != "$XCODEGEN_VERSION" ]; then
+            echo "::warning::CI has XcodeGen $version, not $XCODEGEN_VERSION."
+          fi
 
       - name: Cache Swift packages
         uses: actions/cache@v6
