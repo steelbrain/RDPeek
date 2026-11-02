@@ -1441,6 +1441,27 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         ])
     }
 
+    func testJISEisuAndKanaGoAsTheirScancodesAndTheKeypadCommaAsText() {
+        // macOS types a space with Eisu and Kana, and US Windows nothing with the keypad comma's
+        // 0x7E.
+        let harness = makeHarness()
+        for keyCode in [kVK_JIS_Kana, kVK_JIS_Eisu] {
+            harness.view.keyDown(with: keyEvent(.keyDown, keyCode: UInt16(keyCode), characters: " "))
+            harness.view.keyUp(with: keyEvent(.keyUp, keyCode: UInt16(keyCode), characters: " "))
+        }
+        harness.view.keyDown(with: keyEvent(.keyDown, keyCode: UInt16(kVK_JIS_KeypadComma), characters: ","))
+        harness.view.keyUp(with: keyEvent(.keyUp, keyCode: UInt16(kVK_JIS_KeypadComma), characters: ","))
+
+        XCTAssertEqual(harness.recorder.events, [
+            .keyboard(scancode: RDPKeyboardScancode(code: 0x72), isReleased: false),
+            .keyboard(scancode: RDPKeyboardScancode(code: 0x72), isReleased: true),
+            .keyboard(scancode: RDPKeyboardScancode(code: 0x71), isReleased: false),
+            .keyboard(scancode: RDPKeyboardScancode(code: 0x71), isReleased: true),
+            .unicode(codeUnit: 0x2C, isReleased: false),
+            .unicode(codeUnit: 0x2C, isReleased: true),
+        ])
+    }
+
     func testF2SendsItsScancodeInsteadOfAFunctionKeyCharacter() {
         // AppKit reports F2 as the private-use character NSF2FunctionKey,
         // which used to go to the remote as Unicode.

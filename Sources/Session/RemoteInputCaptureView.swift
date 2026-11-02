@@ -811,6 +811,9 @@ enum MacRDPKeyboardMapping {
         // macOS reports the ISO key left of "1" as kVK_ISO_Section; it occupies the grave key's position.
         kVK_ISO_Section: 0x29,
         kVK_JIS_Yen: 0x7D, kVK_JIS_Underscore: 0x73,
+        // 0x7E is the PC keypad comma, which most Windows layouts type nothing with; no table has
+        // the key, so "," goes as Unicode.
+        kVK_JIS_KeypadComma: 0x7E,
         // PC keypads have no "=", so keypad "=" goes as the main-row key that types it on US
         // layouts, and as Unicode where that key types something else (a dead "´" on German).
         kVK_ANSI_KeypadEquals: 0x0D,
@@ -840,7 +843,16 @@ enum MacRDPKeyboardMapping {
         kVK_ANSI_KeypadPlus: RDPKeyboardScancode(code: 0x4E),
         kVK_ANSI_KeypadEnter: RDPKeyboardScancode(code: 0x1C, isExtended: true),
         kVK_ANSI_KeypadDecimal: RDPKeyboardScancode(code: 0x53),
-        kVK_JIS_KeypadComma: RDPKeyboardScancode(code: 0x7E),
+        // Apple's JIS keyboards send Eisu and Kana as HID LANG2 and LANG1, which a PC reads as
+        // 0x71 and 0x72 (set 1's F1 and F2, which have no break code), and FreeRDP's SDL
+        // client sends them so. Windows' Japanese layout turns them into VK_IME_OFF and
+        // VK_IME_ON, Microsoft's keys for turning its IME off and on, as Eisu and Kana switch
+        // the Mac's to Latin and kana input: with a 101-key and a 106/109-key keyboard alike,
+        // Shift held or not (live, 2026-10-29), while the 106/109-key keyboard's own 英数 key
+        // (0x3A) is Caps Lock with Shift. The Mac layouts type a space with them, which must
+        // not reach the server as text.
+        kVK_JIS_Eisu: RDPKeyboardScancode(code: 0x71),
+        kVK_JIS_Kana: RDPKeyboardScancode(code: 0x72),
         kVK_ANSI_Keypad7: RDPKeyboardScancode(code: 0x47), kVK_ANSI_Keypad8: RDPKeyboardScancode(code: 0x48),
         kVK_ANSI_Keypad9: RDPKeyboardScancode(code: 0x49), kVK_ANSI_Keypad4: RDPKeyboardScancode(code: 0x4B),
         kVK_ANSI_Keypad5: RDPKeyboardScancode(code: 0x4C), kVK_ANSI_Keypad6: RDPKeyboardScancode(code: 0x4D),

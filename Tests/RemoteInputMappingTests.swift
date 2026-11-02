@@ -185,6 +185,27 @@ final class RemoteInputMappingTests: XCTestCase {
         )
     }
 
+    /// Eisu and Kana go as LANG2 and LANG1 whatever the Mac types with them (a space), and Yen,
+    /// Ro and the keypad comma as the PC JIS keys, where the layout check decides.
+    func testJISKeysMapToThePCJISScancodes() {
+        let expected: [Int: RDPKeyboardScancode] = [
+            kVK_JIS_Eisu: RDPKeyboardScancode(code: 0x71),
+            kVK_JIS_Kana: RDPKeyboardScancode(code: 0x72),
+            kVK_JIS_Yen: RDPKeyboardScancode(code: 0x7D),
+            kVK_JIS_Underscore: RDPKeyboardScancode(code: 0x73),
+            kVK_JIS_KeypadComma: RDPKeyboardScancode(code: 0x7E),
+        ]
+        for (keyCode, scancode) in expected {
+            XCTAssertEqual(MacRDPKeyboardMapping.scancode(forKeyCode: UInt16(keyCode)), scancode, "key code \(keyCode)")
+        }
+        XCTAssertTrue(sendsScancode(kVK_JIS_Eisu, [], characters: " "))
+        XCTAssertTrue(sendsScancode(kVK_JIS_Kana, [], characters: " "))
+        XCTAssertFalse(sendsScancode(kVK_JIS_Yen, [], characters: "¥"))
+        XCTAssertFalse(sendsScancode(kVK_JIS_Underscore, [], characters: "_"))
+        XCTAssertFalse(sendsScancode(kVK_JIS_KeypadComma, [], characters: ","))
+        XCTAssertFalse(windowsTypes(",", scancode: 0x7E))
+    }
+
     func testKeypadClearDoesNotSendNumLock() {
         XCTAssertNil(MacRDPKeyboardMapping.scancode(forKeyCode: UInt16(kVK_ANSI_KeypadClear)))
     }
