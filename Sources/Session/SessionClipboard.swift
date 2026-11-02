@@ -467,13 +467,18 @@ final class SessionClipboard {
             // Reading up to 32 MiB, or a file iCloud has to download first,
             // on the main thread would stall the window and its input. A
             // newer local copy, remote clipboard, or sharing turned off
-            // cancels the publish.
+            // cancels the publish, and the read with it.
             localFileReadAnnounces = announce
             localFileRead = Task { [weak self] in
-                let payload = await Task.detached(priority: .userInitiated) {
+                let read = Task.detached(priority: .userInitiated) {
                     Self.localFiles(from: fileURLs)
-                }.value
-                guard Task.isCancelled == false, let self else {
+                }
+                let payload = await withTaskCancellationHandler {
+                    await read.value
+                } onCancel: {
+                    read.cancel()
+                }
+                guard Task.isCancelled == false, let payload, let self else {
                     return
                 }
                 localFileRead = nil
@@ -578,11 +583,15 @@ final class SessionClipboard {
         return false
     }
 
-    private nonisolated static func localFiles(from urls: [URL]) -> SessionLocalClipboardPayload {
+    /// What `urls` hold to send, or nil once the read is cancelled.
+    nonisolated static func localFiles(from urls: [URL]) -> SessionLocalClipboardPayload? {
         var files: [RDPClipboardLocalFile] = []
         var totalByteCount = 0
 
         for url in urls {
+            guard Task.isCancelled == false else {
+                return nil
+            }
             let fileURL = url.standardizedFileURL
             // RDPKit offers each name under one Windows accepts, numbered
             // where two clash, and takes "\" as a folder separator. A Mac
@@ -610,10 +619,11 @@ final class SessionClipboard {
                     return .unsupported("Local clipboard files exceed 32 MiB; remote clipboard cleared")
                 }
 
-                let contents = try Data(contentsOf: fileURL)
-                guard contents.count <= sessionMaximumLocalClipboardFileBytes,
-                      totalByteCount <= sessionMaximumLocalClipboardFileBytes - contents.count
-                else {
+                // The file may have grown since its size was read.
+                guard let contents = try fileContents(
+                    of: fileURL,
+                    upTo: sessionMaximumLocalClipboardFileBytes - totalByteCount
+                ) else {
                     return .unsupported("Local clipboard files exceed 32 MiB; remote clipboard cleared")
                 }
                 totalByteCount += contents.count
@@ -624,6 +634,17 @@ final class SessionClipboard {
         }
 
         return files.isEmpty ? .empty : .files(files)
+    }
+
+    /// The contents of `fileURL`, or nil when it holds more than
+    /// `maximumByteCount` bytes, of which no more than one past that is read.
+    nonisolated static func fileContents(of fileURL: URL, upTo maximumByteCount: Int) throws -> Data? {
+        let fileHandle = try FileHandle(forReadingFrom: fileURL)
+        defer {
+            try? fileHandle.close()
+        }
+        let contents = try fileHandle.read(upToCount: maximumByteCount + 1) ?? Data()
+        return contents.count <= maximumByteCount ? contents : nil
     }
 
     // MARK: - Remote file downloads
@@ -839,7 +860,7 @@ final class SessionClipboard {
     }
 }
 
-private enum SessionLocalClipboardPayload: Sendable {
+enum SessionLocalClipboardPayload: Sendable {
     case text(String)
     case files([RDPClipboardLocalFile])
     case empty

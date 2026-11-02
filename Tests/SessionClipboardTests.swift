@@ -842,6 +842,31 @@ final class SessionClipboardTests: XCTestCase {
         )
     }
 
+    /// A file that grew past what is left of the limit since its size was
+    /// checked is refused, without reading it whole.
+    func testLocalFileReadStopsPastTheLimit() throws {
+        let fileURL = try makeLocalFile(named: "grown.bin", contents: Data(count: 11))
+        XCTAssertNil(try SessionClipboard.fileContents(of: fileURL, upTo: 10))
+        XCTAssertEqual(try SessionClipboard.fileContents(of: fileURL, upTo: 11), Data(count: 11))
+        let emptyURL = try makeLocalFile(named: "empty.bin", contents: Data())
+        XCTAssertEqual(try SessionClipboard.fileContents(of: emptyURL, upTo: 0), Data())
+    }
+
+    /// A read whose publish was cancelled, by a newer copy or sharing
+    /// turned off, reads no further file.
+    func testACancelledLocalFileReadStopsBeforeTheNextFile() async throws {
+        let fileURLs = try (0 ..< 2).map { try makeLocalFile(named: "\($0).txt", contents: Data("x".utf8)) }
+        let read = Task.detached {
+            while Task.isCancelled == false {
+                await Task.yield()
+            }
+            return SessionClipboard.localFiles(from: fileURLs) == nil
+        }
+        read.cancel()
+        let stopped = await read.value
+        XCTAssertTrue(stopped)
+    }
+
     // MARK: - Remote files
 
     func testRemoteFileArrivesOverRangesTheServerAnswersShort() throws {
