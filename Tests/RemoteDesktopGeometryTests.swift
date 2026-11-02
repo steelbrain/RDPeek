@@ -43,49 +43,47 @@ final class RemoteDesktopGeometryTests: XCTestCase {
         }
     }
 
-    func testWholeFrameMapsThePointerAsTheCanvasDidBefore() {
-        // Hover, clicks and scrolls map through RDPKit's viewport, and a drag stops on the
-        // desktop's edge, at every point of the canvas and around it.
+    func testWholeFrameMapsThePointerAsRDPKitsInputViewDoes() {
+        // Hover, clicks and scrolls map, and a drag stops on the desktop's edge, exactly as
+        // RDPKit's input view maps a frame it is given on its own, at every point of the canvas
+        // and around it, and on each of the content's edges and a fraction of a device pixel
+        // either side, where rounding could tell two ways of mapping apart.
         for scale in [1.0, 2.0] {
             for (frame, canvas) in wholeFrameCases {
-                let baseline = makeBaseline(frame: frame, canvas: canvas, scale: scale)
+                let viewport = makeInputViewViewport(frame: frame, canvas: canvas, scale: scale)
                 let geometry = RemoteDesktopGeometry(
                     frameSize: frame,
                     visibleRects: nil,
                     bounds: CGRect(origin: .zero, size: canvas),
                     backingScaleFactor: scale
                 )
-                for point in grid(around: canvas) {
-                    let message = "\(point) for \(frame) in \(canvas) at \(scale)x"
-
-                    XCTAssertEqual(geometry.remotePoint(at: point), baseline.remotePoint(at: point), message)
-                    XCTAssertEqual(geometry.nearestRemotePoint(to: point), baseline.draggedPoint(to: point), message)
+                let points = grid(around: canvas) + edgeBands(of: viewport.contentRect, around: canvas)
+                let mismatches = points.filter { point in
+                    geometry.remotePoint(at: point) != viewport.remotePoint(from: point)
+                        || geometry.nearestRemotePoint(to: point) != viewport.nearestRemotePoint(from: point)
                 }
+
+                XCTAssertEqual(geometry.contentRect, viewport.contentRect, "\(frame) in \(canvas) at \(scale)x")
+                XCTAssertEqual(mismatches, [], "\(frame) in \(canvas) at \(scale)x")
             }
         }
     }
 
-    func testWholeFrameMapsTheContentsEdgesAsTheCanvasDidBefore() {
-        // Exactly on an edge, and a fraction of a device pixel either side, is where rounding
-        // could tell two ways of mapping apart: 1280 x 800 in 1283 x 805 at 2x once took a hover
-        // on its top edge that the canvas had ignored.
-        for scale in [1.0, 2.0] {
-            for (frame, canvas) in wholeFrameCases {
-                let baseline = makeBaseline(frame: frame, canvas: canvas, scale: scale)
-                let geometry = RemoteDesktopGeometry(
-                    frameSize: frame,
-                    visibleRects: nil,
-                    bounds: CGRect(origin: .zero, size: canvas),
-                    backingScaleFactor: scale
-                )
-                let mismatches = edgeBands(of: baseline.drawnRect, around: canvas).filter { point in
-                    geometry.remotePoint(at: point) != baseline.remotePoint(at: point)
-                        || geometry.nearestRemotePoint(to: point) != baseline.draggedPoint(to: point)
-                }
+    func testADragPastTheWholeFrameStopsOnItsEdge() {
+        // A 100 x 100 desktop letterboxed in a 200 x 100 canvas spans x 50-150. A drag that
+        // leaves it holds the pointer on its edge, the bottom row too; a plain move there maps
+        // to no pixel.
+        let geometry = RemoteDesktopGeometry(
+            frameSize: CGSize(width: 100, height: 100),
+            visibleRects: nil,
+            bounds: CGRect(x: 0, y: 0, width: 200, height: 100),
+            backingScaleFactor: 1
+        )
 
-                XCTAssertEqual(mismatches, [], "\(frame) in \(canvas) at \(scale)x")
-            }
-        }
+        XCTAssertNil(geometry.remotePoint(at: CGPoint(x: 180, y: 50)))
+        XCTAssertEqual(geometry.nearestRemotePoint(to: CGPoint(x: 180, y: 50)), RDPRemotePoint(x: 99, y: 50))
+        XCTAssertEqual(geometry.nearestRemotePoint(to: CGPoint(x: 10, y: -20)), RDPRemotePoint(x: 0, y: 99))
+        XCTAssertEqual(geometry.nearestRemotePoint(to: CGPoint(x: 100, y: 130)), RDPRemotePoint(x: 50, y: 0))
     }
 
     // MARK: - Chosen displays
@@ -115,8 +113,9 @@ final class RemoteDesktopGeometryTests: XCTestCase {
     }
 
     func testChosenDisplaysKeepRDPKitsEdges() {
-        // The content's top and right edges are outside it and its bottom edge maps to the last
-        // row, as RDPKit maps the whole frame.
+        // The content's top edge maps to the first row, and its bottom and right edges are
+        // outside it, as RDPKit maps the whole frame: AppKit reports the mouse in a view's top
+        // pixel row at the view's maxY.
         let geometry = RemoteDesktopGeometry(
             frameSize: CGSize(width: 3840, height: 1080),
             visibleRects: [CGRect(x: 1920, y: 0, width: 1920, height: 1080)],
@@ -124,9 +123,10 @@ final class RemoteDesktopGeometryTests: XCTestCase {
             backingScaleFactor: 2
         )
 
-        XCTAssertNil(geometry.remotePoint(at: CGPoint(x: 720, y: 841)))
+        XCTAssertEqual(geometry.remotePoint(at: CGPoint(x: 720, y: 841)), RDPRemotePoint(x: 2880, y: 0))
         XCTAssertNil(geometry.remotePoint(at: CGPoint(x: 1440, y: 400)))
-        XCTAssertEqual(geometry.remotePoint(at: CGPoint(x: 0, y: 31)), RDPRemotePoint(x: 1920, y: 1079))
+        XCTAssertNil(geometry.remotePoint(at: CGPoint(x: 0, y: 31)))
+        XCTAssertEqual(geometry.remotePoint(at: CGPoint(x: 0, y: 31.25)), RDPRemotePoint(x: 1920, y: 1079))
     }
 
     func testCoversAndTheClipLieOnWholeDevicePixels() throws {
@@ -355,7 +355,6 @@ final class RemoteDesktopGeometryTests: XCTestCase {
     /// What the canvas did before this geometry: RDPKit's viewport over the canvas, with the
     /// video and input views shifted so the content starts on a device pixel.
     private struct Baseline {
-        let viewport: RDPRemoteDisplayViewport
         /// The content in the shifted views' own coordinates.
         let desktop: CGRect
         let shift: CGVector
@@ -363,21 +362,6 @@ final class RemoteDesktopGeometryTests: XCTestCase {
 
         var drawnRect: CGRect {
             desktop.offsetBy(dx: shift.dx, dy: shift.dy)
-        }
-
-        func remotePoint(at point: CGPoint) -> RDPRemotePoint? {
-            viewport.remotePoint(from: viewPoint(point), contentRect: desktop)
-        }
-
-        func draggedPoint(to point: CGPoint) -> RDPRemotePoint? {
-            var local = viewPoint(point)
-            local.x = min(max(local.x, desktop.minX), desktop.maxX.nextDown)
-            local.y = min(max(local.y, desktop.minY), desktop.maxY.nextDown)
-            return viewport.remotePoint(from: local, contentRect: desktop)
-        }
-
-        private func viewPoint(_ point: CGPoint) -> CGPoint {
-            CGPoint(x: point.x - shift.dx, y: point.y - shift.dy)
         }
     }
 
@@ -396,10 +380,25 @@ final class RemoteDesktopGeometryTests: XCTestCase {
         let shift = CGVector(dx: aligned.minX - desktop.minX, dy: aligned.minY - desktop.minY)
         window.contentView = nil
         return Baseline(
-            viewport: viewport,
             desktop: desktop,
             shift: shift,
             videoLayerFrame: view.bounds.offsetBy(dx: shift.dx, dy: shift.dy)
+        )
+    }
+
+    /// The viewport RDPKit's input view maps a whole frame with, given only the frame, in a view
+    /// filling a window of the canvas's size and scale.
+    private func makeInputViewViewport(frame: CGSize, canvas: CGSize, scale: CGFloat) -> RDPRemoteDisplayViewport {
+        let window = TestWindow(size: canvas)
+        window.scale = scale
+        let view = NSView(frame: CGRect(origin: .zero, size: canvas))
+        window.contentView = view
+        defer {
+            window.contentView = nil
+        }
+        return RDPRemoteDisplayViewport(
+            frame: makeFrameMetadata(width: UInt16(frame.width), height: UInt16(frame.height)),
+            view: view
         )
     }
 
