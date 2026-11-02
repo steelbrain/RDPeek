@@ -72,10 +72,10 @@ final class SessionClipboardTests: XCTestCase {
                 "2 remote files copied without their folders",
                 copied
             ),
-            (.downloadFailed(.download(.timedOut)), "Remote file transfer timed out", warning),
-            (.downloadFailed(.download(.refused)), "Remote file transfer failed", warning),
-            (.downloadFailed(.download(.incomplete)), "Remote file transfer was incomplete", warning),
-            (.downloadFailed(.download(.totalByteLimitExceeded)), "Remote files exceed 32 MiB", warning),
+            (.downloadFailed(.timedOut), "Remote file transfer timed out", warning),
+            (.downloadFailed(.refused), "Remote file transfer failed", warning),
+            (.downloadFailed(.incomplete), "Remote file transfer was incomplete", warning),
+            (.downloadFailed(.totalByteLimitExceeded), "Remote files exceed 32 MiB", warning),
             (.downloadFailed(.folderNotCreated), "Remote files could not be prepared", warning),
             (.downloadFailed(.notSaved), "Remote file could not be saved", warning),
             (.downloadFailed(.clipboardChanged), "Clipboard changed; remote files were not copied", warning),
@@ -90,16 +90,8 @@ final class SessionClipboardTests: XCTestCase {
         }
 
         // The server's clipboard emptied while the pasteboard holds something
-        // else, and the two reasons the bridge never reports, which a newer
-        // copy or the session's end say themselves.
-        let silent: [RDPPasteboardClipboard.Event] = [
-            .remoteClipboardEmptied(clearedHere: false),
-            .downloadFailed(.download(.replaced)),
-            .downloadFailed(.download(.sessionEnded)),
-        ]
-        for event in silent {
-            XCTAssertNil(SessionClipboard.toast(for: event), "\(event)")
-        }
+        // else is no news.
+        XCTAssertNil(SessionClipboard.toast(for: .remoteClipboardEmptied(clearedHere: false)))
     }
 
     // MARK: - Earlier runs' downloads

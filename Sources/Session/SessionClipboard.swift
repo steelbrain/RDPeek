@@ -103,9 +103,7 @@ enum SessionClipboard {
         case let .remoteFilesCopied(download):
             SessionToast(text: remoteFilesCopiedMessage(for: download), systemImage: "doc.on.clipboard")
         case let .downloadFailed(failure):
-            downloadFailureMessage(for: failure).map {
-                SessionToast(text: $0, systemImage: "exclamationmark.triangle")
-            }
+            SessionToast(text: downloadFailureMessage(for: failure), systemImage: "exclamationmark.triangle")
         case .temporarySharingStarted:
             SessionToast(text: "Sharing clipboard for 30 seconds", systemImage: "clock")
         case .temporarySharingEnded:
@@ -152,21 +150,18 @@ enum SessionClipboard {
         return "\(download.fileURLs.count) remote files copied\(folders)"
     }
 
-    /// Why a download failed, or nil when there is nothing to say.
-    private static func downloadFailureMessage(for failure: RDPPasteboardClipboard.DownloadFailure) -> String? {
+    /// Why a download failed. A download a newer copy or the session's end
+    /// replaced has no failure: what replaced it says so itself.
+    private static func downloadFailureMessage(for failure: RDPPasteboardClipboard.DownloadFailure) -> String {
         switch failure {
-        case .download(.timedOut):
+        case .timedOut:
             "Remote file transfer timed out"
-        case .download(.refused):
+        case .refused:
             "Remote file transfer failed"
-        case .download(.incomplete):
+        case .incomplete:
             "Remote file transfer was incomplete"
-        case .download(.totalByteLimitExceeded):
+        case .totalByteLimitExceeded:
             "Remote files exceed 32 MiB"
-        case .download(.replaced), .download(.sessionEnded):
-            // The bridge reports neither: a newer copy or the session's end
-            // replaced the download, and says so itself.
-            nil
         case .folderNotCreated:
             "Remote files could not be prepared"
         case .notSaved:
