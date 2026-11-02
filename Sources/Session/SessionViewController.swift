@@ -81,19 +81,11 @@ final class SessionViewController: NSViewController {
     /// The next resize goes out even when it is the size sent last: since
     /// that went out, the server laid out several monitors, or Match Window
     /// Size was turned off and on again, and the server may have left that
-    /// size meanwhile. The last request stays recorded: keyframe requests
-    /// send it again at its own scale.
+    /// size meanwhile.
     private var resendsWindowSize = false
-    /// The last resize went out, and the server has not answered it yet
-    /// with a new layout: it still reports the size before. Keyframe
-    /// requests then send that resize again, even with Match Window Size
-    /// turned off since, rather than the size reported, which would undo
-    /// it.
-    private var isResizeInFlight = false
-    /// A keyframe a frame asked for before Display Control was ready, sent
-    /// once it is, and which connection Display Control came from, so a
-    /// server redirection's target does not keep the first server's.
-    private var keyframeRequestHold = SessionKeyframeRequestHold()
+    /// How many server redirections led to the connection whose Display
+    /// Control the session has; nil while it has none.
+    private var displayControlRedirectionDepth: Int?
     private var viewerPixelSize: RDPViewerPixelSize?
     /// The monitors the server's latest delivered frame reports, which
     /// window matching goes by; a frame that could not be shown counts too.
@@ -954,13 +946,6 @@ final class SessionViewController: NSViewController {
         let acceptsUntrustedCertificates = draft.hideCertificateWarnings
         let remoteAudioPlayer = remoteAudioPlayer
         let port = configuration.port
-        // The desktop this attempt connects with, at the scale it connects
-        // with: what the server has until Display Control resizes it.
-        let connectLayout = RDPDisplayRequest(
-            width: UInt32(configuration.desktopWidth),
-            height: UInt32(configuration.desktopHeight),
-            scaleFactors: configuration.scaleFactors
-        )
         // RDPLiveSession runs RDPSessionClient.run on a thread of its own, as
         // it blocks for the whole session, decodes frames off it, and hands
         // its events to the main queue in order.
@@ -1017,7 +1002,6 @@ final class SessionViewController: NSViewController {
                 }
             )
         ) { run in
-            var keyframeRequests = RDPKeyframeRequestThrottle()
             // The monitors and graphics output size the server reported
             // last, so the main thread hears of a new layout once, not with
             // every frame.
@@ -1042,26 +1026,11 @@ final class SessionViewController: NSViewController {
                             controller.updateReportedMonitors(monitors)
                         }
                     }
-                    // The session decodes the frame, and throws for one
-                    // that failed to decode.
-                    let completion: RDPFrameDecodeCompletion
-                    do {
-                        try run.onGraphicsFrame(frame)
-                        completion = .decoded
-                    } catch let notPresented as RDPGraphicsFrameNotPresented {
-                        completion = .failed(errorDescription: notPresented.reason)
-                    }
-                    try keyframeRequests.finishGraphicsFrame(frame, decoded: completion, at: Date()) {
-                        let monitors = frame.monitors
-                        let graphicsOutputRect = frame.graphicsOutputRect
-                        sink.apply { controller in
-                            controller.requestKeyframe(
-                                monitors: monitors,
-                                graphicsOutputRect: graphicsOutputRect,
-                                connectLayout: connectLayout
-                            )
-                        }
-                    }
+                    // The session decodes the frame. One that failed to
+                    // decode is not shown, and for video the session asks
+                    // the server for a keyframe itself, with a layout that
+                    // keeps its desktop as it is.
+                    try run.onGraphicsFrame(frame)
                 },
                 // Each session carries its connection's context, which a
                 // redirection the main thread hears of first does not move
@@ -1164,13 +1133,10 @@ final class SessionViewController: NSViewController {
         let context = session.connectionContext
         inputSession = session
         // A Display Control session from before a redirection sends
-        // nothing, and RDPKit does not say so. RDPKit 0.6.0 hands out the
-        // target's input session when its Font Map ends the activation
-        // (SessionDispatch.swift:163-173, 404-418). It does not hold frames
-        // back until then, but servers open their graphics channel after
-        // it, so this runs before the target's first frame can ask for a
-        // keyframe, which then waits for the target's own Display Control.
-        if keyframeRequestHold.sessionActivated(redirectionDepth: context.redirectionDepth) {
+        // nothing, and RDPKit does not say so: resizes wait for the
+        // target's own. A reactivation of the same connection keeps it.
+        if let displayControlRedirectionDepth, context.redirectionDepth > displayControlRedirectionDepth {
+            self.displayControlRedirectionDepth = nil
             displayControlSession = nil
             cancelPendingDisplayResize()
         }
@@ -1286,12 +1252,10 @@ final class SessionViewController: NSViewController {
 
     /// Drops what a session handed out, so nothing more is sent to it once
     /// it has ended — however it ended. The layout it reported goes with
-    /// it: a session that is over pauses nothing. So does a keyframe
-    /// request still waiting for Display Control, which must not reach the
-    /// next connection's server: it never sent the frame that asked.
+    /// it: a session that is over pauses nothing.
     private func detachSessionChannels() {
         cancelPendingDisplayResize(resetLastRequestedSize: true)
-        keyframeRequestHold = SessionKeyframeRequestHold()
+        displayControlRedirectionDepth = nil
         reportedMonitors = []
         inputSession = nil
         displayControlSession = nil
@@ -1304,9 +1268,6 @@ final class SessionViewController: NSViewController {
 
     @discardableResult
     private func presentDecodedFrame(_ presentation: RDPDecodedFramePresentation) -> Bool {
-        if presentation.frame.contentKind == .video {
-            keyframeRequestHold.recordDecodedVideo()
-        }
         // The first frame shows at once; later ones wait for the display's
         // next refresh, unless there is no clock to wait for: none while the
         // clock is off or the view has no window.
@@ -1495,9 +1456,6 @@ final class SessionViewController: NSViewController {
     /// with none listed. Several monitors pause window matching; back at
     /// one, it resumes without the user doing anything.
     private func updateReportedMonitors(_ monitors: [RDPRemoteMonitor]) {
-        // The server reset its graphics: for the resize in flight, if any,
-        // or for a layout of its own that replaced it.
-        isResizeInFlight = false
         if SessionDisplayControlPolicy.reportsSeveralMonitors(monitors) {
             resendsWindowSize = true
         }
@@ -1544,9 +1502,8 @@ final class SessionViewController: NSViewController {
         )
     }
 
-    /// Records the request only once it goes out. Keyframe requests send the
-    /// recorded one again, and one the server's capabilities refused would
-    /// be refused again, so no keyframe would be asked for at all.
+    /// Records the request only once it goes out: one the server's
+    /// capabilities refused is not the size the server was sent last.
     private func applyDisplayRequestToActiveSession(_ request: RDPDisplayRequest) {
         guard let displayControlSession else {
             return
@@ -1559,7 +1516,6 @@ final class SessionViewController: NSViewController {
             return
         }
         lastRequestedDisplayRequest = request
-        isResizeInFlight = true
         resendsWindowSize = false
         requestedDesktopSizeLabel = request.label
     }
@@ -1568,67 +1524,12 @@ final class SessionViewController: NSViewController {
     /// connection the session's context says redirections led to.
     private func displayControlReady(_ session: RDPDisplayControlSession) {
         displayControlSession = session
+        displayControlRedirectionDepth = session.connectionContext.redirectionDepth
         // A server redirection's target has not been sent the layout the
         // first server got.
         lastRequestedDisplayRequest = nil
-        isResizeInFlight = false
-        // The held request goes out although Match Window Size may send a
-        // layout 350 ms from now, which brings a keyframe too. The extra
-        // graphics reset happens only after a first frame failed, and the
-        // request always goes out before that resize, so it cannot undo it.
-        let keyframeRequest = keyframeRequestHold.displayControlReady(
-            redirectionDepth: session.connectionContext.redirectionDepth,
-            reportedMonitors: reportedMonitors
-        )
-        sendKeyframeRequest(keyframeRequest, through: session)
         scheduleAutoDisplaySizeUpdate()
         render()
-    }
-
-    /// Windows and gnome-remote-desktop send no keyframe by themselves, but
-    /// answer the monitor layout sent again with one. The policy picks a
-    /// layout the server already has, so asking never resizes or rescales
-    /// the desktop, or merges its monitors into one. `monitors` are those
-    /// of the frame that failed to decode. Before Display Control is ready,
-    /// the request waits for it.
-    private func requestKeyframe(
-        monitors: [RDPRemoteMonitor],
-        graphicsOutputRect: RDPFrameRect?,
-        connectLayout: RDPDisplayRequest
-    ) {
-        guard let displayControlSession else {
-            keyframeRequestHold.hold(
-                graphicsOutputRect: graphicsOutputRect,
-                connectLayout: connectLayout
-            )
-            return
-        }
-        let keyframeRequest = SessionDisplayControlPolicy.keyframeRequest(
-            lastSent: lastRequestedDisplayRequest,
-            isWindowMatchingInEffect: isWindowMatchingInEffect,
-            isResizeInFlight: isResizeInFlight,
-            reportedMonitors: monitors,
-            graphicsOutputRect: graphicsOutputRect,
-            connectLayout: connectLayout
-        )
-        sendKeyframeRequest(keyframeRequest, through: displayControlSession)
-    }
-
-    private func sendKeyframeRequest(
-        _ keyframeRequest: SessionKeyframeRequest?,
-        through session: RDPDisplayControlSession
-    ) {
-        switch keyframeRequest {
-        case let .request(request):
-            session.send(request)
-        case let .layout(layout):
-            // A layout the server's capabilities refuse stays unsent; the
-            // video then waits for the server's next keyframe. RDPKit 0.7
-            // prep: whether it went out is not used yet.
-            _ = try? session.send(layout)
-        case nil:
-            break
-        }
     }
 
     private func cancelPendingDisplayResize(resetLastRequestedSize: Bool = false) {
@@ -1636,7 +1537,6 @@ final class SessionViewController: NSViewController {
         pendingDisplayResizeTask = nil
         if resetLastRequestedSize {
             lastRequestedDisplayRequest = nil
-            isResizeInFlight = false
             resendsWindowSize = false
         }
     }

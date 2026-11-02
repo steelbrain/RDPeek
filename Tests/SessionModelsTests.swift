@@ -793,68 +793,6 @@ final class SessionModelsTests: XCTestCase {
         XCTAssertEqual(identity.credentialAccountName, "CORP\\anees@winbox:3389")
     }
 
-    // MARK: - Keyframe requests
-
-    func testKeyframeRequestsArePacedAndStopUntilVideoDecodesAgain() {
-        var throttle = RDPKeyframeRequestThrottle()
-        let start = Date()
-        func requests(atIntervals intervals: [Double]) -> [Bool] {
-            intervals.map {
-                throttle.shouldRequest(at: start.addingTimeInterval($0 * RDPKeyframeRequestThrottle.minimumInterval))
-            }
-        }
-
-        XCTAssertEqual(requests(atIntervals: [0, 0.5, 1, 2, 3]), [true, false, true, true, false])
-
-        throttle.recordDecodedVideo()
-
-        XCTAssertEqual(requests(atIntervals: [4]), [true])
-    }
-
-    /// A frame that fails to decode keeps the session and is acknowledged, but RDPKit hears it was
-    /// not shown, so a session none of whose frames decode ends at the connection timeout instead
-    /// of staying on "Connecting…". Failed video asks for a keyframe, at the throttle's pace.
-    func testFramesThatFailToDecodeAreNotShownAndVideoAsksForAKeyframe() {
-        var throttle = RDPKeyframeRequestThrottle()
-        var keyframeRequests = 0
-        let start = Date()
-        let video = RDPGraphicsFrameSnapshot(
-            frameID: 1,
-            surfaceID: 1,
-            codecID: 0x000B,
-            codecName: "avc420",
-            pixelFormat: 0x20,
-            destinationRect: RDPFrameRect(left: 0, top: 0, right: 64, bottom: 64),
-            regionRects: [],
-            encodedVideoData: Data([0, 0, 0, 1, 0x65])
-        )
-        var bitmap = video
-        bitmap.contentKind = .bitmap
-        func finish(_ frame: RDPGraphicsFrameSnapshot, _ completion: RDPFrameDecodeCompletion, after seconds: TimeInterval) -> String? {
-            do {
-                try throttle.finishGraphicsFrame(frame, decoded: completion, at: start.addingTimeInterval(seconds)) {
-                    keyframeRequests += 1
-                }
-                return nil
-            } catch {
-                return "\(type(of: error)): \(error)"
-            }
-        }
-
-        XCTAssertEqual(
-            finish(video, .failed(errorDescription: "awaiting a keyframe"), after: 0),
-            "RDPGraphicsFrameNotPresented: awaiting a keyframe"
-        )
-        XCTAssertEqual(keyframeRequests, 1)
-        XCTAssertEqual(finish(bitmap, .failed(errorDescription: "bad bitmap"), after: 10), "RDPGraphicsFrameNotPresented: bad bitmap")
-        XCTAssertEqual(keyframeRequests, 1)
-        XCTAssertNil(finish(video, .decoded, after: 11))
-        XCTAssertEqual(
-            finish(video, .cancelled, after: 12),
-            "RDPFrameDecodeQueueError: frame decode was cancelled before updating the graphics output"
-        )
-    }
-
     // MARK: - Initial desktop size
 
     func testInitialDesktopMatchesTheDisplayControlLayoutAt1x() throws {
