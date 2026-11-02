@@ -427,9 +427,6 @@ enum SessionAutoRetryReason: Equatable {
 /// What a session does next when a connection attempt ends without the
 /// user ending it.
 enum SessionAttemptOutcome: Equatable {
-    /// Connect again at once offering only RSA key exchange: the server's
-    /// certificate does not allow the ECDHE key exchange offered first.
-    case retryWithLegacyRSAKeyExchange
     /// Connect again after a short pause.
     case retry(SessionAutoRetryReason)
     /// Ask for the user name and password again, saying why.
@@ -450,24 +447,22 @@ enum SessionAttemptOutcome: Equatable {
     ///   `maximumUnreachableRetries` times. A host name that does not
     ///   resolve stays wrong, and a server that refused the connection or a
     ///   connection macOS did not allow is not tried again.
-    /// - A certificate that refuses ECDHE gets one attempt with RSA key
-    ///   exchange; the handshake failed before any credential was sent.
     /// - A server that activated the session but did not show the desktop
     ///   in time (RDPKit bounds the wait for the first frame) gets one more
     ///   attempt, with the same credentials.
     ///
-    /// A licensing failure is not retried: RDPKit already connected again
-    /// without the stored client license, if one was presented.
+    /// RDPKit already made the other attempts within the run: one offering
+    /// only RSA key exchange to a certificate that refused ECDHE, and one
+    /// without a stored client license the server's licensing refused. A
+    /// failure either ends the run with stays.
     ///
     /// After a Server Redirection (`redirectionDepth` above 0) the server
     /// typed in took the sign-in and passed the session on, so a target
-    /// that fails to connect or to set up TLS is neither retried nor sent
-    /// the credentials again without forward secrecy.
+    /// that fails to connect is not retried.
     static func after(
         _ report: RDPConnectionReport,
         host: String,
         presentedFrames: Bool,
-        usedLegacyRSAKeyExchange: Bool = false,
         unreachableRetriesSpent: Int = 0,
         retriedFirstFrameTimeout: Bool = false
     ) -> Self {
@@ -486,8 +481,6 @@ enum SessionAttemptOutcome: Equatable {
             case .refused, .notPermitted:
                 break
             }
-        case .tlsKeyUsageIncorrect where isRedirected == false && usedLegacyRSAKeyExchange == false:
-            return .retryWithLegacyRSAKeyExchange
         case let .credSSP(status) where RDPSessionEndReason.isWrongCredentials(status):
             return .promptForCredentials(message: RDPSessionEndReason.wrongCredentialsMessage)
         case .credentialsRequired, .negotiation(code: .hybridRequiredByServer):
@@ -520,10 +513,6 @@ struct SessionAttemptBudget {
     /// started the connection or the desktop last showed.
     private(set) var unreachableRetriesSpent = 0
     private(set) var retriedFirstFrameTimeout = false
-    /// This connection offers only RSA key exchange, after the server's
-    /// certificate turned down ECDHE. Not saved: every connection tries
-    /// ECDHE first.
-    private(set) var usesLegacyRSAKeyExchange = false
     /// The attempt under way sent credentials, which its first activation
     /// decides on.
     private var isAwaitingSignIn = false
@@ -552,14 +541,12 @@ struct SessionAttemptBudget {
     func outcome(
         after report: RDPConnectionReport,
         host: String,
-        presentedFrames: Bool,
-        usedLegacyRSAKeyExchange: Bool
+        presentedFrames: Bool
     ) -> SessionAttemptOutcome {
         SessionAttemptOutcome.after(
             report,
             host: host,
             presentedFrames: presentedFrames,
-            usedLegacyRSAKeyExchange: usedLegacyRSAKeyExchange,
             unreachableRetriesSpent: unreachableRetriesSpent,
             retriedFirstFrameTimeout: retriedFirstFrameTimeout
         )
@@ -568,8 +555,6 @@ struct SessionAttemptBudget {
     /// Spends the retry `outcome` makes, if any.
     mutating func record(_ outcome: SessionAttemptOutcome) {
         switch outcome {
-        case .retryWithLegacyRSAKeyExchange:
-            usesLegacyRSAKeyExchange = true
         case .retry(.networkHiccup):
             unreachableRetriesSpent += 1
         case .retry(.firstFrameTimeout):

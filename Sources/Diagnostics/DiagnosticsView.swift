@@ -117,6 +117,19 @@ func connectionTargetSummary(_ report: RDPConnectionReport) -> String {
     }
 }
 
+/// Which key exchange TLS offered: only RSA, with no forward secrecy, once
+/// RDPKit fell back to it for a certificate that refused ECDHE.
+func keyExchangeSummary(_ report: RDPConnectionReport?) -> String {
+    switch report?.usedLegacyRSAKeyExchange {
+    case true?:
+        "RSA only, no forward secrecy: the server's certificate refused ECDHE"
+    case false?:
+        "default"
+    case nil:
+        "not negotiated"
+    }
+}
+
 /// How the server ended the session, when it said: the Set Error Info
 /// code's name, the Disconnect Provider Ultimatum reason, and RDPKit's
 /// category for them.
@@ -219,7 +232,6 @@ struct RemoteSessionDiagnosticsSnapshot: Equatable {
     /// have changed since.
     var connectionRequestsAudio = false
     var certificateTrustedByApp = false
-    var usesLegacyRSAKeyExchange = false
     var isConnecting = false
 }
 
@@ -270,12 +282,7 @@ struct RemoteSessionDiagnosticsWindowContent: View {
                     DiagnosticRow("Warnings", warnings(snapshot.report))
                     DiagnosticRow("Requested Desktop", snapshot.requestedDesktopSize)
                     DiagnosticRow("Viewer Size", snapshot.viewerPixelSize?.label ?? "unknown")
-                    DiagnosticRow(
-                        "Key Exchange",
-                        snapshot.usesLegacyRSAKeyExchange
-                            ? "RSA only, no forward secrecy: the server's certificate refused ECDHE"
-                            : "default"
-                    )
+                    DiagnosticRow("Key Exchange", keyExchangeSummary(snapshot.report))
                     DiagnosticRow("Certificate", certificateState(snapshot))
                     DiagnosticRow("Input", inputState(snapshot))
                     DiagnosticRow("Display Control", snapshot.displayControlReady ? "ready" : "not ready")

@@ -89,6 +89,19 @@ final class ConnectionReportSummaryTests: XCTestCase {
         )
     }
 
+    func testKeyExchangeSaysWhenRDPKitFellBackToRSA() {
+        var report = report(redirectionDepth: 0)
+        XCTAssertEqual(keyExchangeSummary(nil), "not negotiated")
+        XCTAssertEqual(keyExchangeSummary(report), "not negotiated")
+        report.usedLegacyRSAKeyExchange = false
+        XCTAssertEqual(keyExchangeSummary(report), "default")
+        report.usedLegacyRSAKeyExchange = true
+        XCTAssertEqual(
+            keyExchangeSummary(report),
+            "RSA only, no forward secrecy: the server's certificate refused ECDHE"
+        )
+    }
+
     func testTerminationNamesTheServersCodesAndTheirCategory() {
         XCTAssertEqual(remoteTerminationSummary(nil), "none")
         XCTAssertEqual(

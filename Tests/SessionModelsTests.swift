@@ -427,12 +427,14 @@ final class SessionModelsTests: XCTestCase {
         }
     }
 
-    func testKeyUsageFailureFallsBackToLegacyRSAOnce() {
-        let report = makeReport(stage: "tls-handshake", failure: .tlsKeyUsageIncorrect)
+    func testKeyUsageFailureEndsAsRDPKitFellBackToRSA() {
+        // RDPKit connects again within the run offering only RSA key
+        // exchange, so a certificate that still refuses it ends there.
+        var report = makeReport(stage: "tls-handshake", failure: .tlsKeyUsageIncorrect)
+        report.usedLegacyRSAKeyExchange = true
 
-        XCTAssertEqual(outcome(after: report), .retryWithLegacyRSAKeyExchange)
         XCTAssertEqual(
-            outcome(after: report, usedLegacyRSAKeyExchange: true),
+            outcome(after: report),
             .end(RDPSessionEndReason(
                 kind: .failed,
                 message: "A secure connection to the remote computer could not be set up."
@@ -440,10 +442,10 @@ final class SessionModelsTests: XCTestCase {
         )
     }
 
-    func testKeyUsageFailureAfterARedirectIsNotRetriedWithLegacyRSA() {
-        // The server typed in took the sign-in and passed the session on:
-        // retrying it with RSA key exchange would send it the credentials
-        // without forward secrecy.
+    func testKeyUsageFailureAfterARedirectBlamesThePassingServer() {
+        // The server typed in took the sign-in and passed the session on,
+        // and RDPKit does not fall back to RSA key exchange for its target:
+        // that would send it the credentials without forward secrecy.
         let report = makeReport(
             stage: "tls-handshake",
             target: "host2:3389",
@@ -595,22 +597,16 @@ final class SessionModelsTests: XCTestCase {
     }
 
     func testEachAutomaticRetryHappensOnce() {
-        let reports = [
-            makeReport(stage: "rdp-graphics-dynamic-channel", failure: .timedOut),
-            makeReport(stage: "tls-handshake", failure: .tlsKeyUsageIncorrect),
-        ]
-        for report in reports {
-            var budget = SessionAttemptBudget()
-            budget.userStarted()
+        let report = makeReport(stage: "rdp-graphics-dynamic-channel", failure: .timedOut)
+        var budget = SessionAttemptBudget()
+        budget.userStarted()
 
-            XCTAssertEqual(retriesUntilTheEnd(of: &budget, feeding: report), 1, "\(String(describing: report.failure))")
-        }
+        XCTAssertEqual(retriesUntilTheEnd(of: &budget, feeding: report), 1)
     }
 
     func testMixedFailuresStillEnd() {
         let reports = [
             makeReport(stage: "x224-rdp-negotiation", failure: .connect(error: RDPSocketError(errno: ETIMEDOUT))),
-            makeReport(stage: "tls-handshake", failure: .tlsKeyUsageIncorrect),
             makeReport(stage: "rdp-graphics-dynamic-channel", failure: .timedOut),
         ]
         var budget = SessionAttemptBudget()
@@ -621,8 +617,7 @@ final class SessionModelsTests: XCTestCase {
             let outcome = budget.outcome(
                 after: reports[attempts % reports.count],
                 host: "winbox",
-                presentedFrames: false,
-                usedLegacyRSAKeyExchange: budget.usesLegacyRSAKeyExchange
+                presentedFrames: false
             )
             budget.record(outcome)
             attempts += 1
@@ -631,7 +626,7 @@ final class SessionModelsTests: XCTestCase {
             }
         }
 
-        XCTAssertLessThanOrEqual(attempts, SessionAttemptOutcome.maximumUnreachableRetries + 3)
+        XCTAssertLessThanOrEqual(attempts, SessionAttemptOutcome.maximumUnreachableRetries + 2)
     }
 
     func testAShownDesktopRestoresTheUnreachableRetries() {
@@ -815,12 +810,11 @@ final class SessionModelsTests: XCTestCase {
             let outcome = budget.outcome(
                 after: report,
                 host: "winbox",
-                presentedFrames: false,
-                usedLegacyRSAKeyExchange: budget.usesLegacyRSAKeyExchange
+                presentedFrames: false
             )
             budget.record(outcome)
             switch outcome {
-            case .retry, .retryWithLegacyRSAKeyExchange:
+            case .retry:
                 retries += 1
             case .promptForCredentials, .end:
                 return retries
@@ -837,7 +831,6 @@ final class SessionModelsTests: XCTestCase {
     private func outcome(
         after report: RDPConnectionReport,
         host: String = "winbox",
-        usedLegacyRSAKeyExchange: Bool = false,
         unreachableRetriesSpent: Int = 0,
         retriedFirstFrameTimeout: Bool = false
     ) -> SessionAttemptOutcome {
@@ -845,7 +838,6 @@ final class SessionModelsTests: XCTestCase {
             report,
             host: host,
             presentedFrames: false,
-            usedLegacyRSAKeyExchange: usedLegacyRSAKeyExchange,
             unreachableRetriesSpent: unreachableRetriesSpent,
             retriedFirstFrameTimeout: retriedFirstFrameTimeout
         )

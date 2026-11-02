@@ -625,7 +625,6 @@ final class SessionViewController: NSViewController {
             clipboardSharingEnabled: clipboard.isSharingEnabled,
             connectionRequestsAudio: connectionRequestsAudio,
             certificateTrustedByApp: certificateTrustedByApp,
-            usesLegacyRSAKeyExchange: attemptBudget.usesLegacyRSAKeyExchange,
             isConnecting: isConnecting
         )
         diagnosticsModel.updateSnapshot(nextSnapshot)
@@ -924,7 +923,10 @@ final class SessionViewController: NSViewController {
             // RDPKit negotiate the best path per host (Windows included).
             graphicsCapabilityProfile: .automatic,
             keyboardLayout: keyboardLayout,
-            legacyRSAKeyExchange: attemptBudget.usesLegacyRSAKeyExchange ? .always : .never,
+            // A certificate that refuses ECDHE gets a second connection
+            // within the run offering only RSA key exchange, before any
+            // credential is sent; never a redirection's target.
+            legacyRSAKeyExchange: .fallback,
             // Servers list the session, and count per-device licenses, under
             // the Mac's name; RDPKit cuts it to 15 characters.
             clientName: SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "RDPeek"
@@ -1213,8 +1215,7 @@ final class SessionViewController: NSViewController {
         let outcome = attemptBudget.outcome(
             after: finishedReport,
             host: configuration.host,
-            presentedFrames: hasPresentedFrame,
-            usedLegacyRSAKeyExchange: configuration.legacyRSAKeyExchange != .never
+            presentedFrames: hasPresentedFrame
         )
         attemptBudget.record(outcome)
         report = finishedReport
@@ -1235,8 +1236,6 @@ final class SessionViewController: NSViewController {
         resetFramePresentationState()
 
         switch outcome {
-        case .retryWithLegacyRSAKeyExchange:
-            startConnectionAttempt()
         case let .retry(reason):
             scheduleAutoRetry(reason)
         case let .promptForCredentials(message):
