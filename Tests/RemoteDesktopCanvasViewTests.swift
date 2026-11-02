@@ -133,18 +133,17 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         let root = try XCTUnwrap(canvas.displayView.layer, file: file, line: line)
         XCTAssertEqual(canvas.displayView.frame, canvas.bounds, file: file, line: line)
         XCTAssertEqual(inputView(of: canvas)?.frame, canvas.bounds, file: file, line: line)
-        guard let clipRect = geometry.clipRect else {
-            XCTAssertTrue(displayLayer.superlayer === root, file: file, line: line)
-            XCTAssertEqual(displayLayer.frame, geometry.videoLayerFrame, file: file, line: line)
-            return
+        let container = try XCTUnwrap(displayLayer.superlayer, file: file, line: line)
+        let videoFrame = root.convert(displayLayer.frame, from: container)
+        XCTAssertTrue(container.superlayer === root, file: file, line: line)
+        XCTAssertEqual(container.masksToBounds, geometry.clipRect != nil, file: file, line: line)
+        if let clipRect = geometry.clipRect {
+            XCTAssertEqual(container.frame, clipRect, file: file, line: line)
         }
-        let clip = try XCTUnwrap(displayLayer.superlayer, file: file, line: line)
-        let videoFrame = root.convert(displayLayer.frame, from: clip)
-        XCTAssertEqual(clip.frame, clipRect, file: file, line: line)
         XCTAssertEqual(videoFrame.minX, geometry.videoLayerFrame.minX, accuracy: 1e-9, file: file, line: line)
         XCTAssertEqual(videoFrame.minY, geometry.videoLayerFrame.minY, accuracy: 1e-9, file: file, line: line)
         XCTAssertEqual(videoFrame.size, geometry.videoLayerFrame.size, file: file, line: line)
-        let covers = (root.sublayers ?? []).filter { $0 !== clip }
+        let covers = (root.sublayers ?? []).filter { $0 !== container }
         XCTAssertEqual(covers.map(\.frame), geometry.coverRects, file: file, line: line)
     }
 

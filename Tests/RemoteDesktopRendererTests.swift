@@ -103,20 +103,23 @@ final class RemoteDesktopSampleBufferViewTests: XCTestCase {
 
     // MARK: - Layout
 
-    func testTheWholeFrameKeepsTheLayerTreeItHadBeforeDisplaysCouldBeChosen() throws {
+    func testTheWholeFrameDrawsWithNoClipCoverOrMask() throws {
         // All Displays and single-monitor sessions draw as they always did: the display layer
-        // straight in the view's layer, aspect-fitting the video, with no clip, cover or mask.
+        // where the canvas put it, aspect-fitting the video, in a container that clips nothing.
         let view = makeView()
         let geometry = makeGeometry(in: view, showing: nil)
 
         view.apply(geometry)
 
         let displayLayer = try XCTUnwrap(displayLayer(of: view))
-        XCTAssertTrue(displayLayer.superlayer === view.layer)
-        XCTAssertEqual(view.layer?.sublayers?.count, 1)
-        XCTAssertEqual(displayLayer.frame, geometry.videoLayerFrame)
+        let container = try XCTUnwrap(displayLayer.superlayer)
+        let root = try XCTUnwrap(view.layer)
+        XCTAssertTrue(container.superlayer === root)
+        XCTAssertFalse(container.masksToBounds)
+        XCTAssertEqual(root.sublayers?.count, 1, "No covers")
+        assertEqual(root.convert(displayLayer.frame, from: container), geometry.videoLayerFrame)
         XCTAssertEqual(displayLayer.videoGravity, .resizeAspect)
-        XCTAssertFalse(hasMask(view.layer))
+        XCTAssertFalse(hasMask(root))
     }
 
     func testChosenDisplaysClipTheVideoAndCoverTheHiddenOnes() throws {
@@ -139,18 +142,26 @@ final class RemoteDesktopSampleBufferViewTests: XCTestCase {
         XCTAssertFalse(hasMask(root))
     }
 
-    func testShowingTheWholeFrameAgainRestoresItsLayerTree() throws {
-        // Going back to All Displays leaves no clip or cover behind.
+    func testTheDisplayLayerKeepsItsParentAcrossDisplayChoices() throws {
+        // Moving a sample-buffer layer to another parent may drop its image, which an idle remote
+        // desktop never sends again; switching to chosen displays and back leaves it where it is,
+        // with no clip or cover behind.
         let view = makeView()
-        view.apply(makeGeometry(in: view, showing: outerTwoOfThree))
-        let geometry = makeGeometry(in: view, showing: nil)
-
-        view.apply(geometry)
-
+        view.apply(makeGeometry(in: view, showing: nil))
         let displayLayer = try XCTUnwrap(displayLayer(of: view))
-        XCTAssertTrue(displayLayer.superlayer === view.layer)
-        XCTAssertEqual(view.layer?.sublayers?.count, 1, "The clip and covers are gone")
-        XCTAssertEqual(displayLayer.frame, geometry.videoLayerFrame)
+        let container = try XCTUnwrap(displayLayer.superlayer)
+
+        view.apply(makeGeometry(in: view, showing: outerTwoOfThree))
+        XCTAssertTrue(self.displayLayer(of: view) === displayLayer)
+        XCTAssertTrue(displayLayer.superlayer === container)
+
+        let geometry = makeGeometry(in: view, showing: nil)
+        view.apply(geometry)
+        XCTAssertTrue(self.displayLayer(of: view) === displayLayer)
+        XCTAssertTrue(displayLayer.superlayer === container)
+        XCTAssertFalse(container.masksToBounds)
+        XCTAssertEqual(view.layer?.sublayers?.count, 1, "The covers are gone")
+        assertEqual(try XCTUnwrap(view.layer).convert(displayLayer.frame, from: container), geometry.videoLayerFrame)
     }
 
     func testCoversAreReusedAcrossLayouts() {
@@ -208,7 +219,7 @@ final class RemoteDesktopSampleBufferViewTests: XCTestCase {
         return nil
     }
 
-    /// Every layer in the view's layer besides the video and its clip.
+    /// Every layer in the view's layer besides the video's container.
     private func covers(of view: NSView) -> [CALayer] {
         let displayLayer = displayLayer(of: view)
         return (view.layer?.sublayers ?? []).filter { $0 !== displayLayer && $0 !== displayLayer?.superlayer }

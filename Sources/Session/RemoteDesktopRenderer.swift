@@ -38,10 +38,12 @@ final class RDPRemoteDesktopRenderer {
 /// with the input view.
 final class RemoteDesktopSampleBufferNSView: NSView {
     private let displayLayer = AVSampleBufferDisplayLayer()
-    /// Holds the display layer only while chosen displays are shown, to crop the frame to them. A
-    /// rectangular clip with no mask stays a cheap scissor, where a mask would render every
+    /// Holds the display layer for good: moving a sample-buffer layer to another parent may drop
+    /// the image it shows, which an idle remote desktop would never send again. For the whole
+    /// frame it is the view's size with no clip; for chosen displays it clips the frame to them.
+    /// A rectangular clip with no mask stays a cheap scissor, where a mask would render every
     /// video frame through an offscreen pass.
-    private let clipLayer = CALayer()
+    private let videoContainer = CALayer()
     /// Black covers over the parts of the chosen displays' bounding box nobody chose, kept for
     /// reuse so a live resize allocates no layers.
     private var coverLayers: [CALayer] = []
@@ -102,26 +104,12 @@ final class RemoteDesktopSampleBufferNSView: NSView {
     /// call that hands the input view the same geometry, so the layers never animate and the
     /// pointer never maps through a layout the video doesn't show.
     func apply(_ geometry: RemoteDesktopGeometry) {
-        guard let rootLayer = layer else {
-            return
-        }
-        guard let clipRect = geometry.clipRect else {
-            // The whole frame keeps the layer tree it had before displays could be chosen: the
-            // display layer straight in the view's layer, with no clip and no covers.
-            if displayLayer.superlayer !== rootLayer {
-                rootLayer.addSublayer(displayLayer)
-                clipLayer.removeFromSuperlayer()
-            }
-            displayLayer.frame = geometry.videoLayerFrame
-            showCovers(at: [])
-            return
-        }
-        if displayLayer.superlayer !== clipLayer {
-            rootLayer.insertSublayer(clipLayer, at: 0)
-            clipLayer.addSublayer(displayLayer)
-        }
-        clipLayer.frame = clipRect
-        displayLayer.frame = geometry.videoLayerFrame.offsetBy(dx: -clipRect.minX, dy: -clipRect.minY)
+        // The whole frame draws as it did before displays could be chosen: an unclipped
+        // container the view's size adds no pass, and no cover goes over it.
+        let containerFrame = geometry.clipRect ?? CGRect(origin: .zero, size: bounds.size)
+        videoContainer.masksToBounds = geometry.clipRect != nil
+        videoContainer.frame = containerFrame
+        displayLayer.frame = geometry.videoLayerFrame.offsetBy(dx: -containerFrame.minX, dy: -containerFrame.minY)
         showCovers(at: geometry.coverRects)
     }
 
@@ -180,13 +168,13 @@ final class RemoteDesktopSampleBufferNSView: NSView {
         layer?.backgroundColor = NSColor.black.cgColor
         displayLayer.backgroundColor = NSColor.black.cgColor
         displayLayer.videoGravity = .resizeAspect
-        layer?.addSublayer(displayLayer)
-        clipLayer.masksToBounds = true
+        videoContainer.addSublayer(displayLayer)
+        layer?.addSublayer(videoContainer)
         updateContentsScale()
         observeDisplayLayer()
     }
 
-    /// Covers go above the clipped video, the first `rects.count` of them in use and the rest
+    /// Covers go above the video, the first `rects.count` of them in use and the rest
     /// out of the layer tree. A solid colour needs no contents scale.
     private func showCovers(at rects: [CGRect]) {
         while coverLayers.count < rects.count {
