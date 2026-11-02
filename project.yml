@@ -82,6 +82,7 @@ targets:
       - path: Sources/Storage/ClientLicenseStore.swift
       - path: Sources/Storage/InMemoryCredentialCache.swift
       - path: Sources/Storage/KeychainCredentialStore.swift
+      - path: Sources/Storage/KeychainQueue.swift
       - path: Sources/Storage/KeychainService.swift
       - path: Sources/Storage/TrustedCertificateStore.swift
     dependencies:

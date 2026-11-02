@@ -23,6 +23,9 @@ struct DeviceEditorSheet: View {
     @State private var isLoadingPassword: Bool
     @State private var loadedPassword: String?
     @State private var hadRememberedPassword = false
+    /// Whether a save is waiting for the Keychain, which can block on the
+    /// access-approval dialog.
+    @State private var isSaving = false
 
     init(editorState: DeviceEditorState, onConnect: @escaping (DeviceProfile) -> Void) {
         self.editorState = editorState
@@ -166,20 +169,26 @@ struct DeviceEditorSheet: View {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
+                // A save under way goes on, and Save & Connect would connect.
+                .disabled(isSaving)
 
                 Spacer()
 
                 Button("Save") {
-                    if saveChanges() != nil {
-                        dismiss()
+                    Task {
+                        if await saveChanges() != nil {
+                            dismiss()
+                        }
                     }
                 }
                 .disabled(canSave == false)
 
                 Button("Save & Connect") {
-                    if let device = saveChanges() {
-                        dismiss()
-                        onConnect(device)
+                    Task {
+                        if let device = await saveChanges() {
+                            dismiss()
+                            onConnect(device)
+                        }
                     }
                 }
                 .buttonStyle(.borderedProminent)
@@ -192,10 +201,19 @@ struct DeviceEditorSheet: View {
     }
 
     private var canSave: Bool {
-        isLoadingPassword == false && host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        isLoadingPassword == false
+            && isSaving == false
+            && host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }
 
-    private func saveChanges() -> DeviceProfile? {
+    private func saveChanges() async -> DeviceProfile? {
+        guard isSaving == false else {
+            return nil
+        }
+        isSaving = true
+        defer {
+            isSaving = false
+        }
         do {
             var device = editorState.device
             device.name = name
@@ -213,7 +231,7 @@ struct DeviceEditorSheet: View {
             device.hideCertificateWarnings = hideCertificateWarnings
             device.timeoutSeconds = timeoutSeconds
 
-            return try deviceList.save(
+            return try await deviceList.save(
                 editor: editorState,
                 editedDevice: device,
                 password: password,

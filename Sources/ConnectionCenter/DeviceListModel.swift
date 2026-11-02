@@ -45,6 +45,9 @@ final class DeviceListModel: ObservableObject {
     /// stay in storage unchanged; the Connection Center says so until the
     /// notice is dismissed, which zeroes this for the rest of the run.
     @Published private(set) var unreadableDeviceCount = 0
+    /// The latest keychain deletion, which runs off the main thread: a
+    /// keychain call can block on the access-approval dialog.
+    private(set) var pendingKeychainDeletion: Task<Void, Never>?
     @Published var sortOrder: DeviceSortOrder {
         didSet {
             defaults.set(sortOrder.rawValue, forKey: "device-sort-order")
@@ -132,9 +135,11 @@ final class DeviceListModel: ObservableObject {
             return .success(nil)
         }
         let credentialStore = credentialStore
-        return await Task.detached(priority: .userInitiated) {
-            Result { try credentialStore.password(for: key) }
-        }.value
+        do {
+            return try await .success(KeychainQueue.run { try credentialStore.password(for: key) })
+        } catch {
+            return .failure(error)
+        }
     }
 
     func duplicate(_ device: DeviceProfile) {
@@ -154,7 +159,8 @@ final class DeviceListModel: ObservableObject {
         }
     }
 
-    /// Persists the edited device and applies any keychain change.
+    /// Persists the edited device and applies any keychain change, off the
+    /// main thread: a keychain call can block on the access-approval dialog.
     /// `editor.device` must remain the snapshot from sheet-open time — the
     /// stale-keychain-entry cleanup compares against its original identity,
     /// and the Remember toggle counts as untouched while the edited flag
@@ -167,7 +173,7 @@ final class DeviceListModel: ObservableObject {
         password: String,
         loadedPassword: String?,
         hadRememberedPassword: Bool
-    ) throws -> DeviceProfile {
+    ) async throws -> DeviceProfile {
         var device = editedDevice
         let target = try RDPConnectionTarget(host: device.host, portText: String(device.port))
         device.host = target.host
@@ -175,15 +181,13 @@ final class DeviceListModel: ObservableObject {
         device.username = device.username.trimmingCharacters(in: .whitespacesAndNewlines)
         device.domain = device.domain.trimmingCharacters(in: .whitespacesAndNewlines)
         device.updatedAt = Date()
+        // A password saved now must not be removed by a deletion still
+        // under way.
+        await pendingKeychainDeletion?.value
 
-        // The editor works on a snapshot from sheet-open time; a session may
-        // have connected since, so carry the store's timestamp over instead
-        // of reverting it. Reading first also stops an unreadable store
-        // before any keychain change.
+        // Reading first stops an unreadable store before any keychain
+        // change.
         let current = try store.devices().first { $0.id == device.id }
-        if let current {
-            device.lastConnectedAt = current.lastConnectedAt
-        }
 
         // A session's sign-in may also have turned Remember on or off since,
         // saving or deleting the keychain item itself. When the user left the
@@ -206,13 +210,19 @@ final class DeviceListModel: ObservableObject {
         if let current, keepsSessionRemember {
             device.rememberPassword = current.rememberPassword
         } else {
-            try applyKeychainChange(
+            try await applyKeychainChange(
                 from: editor.device,
                 to: device,
                 password: password,
                 savesPassword: keepsSavedPassword == false,
                 hadRememberedPassword: hadRememberedPassword
             )
+        }
+        // The editor works on a snapshot from sheet-open time; a session may
+        // have connected since, or while the keychain call waited, so carry
+        // the store's timestamp over instead of reverting it.
+        if let latest = try store.devices().first(where: { $0.id == device.id }) {
+            device.lastConnectedAt = latest.lastConnectedAt
         }
 
         // Keep the password for this app run too, so this PC connects
@@ -242,7 +252,7 @@ final class DeviceListModel: ObservableObject {
         password: String,
         savesPassword: Bool,
         hadRememberedPassword: Bool
-    ) throws {
+    ) async throws {
         if device.rememberPassword, device.username.isEmpty {
             throw DeviceValidationError.missingUsernameForKeychain
         }
@@ -250,15 +260,16 @@ final class DeviceListModel: ObservableObject {
             throw DeviceValidationError.missingPasswordForKeychain
         }
 
+        let credentialStore = credentialStore
         if let key = KeychainCredentialKey(identity: device.identity) {
             if device.rememberPassword {
                 if savesPassword {
-                    try credentialStore.savePassword(password, for: key)
+                    try await KeychainQueue.run { try credentialStore.savePassword(password, for: key) }
                 }
             } else if hadRememberedPassword,
                       rememberedPasswordIsShared(device.identity, excluding: device.id) == false
             {
-                try credentialStore.deletePassword(for: key)
+                try await KeychainQueue.run { try credentialStore.deletePassword(for: key) }
             }
         }
 
@@ -272,7 +283,7 @@ final class DeviceListModel: ObservableObject {
            oldKey.account != device.identity.credentialAccountName,
            rememberedPasswordIsShared(snapshot.identity, excluding: device.id) == false
         {
-            try credentialStore.deletePassword(for: oldKey)
+            try await KeychainQueue.run { try credentialStore.deletePassword(for: oldKey) }
         }
     }
 
@@ -280,6 +291,8 @@ final class DeviceListModel: ObservableObject {
         devicePendingDeletion = device
     }
 
+    /// Deletes the profile at once, then its keychain entry off the main
+    /// thread, in `pendingKeychainDeletion`.
     func confirmDeletion(of device: DeviceProfile) {
         do {
             // Delete the profile first: if the store write throws, nothing
@@ -293,22 +306,38 @@ final class DeviceListModel: ObservableObject {
                 if twins.isEmpty {
                     credentialCache.removePassword(for: key.account)
                 }
-                // The confirmation dialog promises the saved password is
-                // removed too, so a failure must surface, not be swallowed.
-                let keepers = twins.filter(\.rememberPassword)
-                if keepers.isEmpty {
-                    try credentialStore.deletePassword(for: key)
-                } else {
-                    // One saved under this PC's earlier account name, which
-                    // the others may spell otherwise and never read, moves
-                    // to the account's name.
-                    try credentialStore.moveLegacyPasswords(for: key, keptBy: keepers.map(\.identity))
+                let keepers = twins.filter(\.rememberPassword).map(\.identity)
+                let credentialStore = credentialStore
+                deleteFromKeychain {
+                    if keepers.isEmpty {
+                        try credentialStore.deletePassword(for: key)
+                    } else {
+                        // One saved under this PC's earlier account name,
+                        // which the others may spell otherwise and never
+                        // read, moves to the account's name.
+                        try credentialStore.moveLegacyPasswords(for: key, keptBy: keepers)
+                    }
                 }
             }
         } catch {
             errorMessage = String(describing: error)
         }
         devicePendingDeletion = nil
+    }
+
+    /// Runs a keychain deletion off the main thread, after any started
+    /// before it. The confirmation dialog promises the saved password is
+    /// removed, so a failure must surface, not be swallowed.
+    private func deleteFromKeychain(_ deletion: @escaping @Sendable () throws -> Void) {
+        let previous = pendingKeychainDeletion
+        pendingKeychainDeletion = Task {
+            await previous?.value
+            do {
+                try await KeychainQueue.run(deletion)
+            } catch {
+                errorMessage = String(describing: error)
+            }
+        }
     }
 
     /// Whether another profile remembers its password under `identity`'s
