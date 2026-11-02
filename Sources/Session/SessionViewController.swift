@@ -1467,9 +1467,7 @@ final class SessionViewController: NSViewController {
     /// capabilities refused, or one a session that ended since dropped, is
     /// not the size the server was sent last.
     private func applyDisplayRequestToActiveSession(_ request: RDPDisplayRequest) {
-        guard let displayControlSession,
-              (try? displayControlSession.send(request.monitorLayout)) == true
-        else {
+        guard displayControlSession?.send(request) == true else {
             return
         }
         lastRequestedDisplayRequest = request
