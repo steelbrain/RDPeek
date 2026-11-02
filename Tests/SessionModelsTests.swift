@@ -931,6 +931,33 @@ final class SessionModelsTests: XCTestCase {
         }
     }
 
+    func testTheOfferNamesTheServerTheWindowConnectsTo() throws {
+        // The window's target, from the PC's host as typed and its port,
+        // and the configuration it starts an attempt with.
+        let target = try RDPConnectionTarget(host: " winbox.local ", port: 3390)
+        let configuration = try RDPConnectionConfiguration.sessionAttempt(
+            target: target,
+            credentials: nil,
+            timeoutSeconds: 25,
+            hideCertificateWarnings: false,
+            desktopSize: RDPDesktopSize(width: 1440, height: 900),
+            keyboard: .unitedStates,
+            audioPlaybackEnabled: false,
+            legacyCredSSP: false,
+            computerName: nil
+        )
+        // The end handler takes the server from the report RDPKit fills
+        // in for that configuration, which the next attempt to the same
+        // PC must match for Connect Anyway to work.
+        var report = RDPSessionClient().dryRun(configuration: configuration)
+        report.failure = .legacyCredSSPVersion(version: 3)
+        var consent = RDPLegacyCredSSPConsent()
+        consent.connectionEnded(report: report)
+        XCTAssertEqual(consent.offer, RDPLegacyCredSSPConsent.Offer(target: target, version: 3))
+        XCTAssertTrue(consent.allow())
+        XCTAssertTrue(try consent.connect(to: RDPConnectionTarget(host: " winbox.local ", port: 3390)))
+    }
+
     // MARK: - Attempt budget
 
     func testAnAttemptThatAcceptedTheOutdatedCredSSPIsNotRetried() {
