@@ -806,130 +806,12 @@ final class SessionModelsTests: XCTestCase {
 
     // MARK: - Outdated CredSSP consent
 
-    // The window keeps RDPKit's RDPLegacyCredSSPConsent: Connect Anyway
-    // calls `allow()`, which takes the offer, each attempt `connect(to:)`
-    // as it starts, and each attempt that ends on its own
-    // `connectionEnded(report:)`. A cancel, or an attempt that fails before
-    // it connects, `reset()`s it. These tests take the window's steps.
-
-    func testConnectAnywayAcceptsTheOutdatedCredSSPForItsOneAttempt() throws {
-        let winbox = try RDPConnectionTarget(host: "winbox")
-        var consent = RDPLegacyCredSSPConsent()
-        XCTAssertFalse(consent.connect(to: winbox))
-        XCTAssertNil(consent.offer)
-
-        consent.connectionEnded(report: makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 3)))
-        XCTAssertEqual(consent.offer, RDPLegacyCredSSPConsent.Offer(target: winbox, version: 3))
-        XCTAssertNil(consent.allowedTarget)
-        XCTAssertTrue(consent.allow())
-        // Agreeing takes the offer, so a second click agrees to nothing
-        // more; the agreement waits for the attempt it starts.
-        XCTAssertNil(consent.offer)
-        XCTAssertEqual(consent.allowedTarget, winbox)
-        XCTAssertFalse(consent.allow())
-        XCTAssertTrue(consent.connect(to: winbox))
-        XCTAssertNil(consent.allowedTarget)
-
-        // Any later attempt, an automatic retry included, and a later
-        // connection to the same server, refuse it again.
-        consent.connectionEnded(
-            report: makeReport(failure: .noFramePresented(framesReceived: 0, lastNotPresentedReason: nil))
-        )
-        XCTAssertNil(consent.offer)
-        XCTAssertFalse(consent.connect(to: winbox))
-        XCTAssertFalse(consent.connect(to: winbox))
-    }
-
-    func testSigningInBeforeTheAgreedAttemptKeepsTheAgreement() throws {
-        let winbox = try RDPConnectionTarget(host: "winbox")
-        let refused = makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 3))
-        var consent = RDPLegacyCredSSPConsent()
-
-        // Connect Anyway found no password to sign in with, as when the
-        // Keychain could not be read: the sign-in it asks for is still the
-        // connection the user agreed to, as no attempt started meanwhile.
-        consent.connectionEnded(report: refused)
-        XCTAssertTrue(consent.allow())
-        XCTAssertEqual(consent.allowedTarget, winbox)
-        XCTAssertTrue(consent.connect(to: winbox))
-
-        // Once that attempt ran, signing in again, as after a rejected
-        // password, starts another.
-        consent.connectionEnded(report: makeReport(stage: "credssp", failure: .credSSP(status: .logonFailure)))
-        XCTAssertFalse(consent.connect(to: winbox))
-
-        // Cancelling, as while the Keychain is read, ends the agreement
-        // before the sign-in the cancel asks for.
-        consent.connectionEnded(report: refused)
-        XCTAssertTrue(consent.allow())
-        consent.reset()
-        XCTAssertNil(consent.allowedTarget)
-        XCTAssertFalse(consent.connect(to: winbox))
-
-        // Signing in without agreeing, as with Use Different Credentials,
-        // agrees to nothing, and the offer goes.
-        consent.connectionEnded(report: refused)
-        XCTAssertFalse(consent.connect(to: winbox))
-        XCTAssertNil(consent.offer)
-
-        // The PC was edited to another server meanwhile.
-        consent.connectionEnded(report: refused)
-        XCTAssertTrue(consent.allow())
-        XCTAssertFalse(try consent.connect(to: RDPConnectionTarget(host: "winbox", port: 3390)))
-    }
-
-    func testOnlyConnectAnywayAcceptsTheOutdatedCredSSP() throws {
-        let winbox = try RDPConnectionTarget(host: "winbox")
-        let refused = makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 2))
-        var consent = RDPLegacyCredSSPConsent()
-
-        // Nothing offered, nothing to agree to.
-        XCTAssertFalse(consent.allow())
-        XCTAssertFalse(consent.connect(to: winbox))
-
-        // Reconnect forgets the offer.
-        consent.connectionEnded(report: refused)
-        XCTAssertFalse(consent.connect(to: winbox))
-        XCTAssertNil(consent.offer)
-        XCTAssertFalse(consent.allow())
-
-        // An agreement whose attempt never started, as when the user
-        // cancelled while the Keychain was read, goes with the cancel, and
-        // so does one whose attempt failed before it connected.
-        consent.connectionEnded(report: refused)
-        XCTAssertTrue(consent.allow())
-        consent.reset()
-        XCTAssertNil(consent.allowedTarget)
-        XCTAssertFalse(consent.connect(to: winbox))
-    }
-
-    func testTheOutdatedCredSSPIsAcceptedOnlyForTheServerOffered() throws {
-        let winbox = try RDPConnectionTarget(host: "winbox")
-        var consent = RDPLegacyCredSSPConsent()
-        consent.connectionEnded(report: makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 3)))
-        XCTAssertEqual(consent.offer?.target, winbox)
-
-        // The PC was edited to another server or port since.
-        XCTAssertTrue(consent.allow())
-        XCTAssertFalse(try consent.connect(to: RDPConnectionTarget(host: "winbox", port: 3390)))
-
-        // A server a redirection led to was not the user's choice, and
-        // other failures offer nothing.
-        for report in [
-            makeReport(
-                stage: "credssp",
-                targetHost: "host2",
-                redirectionDepth: 1,
-                redirectionNamedHost: true,
-                failure: .legacyCredSSPVersion(version: 3)
-            ),
-            makeReport(stage: "credssp", failure: .credSSP(status: .logonFailure)),
-            makeReport(stage: "credssp", failure: .cancelled),
-        ] {
-            consent.connectionEnded(report: report)
-            XCTAssertNil(consent.offer, "\(String(describing: report.failure))")
-        }
-    }
+    // The window keeps RDPKit's RDPLegacyCredSSPConsent, whose rule RDPKit's
+    // LegacyCredSSPConsentTests cover: Connect Anyway calls `allow()`, which
+    // takes the offer, each attempt `connect(to:)` as it starts, and each
+    // attempt that ends on its own `connectionEnded(report:)`. A cancel, or
+    // an attempt that fails before it connects, `reset()`s it. Those calls
+    // are in SessionViewController, which this target does not build.
 
     func testTheOfferNamesTheServerTheWindowConnectsTo() throws {
         // The window's target, from the PC's host as typed and its port,
@@ -956,6 +838,11 @@ final class SessionModelsTests: XCTestCase {
         XCTAssertEqual(consent.offer, RDPLegacyCredSSPConsent.Offer(target: target, version: 3))
         XCTAssertTrue(consent.allow())
         XCTAssertTrue(try consent.connect(to: RDPConnectionTarget(host: " winbox.local ", port: 3390)))
+
+        // The PC edited to another port since is another server.
+        consent.connectionEnded(report: report)
+        XCTAssertTrue(consent.allow())
+        XCTAssertFalse(try consent.connect(to: RDPConnectionTarget(host: " winbox.local ", port: 3389)))
     }
 
     // MARK: - Attempt budget
