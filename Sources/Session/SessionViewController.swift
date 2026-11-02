@@ -635,13 +635,15 @@ final class SessionViewController: NSViewController {
     /// canvas size in points. Servers without Display Control keep it, at
     /// 100% scale — a desktop of Retina pixels at 100% would be tiny. Display
     /// Control servers get the pixel size and scale once their channel opens.
+    /// RDPKit rounds it as Display Control rounds that layout, so on a 1x
+    /// display the layout matches the desktop and resizes nothing.
     private func initialDesktopSize() -> RDPDesktopSize {
         var surface = canvasView.bounds.size
         if surface.width <= 0 || surface.height <= 0 {
             surface = (view.window?.screen ?? NSScreen.main)?.visibleFrame.size
                 ?? CGSize(width: 1280, height: 800)
         }
-        return RDPDesktopSize.initial(canvasPointSize: surface)
+        return RDPDesktopSize(RDPDisplayRequest(pointSize: surface, backingScaleFactor: 1))
     }
 
     // MARK: - Credentials prompt

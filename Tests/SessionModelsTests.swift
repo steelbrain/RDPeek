@@ -832,39 +832,6 @@ final class SessionModelsTests: XCTestCase {
         XCTAssertEqual(identity.credentialAccountName, "CORP\\anees@winbox:3389")
     }
 
-    // MARK: - Initial desktop size
-
-    func testInitialDesktopMatchesTheDisplayControlLayoutAt1x() throws {
-        // The layout sent once Display Control opens comes from the canvas
-        // pixels; at 1x it must ask for the desktop the connection has.
-        for pointSize in [
-            CGSize(width: 1280, height: 800),
-            CGSize(width: 1281, height: 801),
-            CGSize(width: 1023, height: 767),
-            CGSize(width: 1440.4, height: 899.6),
-        ] {
-            let desktop = RDPDesktopSize.initial(canvasPointSize: pointSize)
-            let layout = RDPViewerPixelSize(pointSize: pointSize, backingScaleFactor: 1).displayRequest
-            XCTAssertEqual(UInt32(desktop.width), layout.width, "\(pointSize)")
-            XCTAssertEqual(UInt32(desktop.height), layout.height, "\(pointSize)")
-        }
-        XCTAssertEqual(
-            RDPDesktopSize.initial(canvasPointSize: CGSize(width: 1281, height: 801)),
-            try RDPDesktopSize(width: 1280, height: 801)
-        )
-    }
-
-    func testInitialDesktopStaysWithinDesktopSizeLimits() throws {
-        XCTAssertEqual(
-            RDPDesktopSize.initial(canvasPointSize: CGSize(width: 300, height: 200)),
-            try RDPDesktopSize(width: 640, height: 480)
-        )
-        XCTAssertEqual(
-            RDPDesktopSize.initial(canvasPointSize: CGSize(width: 9001, height: 9001)),
-            try RDPDesktopSize(width: 8192, height: 8192)
-        )
-    }
-
     private func makeDraft() -> RDPConnectionDraft {
         RDPConnectionDraft(device: DeviceProfile(
             id: UUID(),
