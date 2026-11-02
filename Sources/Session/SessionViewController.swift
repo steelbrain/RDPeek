@@ -1433,11 +1433,10 @@ final class SessionViewController: NSViewController {
     /// survive, the window shows every display again and says so, rather
     /// than leaving the user to wonder why it changed.
     private func reconcileDisplaySelection() {
-        let layout = displayLayout
-        let keptChoice = displaySelection.reconcile(from: lastSelectableDisplayLayout, to: layout)
-        if layout.offersSelection {
-            lastSelectableDisplayLayout = layout
-        }
+        let keptChoice = displaySelection.reconcile(
+            to: displayLayout,
+            lastSelectableLayout: &lastSelectableDisplayLayout
+        )
         if keptChoice == false {
             toast("Showing all displays", systemImage: "display.2")
         }

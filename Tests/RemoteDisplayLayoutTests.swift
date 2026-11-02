@@ -360,6 +360,51 @@ final class RemoteDisplayLayoutTests: XCTestCase {
         XCTAssertEqual(selection, .all)
     }
 
+    // MARK: - Following the window's frames
+
+    func testTheFirstLayoutWithAChoiceIsRemembered() {
+        var selection = RemoteDisplaySelection.all
+        var lastSelectable: RemoteDisplayLayout?
+
+        XCTAssertTrue(selection.reconcile(to: threeDisplays(), lastSelectableLayout: &lastSelectable))
+        XCTAssertEqual(selection, .all)
+        XCTAssertEqual(lastSelectable, threeDisplays())
+    }
+
+    func testABriefSingleDisplayLayoutKeepsTheChoiceForWhenDisplaysReturn() {
+        // A reconnect can show one monitor before the server lays out all three again: the choice
+        // is matched against the three displays it was made in, with no fallback to report.
+        var selection = RemoteDisplaySelection.subset([2])
+        var lastSelectable: RemoteDisplayLayout? = threeDisplays()
+        let single = RemoteDisplayLayout(
+            frameSize: CGSize(width: 1920, height: 1080),
+            monitors: [monitor(left: 0, top: 0, right: 1920, bottom: 1080)]
+        )
+
+        XCTAssertTrue(selection.reconcile(to: single, lastSelectableLayout: &lastSelectable))
+        XCTAssertEqual(lastSelectable, threeDisplays(), "A layout with no choice is not remembered")
+        XCTAssertTrue(selection.reconcile(to: threeDisplays(), lastSelectableLayout: &lastSelectable))
+        XCTAssertEqual(selection, .subset([2]))
+    }
+
+    func testAFallbackIsReportedAndTheNewLayoutRemembered() {
+        // The caller tells the user when the window went back to every display.
+        var selection = RemoteDisplaySelection.subset([1])
+        var lastSelectable: RemoteDisplayLayout? = twoDisplays()
+        let new = RemoteDisplayLayout(
+            frameSize: CGSize(width: 3840, height: 1080),
+            monitors: [
+                monitor(left: 0, top: 0, right: 1280, bottom: 1080),
+                monitor(left: 1280, top: 0, right: 2560, bottom: 1080),
+                monitor(left: 2560, top: 0, right: 3840, bottom: 1080),
+            ]
+        )
+
+        XCTAssertFalse(selection.reconcile(to: new, lastSelectableLayout: &lastSelectable))
+        XCTAssertEqual(selection, .all)
+        XCTAssertEqual(lastSelectable, new)
+    }
+
     // MARK: - Visible rects
 
     func testAllShowsTheWholeFrame() {

@@ -183,6 +183,20 @@ enum RemoteDisplaySelection: Equatable {
         return true
     }
 
+    /// Reconciles with the layout of a new frame against `lastSelectableLayout`, the last one that
+    /// offered a choice, which moves on to `layout` when that offers one too. A window keeps both
+    /// across connections, so a choice made before a reconnect is matched to the layout after
+    /// it, however many frames without a choice came between. Returns false when it fell back
+    /// to `.all` from a subset (the caller toasts).
+    @discardableResult
+    mutating func reconcile(to layout: RemoteDisplayLayout, lastSelectableLayout: inout RemoteDisplayLayout?) -> Bool {
+        let keptChoice = reconcile(from: lastSelectableLayout, to: layout)
+        if layout.offersSelection {
+            lastSelectableLayout = layout
+        }
+        return keptChoice
+    }
+
     /// nil means the whole frame: `.all`, or a layout that offers no selection.
     func visibleRects(in layout: RemoteDisplayLayout) -> [CGRect]? {
         guard case let .subset(numbers) = self,
