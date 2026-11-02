@@ -900,7 +900,13 @@ final class SessionViewController: NSViewController {
         let acceptsUntrustedCertificates = draft.hideCertificateWarnings
         let remoteAudioPlayer = remoteAudioPlayer
         let port = baseConfiguration.port
-        let initialScaleFactors = baseConfiguration.scaleFactors
+        // The desktop this attempt connects with, at the scale it connects
+        // with: what the server has until Display Control resizes it.
+        let connectLayout = RDPDisplayRequest(
+            width: UInt32(baseConfiguration.desktopWidth),
+            height: UInt32(baseConfiguration.desktopHeight),
+            scaleFactors: baseConfiguration.scaleFactors
+        )
         // RDPSessionClient.run blocks for the whole session and waits on
         // the decode queue, so it gets its own thread rather than pinning a
         // Swift concurrency worker per session, which could starve the
@@ -1002,8 +1008,11 @@ final class SessionViewController: NSViewController {
                         let monitors = frame.monitors
                         let graphicsOutputRect = frame.graphicsOutputRect
                         sink.apply { controller in
-                            controller.requestKeyframe(monitors: monitors, graphicsOutputRect: graphicsOutputRect,
-                                                       initialScaleFactors: initialScaleFactors)
+                            controller.requestKeyframe(
+                                monitors: monitors,
+                                graphicsOutputRect: graphicsOutputRect,
+                                connectLayout: connectLayout
+                            )
                         }
                     }
                 },
@@ -1514,18 +1523,35 @@ final class SessionViewController: NSViewController {
         requestedDesktopSizeLabel = request.label
     }
 
-    /// Some servers answer a repeated layout with a keyframe. Re-send only a
-    /// known single-display layout, so recovery never collapses multiple monitors.
+    /// Windows and gnome-remote-desktop send no keyframe by themselves, but
+    /// answer the monitor layout sent again with one. The policy picks a
+    /// layout the server already has, so asking never resizes or rescales
+    /// the desktop, or merges its monitors into one. `monitors` are those
+    /// of the frame that failed to decode.
     private func requestKeyframe(
         monitors: [RDPRemoteMonitor],
         graphicsOutputRect: RDPFrameRect?,
-        initialScaleFactors: RDPDisplayScaleFactors
+        connectLayout: RDPDisplayRequest
     ) {
-        guard let displayControlSession,
-              let request = remoteDisplayKeyframeRequest(monitors: monitors, graphicsOutputRect: graphicsOutputRect,
-                                                         initialScaleFactors: initialScaleFactors,
-                                                         lastRequest: lastRequestedDisplayRequest) else { return }
-        displayControlSession.send(request)
+        guard let displayControlSession else {
+            return
+        }
+        let keyframeRequest = SessionDisplayControlPolicy.keyframeRequest(
+            lastSent: lastRequestedDisplayRequest,
+            reportedMonitors: monitors,
+            graphicsOutputRect: graphicsOutputRect,
+            connectLayout: connectLayout
+        )
+        switch keyframeRequest {
+        case let .request(request):
+            displayControlSession.send(request)
+        case let .layout(layout):
+            // A layout the server's capabilities refuse stays unsent; the
+            // video then waits for the server's next keyframe.
+            try? displayControlSession.send(layout)
+        case nil:
+            break
+        }
     }
 
     private func cancelPendingDisplayResize(resetLastRequestedSize: Bool = false) {

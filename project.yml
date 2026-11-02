@@ -68,7 +68,6 @@ targets:
       - path: Sources/Session/RemoteDesktopGeometry.swift
       - path: Sources/Session/RemoteDesktopRenderer.swift
       - path: Sources/Session/RemoteDisplayLayout.swift
-      - path: Sources/Session/RemoteDisplaySelection.swift
       - path: Sources/Session/RemoteInputCaptureView.swift
       - path: Sources/Session/SessionClipboard.swift
       - path: Sources/Session/SessionCommandState.swift
