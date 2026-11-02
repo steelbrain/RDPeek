@@ -66,8 +66,9 @@ final class SessionViewController: NSViewController {
     private var connectionRequestsAudio = false
     private var didReportAudioFailure = false
     /// The attempt under way. Cancelling it drops whatever it has still to
-    /// deliver, so a session the window left changes nothing.
-    private var activeSession: RDPLiveSession?
+    /// deliver, so a session the window left changes nothing. Quitting
+    /// waits for it to end once closing the window cancelled it.
+    private(set) var activeSession: RDPLiveSession?
     private var sessionEndReason: RDPSessionEndReason?
     private var inputSession: RDPInputSession?
     private var displayControlSession: RDPDisplayControlSession?

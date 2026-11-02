@@ -68,21 +68,36 @@ struct RDPeekApp: App {
     }
 }
 
-/// Closes session windows before quitting: AppKit does not send
-/// windowWillClose on terminate, so without this live RDP connections are
-/// dropped as raw TCP resets instead of being cancelled cleanly.
+/// Closes session windows before quitting, and waits for their sessions to
+/// end: AppKit does not send windowWillClose on terminate, so without this
+/// live RDP connections are dropped as raw TCP resets instead of being
+/// closed cleanly.
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// The longest quitting waits for the sessions' threads to tell their
+    /// servers and close the connections; they wait together.
+    private static let sessionEndTimeout: TimeInterval = 2
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        let sessionWindows = sender.windows.filter { $0.delegate is SessionWindowController }
-        guard sessionWindows.isEmpty == false else {
+        let sessionWindows = sender.windows.compactMap { $0.delegate as? SessionWindowController }
+        // Closing a window cancels its session; read them first.
+        let sessions = sessionWindows.compactMap(\.sessionController.activeSession)
+        for sessionWindow in sessionWindows {
+            sessionWindow.close()
+        }
+        guard sessions.isEmpty == false else {
             return .terminateNow
         }
-        for window in sessionWindows {
-            window.close()
-        }
-        // Give the cancellation handlers a beat to close the channels.
+        let timeout = Self.sessionEndTimeout
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(200))
+            // Each wait ends by the timeout, so a session's thread that
+            // does not end cannot keep the app from quitting.
+            await withDiscardingTaskGroup { group in
+                for session in sessions {
+                    group.addTask {
+                        _ = await session.waitUntilEnded(timeout: timeout)
+                    }
+                }
+            }
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater
