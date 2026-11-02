@@ -232,7 +232,7 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
     private func sideBySideMonitors() -> [RDPRemoteMonitor] {
         [
             monitor(0, 0, 1920, 1080),
-            monitor(1920, 0, 3840, 1080, isPrimary: false),
+            monitor(1920, 0, 3840, 1080, isPrimary: false, index: 1),
         ]
     }
 
@@ -240,8 +240,8 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
     private func threeMonitors() -> [RDPRemoteMonitor] {
         [
             monitor(0, 0, 2560, 1440, isPrimary: false),
-            monitor(2560, 0, 4480, 1080),
-            monitor(4480, 0, 7040, 1440, isPrimary: false),
+            monitor(2560, 0, 4480, 1080, index: 1),
+            monitor(4480, 0, 7040, 1440, isPrimary: false, index: 2),
         ]
     }
 
@@ -250,9 +250,10 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         _ top: UInt16,
         _ right: UInt16,
         _ bottom: UInt16,
-        isPrimary: Bool = true
+        isPrimary: Bool = true,
+        index: Int = 0
     ) -> RDPRemoteMonitor {
-        RDPRemoteMonitor(rect: rect(left, top, right, bottom), isPrimary: isPrimary)
+        RDPRemoteMonitor(rect: rect(left, top, right, bottom), isPrimary: isPrimary, index: index)
     }
 
     private func rect(_ left: UInt16, _ top: UInt16, _ right: UInt16, _ bottom: UInt16) -> RDPFrameRect {

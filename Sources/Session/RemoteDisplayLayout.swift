@@ -3,9 +3,9 @@ import RDPKit
 
 /// One remote display, in the server's order.
 struct RemoteDisplay: Equatable {
-    /// The display's 1-based position among those the layout kept, which the Displays menu
-    /// shows; RDPKit drops monitors with nothing in the frame, so it can differ from the
-    /// server's own numbering.
+    /// The display's 1-based place in the server's list of monitors, which the Displays menu
+    /// shows. A monitor left out, with nothing in the frame, keeps its number to itself, so the
+    /// numbers of those kept can skip one.
     var number: Int
     /// Where the display is in the frame, in remote pixels from its top-left corner. Integral
     /// and half-open: it holds the columns from `minX` up to, not including, `maxX`.
@@ -46,15 +46,13 @@ struct RemoteDisplayLayout: Equatable {
         let frameRect = CGRect(origin: .zero, size: frameSize)
         // RDPKit clips monitors to the graphics output already; clipping again keeps a layout
         // that outlived a desktop resize inside the frame it is applied to.
-        let shown = monitors.compactMap { monitor -> (rect: CGRect, isPrimary: Bool)? in
+        displays = monitors.compactMap { monitor in
             let rect = Self.rect(monitor.rect).intersection(frameRect)
             guard rect.isEmpty == false else {
                 return nil
             }
-            return (rect, monitor.isPrimary)
-        }
-        displays = shown.enumerated().map { index, display in
-            RemoteDisplay(number: index + 1, rect: display.rect, isPrimary: display.isPrimary)
+            // RDPKit keeps each monitor's place in the server's list.
+            return RemoteDisplay(number: monitor.index + 1, rect: rect, isPrimary: monitor.isPrimary)
         }
     }
 
@@ -117,10 +115,11 @@ enum RemoteDisplaySelection: Equatable {
     ///
     /// While the server reports as many displays as before, a chosen display keeps its number:
     /// a display changing resolution moves its neighbours, maybe onto another display's old
-    /// place, but the server's order stays. When the count changes, the numbers shift, and a
-    /// display is found again only at its exact rect. A layout that offers no choice keeps the
-    /// subset as it is, so a brief single-monitor reset doesn't lose the choice; the caller
-    /// reconciles against the last layout that offered one when a choice comes back.
+    /// place, but the server's order stays. When the count changes, the server may have added
+    /// or removed a monitor, which shifts the numbers after it, so a display is found again
+    /// only at its exact rect. A layout that offers no choice keeps the subset as it is, so a
+    /// brief single-monitor reset doesn't lose the choice; the caller reconciles against the
+    /// last layout that offered one when a choice comes back.
     @discardableResult
     mutating func reconcile(from old: RemoteDisplayLayout?, to new: RemoteDisplayLayout) -> Bool {
         guard case let .subset(numbers) = self,

@@ -13,15 +13,15 @@ final class RemoteDisplayLayoutTests: XCTestCase {
         let cases: [(name: String, monitors: [RDPRemoteMonitor])] = [
             ("overlapping", [
                 monitor(left: 0, top: 0, right: 1920, bottom: 1080),
-                monitor(left: 1900, top: 0, right: 3840, bottom: 1080),
+                monitor(left: 1900, top: 0, right: 3840, bottom: 1080, index: 1),
             ]),
             ("mirrored", [
                 monitor(left: 0, top: 0, right: 1920, bottom: 1080),
-                monitor(left: 0, top: 0, right: 1920, bottom: 1080),
+                monitor(left: 0, top: 0, right: 1920, bottom: 1080, index: 1),
             ]),
             ("exclusive edges", [
                 monitor(left: 0, top: 0, right: 1921, bottom: 1080, isPrimary: true),
-                monitor(left: 1920, top: 0, right: 3840, bottom: 1080),
+                monitor(left: 1920, top: 0, right: 3840, bottom: 1080, index: 1),
             ]),
         ]
         for (name, monitors) in cases {
@@ -43,7 +43,7 @@ final class RemoteDisplayLayoutTests: XCTestCase {
             frameSize: CGSize(width: 4480, height: 1440),
             monitors: [
                 monitor(left: 0, top: 0, right: 1920, bottom: 1200),
-                monitor(left: 1920, top: 0, right: 4480, bottom: 1440),
+                monitor(left: 1920, top: 0, right: 4480, bottom: 1440, index: 1),
             ],
             monitorLayoutIssues: [.clipped, .noPrimary, .uncoveredOutput]
         )
@@ -61,8 +61,8 @@ final class RemoteDisplayLayoutTests: XCTestCase {
             frameSize: CGSize(width: 3000, height: 1080),
             monitors: [
                 monitor(left: 0, top: 0, right: 1920, bottom: 1080),
-                monitor(left: 1920, top: 0, right: 3840, bottom: 1200),
-                monitor(left: 3200, top: 0, right: 3300, bottom: 100),
+                monitor(left: 1920, top: 0, right: 3840, bottom: 1200, index: 1),
+                monitor(left: 3200, top: 0, right: 3300, bottom: 100, index: 2),
             ]
         )
 
@@ -78,7 +78,7 @@ final class RemoteDisplayLayoutTests: XCTestCase {
             frameSize: CGSize(width: 4000, height: 1200),
             monitors: [
                 monitor(left: 0, top: 0, right: 1920, bottom: 1080),
-                monitor(left: 1920, top: 0, right: 3840, bottom: 1080),
+                monitor(left: 1920, top: 0, right: 3840, bottom: 1080, index: 1),
             ]
         )
 
@@ -86,22 +86,37 @@ final class RemoteDisplayLayoutTests: XCTestCase {
         XCTAssertEqual(layout.frameSize, CGSize(width: 4000, height: 1200))
     }
 
-    func testDisplaysAreNumberedInServerOrderAfterEmptyOnesGo() {
-        // The menu numbers displays in the server's order; one with nothing in the frame takes
-        // no number.
+    func testDisplaysTakeTheServersNumbers() {
+        // The menu numbers displays as the server lists them, from RDPKit's index. A monitor
+        // with nothing in the frame goes, and keeps its number to itself.
         let layout = RemoteDisplayLayout(
             frameSize: CGSize(width: 3840, height: 1080),
             monitors: [
-                monitor(left: 1920, top: 0, right: 3840, bottom: 1080, isPrimary: true),
-                monitor(left: 100, top: 0, right: 100, bottom: 1080),
-                monitor(left: 0, top: 0, right: 1920, bottom: 1080),
+                monitor(left: 1920, top: 0, right: 3840, bottom: 1080, isPrimary: true, index: 0),
+                monitor(left: 100, top: 0, right: 100, bottom: 1080, index: 1),
+                monitor(left: 0, top: 0, right: 1920, bottom: 1080, index: 2),
             ]
         )
 
         XCTAssertEqual(layout.displays, [
             RemoteDisplay(number: 1, rect: CGRect(x: 1920, y: 0, width: 1920, height: 1080), isPrimary: true),
-            RemoteDisplay(number: 2, rect: CGRect(x: 0, y: 0, width: 1920, height: 1080), isPrimary: false),
+            RemoteDisplay(number: 3, rect: CGRect(x: 0, y: 0, width: 1920, height: 1080), isPrimary: false),
         ])
+    }
+
+    func testAMonitorRDPKitLeftOutKeepsItsNumber() {
+        // RDPKit leaves out a monitor with nothing in the graphics output; the others keep
+        // their places in the server's list.
+        let layout = RemoteDisplayLayout(
+            frameSize: CGSize(width: 5120, height: 1440),
+            monitors: [
+                monitor(left: 0, top: 0, right: 2560, bottom: 1440, isPrimary: true, index: 0),
+                monitor(left: 2560, top: 0, right: 5120, bottom: 1440, index: 2),
+            ]
+        )
+
+        XCTAssertEqual(layout.displays.map(\.number), [1, 3])
+        XCTAssertTrue(layout.offersSelection)
     }
 
     func testOneDisplayOffersNoSelection() {
@@ -119,7 +134,7 @@ final class RemoteDisplayLayoutTests: XCTestCase {
         // The session builds the layout from the presented frame's metadata.
         let monitors = [
             monitor(left: 0, top: 0, right: 1920, bottom: 1080, isPrimary: true),
-            monitor(left: 1920, top: 0, right: 3840, bottom: 1080),
+            monitor(left: 1920, top: 0, right: 3840, bottom: 1080, index: 1),
         ]
         let frame = RDPFrameMetadata(RDPGraphicsFrameSnapshot(
             frameID: 1,
@@ -146,7 +161,7 @@ final class RemoteDisplayLayoutTests: XCTestCase {
             pixelFormat: 0,
             monitors: [
                 monitor(left: 0, top: 0, right: 1921, bottom: 1080, isPrimary: true),
-                monitor(left: 1920, top: 0, right: 3840, bottom: 1080),
+                monitor(left: 1920, top: 0, right: 3840, bottom: 1080, index: 1),
             ],
             monitorLayoutIssues: .overlapping,
             destinationRect: RDPFrameRect(left: 0, top: 0, right: 3840, bottom: 1080),
@@ -210,12 +225,29 @@ final class RemoteDisplayLayoutTests: XCTestCase {
             frameSize: CGSize(width: 7040, height: 1440),
             monitors: [
                 monitor(left: 2560, top: 0, right: 4480, bottom: 1080),
-                monitor(left: 4480, top: 0, right: 7040, bottom: 1440),
+                monitor(left: 4480, top: 0, right: 7040, bottom: 1440, index: 1),
             ]
         )
 
         XCTAssertTrue(selection.reconcile(from: old, to: new))
         XCTAssertEqual(selection, .subset([2]))
+    }
+
+    func testReconcileKeepsTheServersNumberWhenRDPKitLeavesADisplayOut() {
+        // The middle display has nothing in the output for now, so RDPKit leaves it out: the
+        // count changed, the chosen display is found at its rect, and keeps its number.
+        var selection = RemoteDisplaySelection.subset([3])
+        let new = RemoteDisplayLayout(
+            frameSize: CGSize(width: 7040, height: 1440),
+            monitors: [
+                monitor(left: 0, top: 0, right: 2560, bottom: 1440, isPrimary: true, index: 0),
+                monitor(left: 4480, top: 0, right: 7040, bottom: 1440, index: 2),
+            ]
+        )
+
+        XCTAssertTrue(selection.reconcile(from: threeDisplays(), to: new))
+        XCTAssertEqual(selection, .subset([3]))
+        XCTAssertEqual(selection.visibleRects(in: new), [CGRect(x: 4480, y: 0, width: 2560, height: 1440)])
     }
 
     func testReconcileFindsAChosenDisplayByNumberWhenTheCountStays() {
@@ -225,7 +257,7 @@ final class RemoteDisplayLayoutTests: XCTestCase {
             frameSize: CGSize(width: 4480, height: 1440),
             monitors: [
                 monitor(left: 0, top: 0, right: 2560, bottom: 1440),
-                monitor(left: 2560, top: 0, right: 4480, bottom: 1080),
+                monitor(left: 2560, top: 0, right: 4480, bottom: 1080, index: 1),
             ]
         )
 
@@ -241,16 +273,16 @@ final class RemoteDisplayLayoutTests: XCTestCase {
             frameSize: CGSize(width: 5760, height: 1080),
             monitors: [
                 monitor(left: 0, top: 0, right: 1920, bottom: 1080, isPrimary: true),
-                monitor(left: 1920, top: 0, right: 3840, bottom: 1080),
-                monitor(left: 3840, top: 0, right: 5760, bottom: 1080),
+                monitor(left: 1920, top: 0, right: 3840, bottom: 1080, index: 1),
+                monitor(left: 3840, top: 0, right: 5760, bottom: 1080, index: 2),
             ]
         )
         let new = RemoteDisplayLayout(
             frameSize: CGSize(width: 7680, height: 2160),
             monitors: [
                 monitor(left: 0, top: 0, right: 3840, bottom: 2160, isPrimary: true),
-                monitor(left: 3840, top: 0, right: 5760, bottom: 1080),
-                monitor(left: 5760, top: 0, right: 7680, bottom: 1080),
+                monitor(left: 3840, top: 0, right: 5760, bottom: 1080, index: 1),
+                monitor(left: 5760, top: 0, right: 7680, bottom: 1080, index: 2),
             ]
         )
 
@@ -265,8 +297,8 @@ final class RemoteDisplayLayoutTests: XCTestCase {
             frameSize: CGSize(width: 3840, height: 1080),
             monitors: [
                 monitor(left: 0, top: 0, right: 1280, bottom: 1080),
-                monitor(left: 1280, top: 0, right: 2560, bottom: 1080),
-                monitor(left: 2560, top: 0, right: 3840, bottom: 1080),
+                monitor(left: 1280, top: 0, right: 2560, bottom: 1080, index: 1),
+                monitor(left: 2560, top: 0, right: 3840, bottom: 1080, index: 2),
             ]
         )
 
@@ -282,7 +314,7 @@ final class RemoteDisplayLayoutTests: XCTestCase {
             frameSize: CGSize(width: 4480, height: 1440),
             monitors: [
                 monitor(left: 0, top: 0, right: 2560, bottom: 1440),
-                monitor(left: 2560, top: 0, right: 4480, bottom: 1080),
+                monitor(left: 2560, top: 0, right: 4480, bottom: 1080, index: 1),
             ]
         )
 
@@ -346,8 +378,8 @@ final class RemoteDisplayLayoutTests: XCTestCase {
             frameSize: CGSize(width: 3840, height: 1080),
             monitors: [
                 monitor(left: 0, top: 0, right: 1280, bottom: 1080),
-                monitor(left: 1280, top: 0, right: 2560, bottom: 1080),
-                monitor(left: 2560, top: 0, right: 3840, bottom: 1080),
+                monitor(left: 1280, top: 0, right: 2560, bottom: 1080, index: 1),
+                monitor(left: 2560, top: 0, right: 3840, bottom: 1080, index: 2),
             ]
         )
 
@@ -373,10 +405,19 @@ final class RemoteDisplayLayoutTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func monitor(left: Int, top: Int, right: Int, bottom: Int, isPrimary: Bool = false) -> RDPRemoteMonitor {
+    /// A monitor at `index` in the server's list, as RDPKit reports it.
+    private func monitor(
+        left: Int,
+        top: Int,
+        right: Int,
+        bottom: Int,
+        isPrimary: Bool = false,
+        index: Int = 0
+    ) -> RDPRemoteMonitor {
         RDPRemoteMonitor(
             rect: RDPFrameRect(left: UInt16(left), top: UInt16(top), right: UInt16(right), bottom: UInt16(bottom)),
-            isPrimary: isPrimary
+            isPrimary: isPrimary,
+            index: index
         )
     }
 
@@ -386,7 +427,7 @@ final class RemoteDisplayLayoutTests: XCTestCase {
             frameSize: CGSize(width: 3840, height: 1080),
             monitors: [
                 monitor(left: 0, top: 0, right: 1920, bottom: 1080, isPrimary: true),
-                monitor(left: 1920, top: 0, right: 3840, bottom: 1080),
+                monitor(left: 1920, top: 0, right: 3840, bottom: 1080, index: 1),
             ]
         )
     }
@@ -397,8 +438,8 @@ final class RemoteDisplayLayoutTests: XCTestCase {
             frameSize: CGSize(width: 7040, height: 1440),
             monitors: [
                 monitor(left: 0, top: 0, right: 2560, bottom: 1440, isPrimary: true),
-                monitor(left: 2560, top: 0, right: 4480, bottom: 1080),
-                monitor(left: 4480, top: 0, right: 7040, bottom: 1440),
+                monitor(left: 2560, top: 0, right: 4480, bottom: 1080, index: 1),
+                monitor(left: 4480, top: 0, right: 7040, bottom: 1440, index: 2),
             ]
         )
     }

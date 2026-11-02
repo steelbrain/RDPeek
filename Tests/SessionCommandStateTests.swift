@@ -305,7 +305,7 @@ final class SessionCommandStateTests: XCTestCase {
             frameSize: CGSize(width: 4480, height: 1440),
             monitors: [
                 monitor(0, 0, 2560, 1440, isPrimary: false),
-                monitor(2560, 0, 4480, 1080, isPrimary: true),
+                monitor(2560, 0, 4480, 1080, isPrimary: true, index: 1),
             ]
         )
     }
@@ -316,8 +316,8 @@ final class SessionCommandStateTests: XCTestCase {
             frameSize: CGSize(width: 5760, height: 1080),
             monitors: [
                 monitor(0, 0, 1920, 1080, isPrimary: false),
-                monitor(1920, 0, 3840, 1080, isPrimary: true),
-                monitor(3840, 0, 5760, 1080, isPrimary: false),
+                monitor(1920, 0, 3840, 1080, isPrimary: true, index: 1),
+                monitor(3840, 0, 5760, 1080, isPrimary: false, index: 2),
             ]
         )
     }
@@ -327,7 +327,7 @@ final class SessionCommandStateTests: XCTestCase {
         (0 ..< count).map { (index: Int) -> RDPRemoteMonitor in
             let left = UInt16(index * 1920)
             let right = UInt16((index + 1) * 1920)
-            return monitor(left, 0, right, 1080, isPrimary: index == 0)
+            return monitor(left, 0, right, 1080, isPrimary: index == 0, index: index)
         }
     }
 
@@ -336,11 +336,13 @@ final class SessionCommandStateTests: XCTestCase {
         _ top: UInt16,
         _ right: UInt16,
         _ bottom: UInt16,
-        isPrimary: Bool
+        isPrimary: Bool,
+        index: Int = 0
     ) -> RDPRemoteMonitor {
         RDPRemoteMonitor(
             rect: RDPFrameRect(left: left, top: top, right: right, bottom: bottom),
-            isPrimary: isPrimary
+            isPrimary: isPrimary,
+            index: index
         )
     }
 }
