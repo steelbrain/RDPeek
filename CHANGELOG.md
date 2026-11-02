@@ -15,7 +15,9 @@
   Level Authentication, CredSSP 2, 3 or 4 without the 2018 update, is
   refused before any password is sent. Connect Anyway, under the
   message, signs in with the outdated version for that one connection
-  to that computer, which RDPeek does not retry on its own.
+  to that computer, which RDPeek does not retry on its own. A server
+  the session is passed on to, such as by a load balancer, is refused
+  the same way, without Connect Anyway.
 - A password typed at sign-in is kept only when the server checked it
   before showing the desktop. On servers that don't, such as xrdp or a
   Windows PC set to the TLS security layer, a mistyped password is no

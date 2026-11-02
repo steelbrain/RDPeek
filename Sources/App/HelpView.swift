@@ -96,7 +96,8 @@ struct HelpView: View {
                         "A PC that signs in with an outdated version of Network Level " +
                             "Authentication, CredSSP 2 to 4, is refused before any password " +
                             "is sent; use Connect Anyway, for that one connection, only on " +
-                            "a network you trust."
+                            "a network you trust. A server the PC passes the session on to " +
+                            "is refused the same way, without Connect Anyway."
                     )
                 }
 
