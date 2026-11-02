@@ -86,8 +86,8 @@ targets:
         product: RDPKit
       - package: RDPKit
         product: RDPKitAppKit
-      # A real clipboard session over an in-memory server, for the
-      # clipboard bridge's tests.
+      # Real clipboard and Display Control sessions over in-memory
+      # servers, for the clipboard bridge's and the Display Control tests.
       - package: RDPKit
         product: RDPKitTesting
     settings:
