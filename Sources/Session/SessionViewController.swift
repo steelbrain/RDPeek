@@ -925,7 +925,8 @@ final class SessionViewController: NSViewController {
             // The server's first copy can come before the bridge attaches
             // on the main thread, so nothing is fetched until it applies
             // the sharing choice; on, fetching then gets a copy that came
-            // in between.
+            // in between. A restart of the server's clipboard turns
+            // fetching off again until the bridge attaches again.
             clipboardFetchesRemoteCopies: false,
             audioPlaybackEnabled: audioPlaybackEnabled,
             // RDPeek never exposes a graphics-profile picker: automatic lets

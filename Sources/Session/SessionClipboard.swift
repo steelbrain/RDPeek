@@ -149,7 +149,9 @@ final class SessionClipboard {
 
     /// Applies the sharing choice to a session, which starts with fetching
     /// off (`clipboardFetchesRemoteCopies`). A restart of the server's
-    /// clipboard keeps the fetching this set before.
+    /// clipboard turns fetching off again before RDPKit hands the session
+    /// over again, so nothing the restarted clipboard announces is fetched
+    /// before this decides again.
     func attach(_ session: any SessionClipboardSending) {
         // A Server Redirection, or the server's clipboard restarting,
         // attaches again without a detach. A download in flight gets no
@@ -169,10 +171,9 @@ final class SessionClipboard {
             return
         }
         // Turning fetching on fetches a copy the server announced before
-        // the bridge attached, and a restarted clipboard, still fetching,
-        // may be fetching one. It is newer than the pasteboard, which
-        // publishing now would put in its place on the server; should it
-        // never arrive, Sync Now sends the pasteboard.
+        // the bridge attached, also after a restart. It is newer than the
+        // pasteboard, which publishing now would put in its place on the
+        // server; should it never arrive, Sync Now sends the pasteboard.
         guard session.isAwaitingRemoteCopy == false else {
             pasteboardChangeCount = pasteboard.changeCount
             localCopyIsUnsent = true
