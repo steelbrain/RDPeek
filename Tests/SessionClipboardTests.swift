@@ -1398,7 +1398,8 @@ final class SessionClipboardTests: XCTestCase {
 
     /// A download an earlier run left goes once it is an hour old; a newer
     /// one may be another copy of the app's, still downloading. Anything
-    /// else in the folder, and links, are left alone.
+    /// else in the folder is left alone, a UUID-named link to an old folder
+    /// included: a link is not a folder, whatever it points to.
     func testOnlyOldDownloadsLeftByAnEarlierRunAreRemoved() throws {
         let outside = FileManager.default.temporaryDirectory
             .appendingPathComponent("RDPeekTests.\(UUID().uuidString)", isDirectory: true)
