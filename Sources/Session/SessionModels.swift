@@ -114,20 +114,14 @@ struct RDPSessionEndReason: Equatable {
         message: "Connection cancelled by user."
     )
 
-    /// The remote computer did not show the desktop in time after
-    /// activating the session.
-    static let firstFrameTimeout = RDPSessionEndReason(
-        kind: .failed,
-        message: "The remote computer did not show the desktop in time."
-    )
-
     /// Why a session RDPKit ran ended, in plain words, from the report's
     /// typed failure and the server's termination; the report keeps RDPKit's
     /// own text for Diagnostics. Once the desktop was shown the session
-    /// ended rather than failed, however it ended: `presentedFrames` tells,
-    /// not the report's first frame, which RDPKit delivered even when it
-    /// failed to decode. `host` is the server typed in.
-    init(report: RDPConnectionReport, host: String, presentedFrames showedDesktop: Bool) {
+    /// ended rather than failed, however it ended: the report's
+    /// `presentedFrameCount` tells, not its first frame, which came whether
+    /// or not it was shown. `host` is the server typed in.
+    init(report: RDPConnectionReport, host: String) {
+        let showedDesktop = report.showedDesktop
         let termination = report.remoteTermination.flatMap(Self.terminationMessage)
         guard let failure = report.failure else {
             if let error = report.error {
@@ -273,10 +267,10 @@ struct RDPSessionEndReason: Equatable {
         case .graphicsFrameHandler:
             return "RDPeek could not show the remote desktop."
         case let .noFramePresented(framesReceived, _):
-            // RDPKit 0.7 prep: retried as a missing desktop once the bump
-            // adopts it.
+            // The session activated, but no desktop showed in time: none
+            // came, or none of the frames that came decoded.
             return framesReceived == 0
-                ? firstFrameTimeout.message
+                ? "The remote computer did not show the desktop in time."
                 : "RDPeek could not show the remote desktop."
         }
     }
@@ -407,11 +401,19 @@ struct RDPSessionEndReason: Equatable {
     }
 }
 
+extension RDPConnectionReport {
+    /// Whether the session showed the desktop: the frame handler showed a
+    /// frame.
+    var showedDesktop: Bool {
+        (presentedFrameCount ?? 0) > 0
+    }
+}
+
 /// Why a session connects again on its own.
 enum SessionAutoRetryReason: Equatable {
     /// The server could not be reached.
     case networkHiccup
-    /// The server activated the session but sent no desktop in time.
+    /// The server activated the session but showed no desktop in time.
     case firstFrameTimeout
 
     var statusDetail: String {
@@ -439,17 +441,18 @@ enum SessionAttemptOutcome: Equatable {
     /// local network access.
     static let maximumUnreachableRetries = 2
 
-    /// After a session RDPKit ran ended, with its report. No attempt that
-    /// may have been refused for its credentials is repeated: a rejected
-    /// sign-in asks again. The automatic attempts are each bounded:
+    /// After a session RDPKit ran ended, with its report, which says
+    /// whether it showed the desktop. No attempt that may have been refused
+    /// for its credentials is repeated: a rejected sign-in asks again. The
+    /// automatic attempts are each bounded:
     ///
     /// - A server that could not be reached is tried again, up to
     ///   `maximumUnreachableRetries` times. A host name that does not
     ///   resolve stays wrong, and a server that refused the connection or a
     ///   connection macOS did not allow is not tried again.
-    /// - A server that activated the session but did not show the desktop
-    ///   in time (RDPKit bounds the wait for the first frame) gets one more
-    ///   attempt, with the same credentials.
+    /// - A session that activated but showed no desktop in time, which
+    ///   RDPKit ends with `noFramePresented`, gets one more attempt, with
+    ///   the same credentials.
     ///
     /// RDPKit already made the other attempts within the run: one offering
     /// only RSA key exchange to a certificate that refused ECDHE, and one
@@ -462,12 +465,11 @@ enum SessionAttemptOutcome: Equatable {
     static func after(
         _ report: RDPConnectionReport,
         host: String,
-        presentedFrames: Bool,
         unreachableRetriesSpent: Int = 0,
         retriedFirstFrameTimeout: Bool = false
     ) -> Self {
-        let endReason = RDPSessionEndReason(report: report, host: host, presentedFrames: presentedFrames)
-        guard presentedFrames == false, let failure = report.failure else {
+        let endReason = RDPSessionEndReason(report: report, host: host)
+        guard report.showedDesktop == false, let failure = report.failure else {
             return .end(endReason)
         }
         let isRedirected = report.redirectionDepth > 0
@@ -495,8 +497,8 @@ enum SessionAttemptOutcome: Equatable {
             return .promptForCredentials(
                 message: "The remote computer did not accept the sign-in. Check the user name and password."
             )
-        case .timedOut where report.connectionStage == .graphics && report.rdpGraphicsFirstFrame == nil:
-            return retriedFirstFrameTimeout ? .end(.firstFrameTimeout) : .retry(.firstFrameTimeout)
+        case .noFramePresented:
+            return retriedFirstFrameTimeout ? .end(endReason) : .retry(.firstFrameTimeout)
         default:
             break
         }
@@ -540,13 +542,11 @@ struct SessionAttemptBudget {
     /// on it.
     func outcome(
         after report: RDPConnectionReport,
-        host: String,
-        presentedFrames: Bool
+        host: String
     ) -> SessionAttemptOutcome {
         SessionAttemptOutcome.after(
             report,
             host: host,
-            presentedFrames: presentedFrames,
             unreachableRetriesSpent: unreachableRetriesSpent,
             retriedFirstFrameTimeout: retriedFirstFrameTimeout
         )

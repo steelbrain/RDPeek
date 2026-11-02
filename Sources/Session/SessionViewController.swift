@@ -1212,11 +1212,7 @@ final class SessionViewController: NSViewController {
     ) {
         flushPendingFramePresentation()
         publishRenderMetricsSnapshotIfNeeded(force: true)
-        let outcome = attemptBudget.outcome(
-            after: finishedReport,
-            host: configuration.host,
-            presentedFrames: hasPresentedFrame
-        )
+        let outcome = attemptBudget.outcome(after: finishedReport, host: configuration.host)
         attemptBudget.record(outcome)
         report = finishedReport
         certificateTrustedByApp = trustedCertificateStore.isTrusted(

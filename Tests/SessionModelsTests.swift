@@ -176,17 +176,14 @@ final class SessionModelsTests: XCTestCase {
 
     func testCleanEndAfterFramesUsesTerminationSentence() {
         // A legacy fast-path session never opens RDPGFX, yet showed frames.
-        let reason = endReason(
-            makeReport(nextStage: "rdp-session-ended", errorInfo: 0x0000_000C),
-            presentedFrames: true
-        )
+        let reason = endReason(makeReport(nextStage: "rdp-session-ended", errorInfo: 0x0000_000C, presentedFrameCount: 1))
 
         XCTAssertEqual(reason, RDPSessionEndReason(kind: .ended, message: "You signed out of the remote computer."))
     }
 
     func testNormalTerminationAfterFramesEnds() {
         // RDPKit reports another connection taking over as a normal end.
-        let reason = endReason(makeReport(nextStage: "rdp-session-ended", errorInfo: 0x0000_0005), presentedFrames: true)
+        let reason = endReason(makeReport(nextStage: "rdp-session-ended", errorInfo: 0x0000_0005, presentedFrameCount: 1))
 
         XCTAssertEqual(reason, RDPSessionEndReason(
             kind: .ended,
@@ -195,10 +192,10 @@ final class SessionModelsTests: XCTestCase {
     }
 
     func testFailedTerminationAfterFramesEndsRatherThanFails() {
-        let reason = endReason(
-            makeReport(failure: .serverTermination(termination: RDPRemoteTermination(errorInfo: 0x0000_0010))),
-            presentedFrames: true
-        )
+        let reason = endReason(makeReport(
+            failure: .serverTermination(termination: RDPRemoteTermination(errorInfo: 0x0000_0010)),
+            presentedFrameCount: 1
+        ))
 
         XCTAssertEqual(reason, RDPSessionEndReason(
             kind: .ended,
@@ -208,7 +205,7 @@ final class SessionModelsTests: XCTestCase {
 
     func testLostConnectionAfterFramesEndsRatherThanFails() {
         for failure in [RDPConnectionFailure.connectionLost, .connectionClosed, .timedOut] {
-            let reason = endReason(makeReport(failure: failure), presentedFrames: true)
+            let reason = endReason(makeReport(failure: failure, presentedFrameCount: 1))
 
             XCTAssertEqual(reason, RDPSessionEndReason(
                 kind: .ended,
@@ -231,11 +228,11 @@ final class SessionModelsTests: XCTestCase {
 
     func testServerShutdownAndRestartAreNamed() {
         XCTAssertEqual(
-            endReason(makeReport(errorInfo: 0x0000_0019), presentedFrames: true).message,
+            endReason(makeReport(errorInfo: 0x0000_0019, presentedFrameCount: 1)).message,
             "The remote computer is shutting down."
         )
         XCTAssertEqual(
-            endReason(makeReport(errorInfo: 0x0000_001A), presentedFrames: true).message,
+            endReason(makeReport(errorInfo: 0x0000_001A, presentedFrameCount: 1)).message,
             "The remote computer is restarting."
         )
     }
@@ -381,8 +378,7 @@ final class SessionModelsTests: XCTestCase {
         func outcome(_ failure: RDPConnectionFailure, target: String = "host2:3389") -> SessionAttemptOutcome {
             SessionAttemptOutcome.after(
                 makeReport(stage: "x224-rdp-negotiation", target: target, redirectionDepth: 1, failure: failure),
-                host: "broker",
-                presentedFrames: false
+                host: "broker"
             )
         }
 
@@ -522,27 +518,38 @@ final class SessionModelsTests: XCTestCase {
     }
 
     func testMissingDesktopReconnectsOnceThenEnds() {
-        // RDPKit bounds the wait for the first frame once the server
-        // accepted the sign-in.
-        let report = makeReport(stage: "rdp-graphics-dynamic-channel", failure: .timedOut)
+        // RDPKit bounds the wait for the first frame once the session
+        // activated, and says when none came.
+        let report = makeReport(failure: .noFramePresented(framesReceived: 0, lastNotPresentedReason: nil))
 
         XCTAssertEqual(outcome(after: report), .retry(.firstFrameTimeout))
-        XCTAssertEqual(outcome(after: report, retriedFirstFrameTimeout: true), .end(.firstFrameTimeout))
-        // A timeout before activation is not one of a missing desktop.
         XCTAssertEqual(
-            outcome(after: makeReport(stage: "rdp-connection-finalization", failure: .timedOut)),
-            .end(RDPSessionEndReason(kind: .failed, message: "The remote computer did not respond in time."))
+            outcome(after: report, retriedFirstFrameTimeout: true),
+            .end(RDPSessionEndReason(kind: .failed, message: "The remote computer did not show the desktop in time."))
         )
+        // A timeout is not a missing desktop, before activation or after.
+        for stage in ["rdp-connection-finalization", "rdp-graphics-dynamic-channel"] {
+            XCTAssertEqual(
+                outcome(after: makeReport(stage: stage, failure: .timedOut)),
+                .end(RDPSessionEndReason(kind: .failed, message: "The remote computer did not respond in time.")),
+                stage
+            )
+        }
     }
 
-    func testFramesThatNeverDecodedFailWithoutReconnecting() {
-        // RDPKit delivered frames, so the report has a first frame, but none decoded in time:
-        // reconnecting would fail the same way, and the desktop was never shown.
-        var report = makeReport(failure: .graphicsFrameHandler)
-        report.rdpGraphicsFirstFrame = makeFrameSnapshot()
+    func testFramesThatNeverShowedReconnectOnceThenEnd() {
+        // Frames came, but none decoded in time: the session showed no
+        // desktop, which connecting again can bring.
+        let report = makeReport(failure: .noFramePresented(framesReceived: 3, lastNotPresentedReason: "decode failed"))
 
+        XCTAssertEqual(outcome(after: report), .retry(.firstFrameTimeout))
         XCTAssertEqual(
-            outcome(after: report),
+            outcome(after: report, retriedFirstFrameTimeout: true),
+            .end(RDPSessionEndReason(kind: .failed, message: "RDPeek could not show the remote desktop."))
+        )
+        // The frame handler failing otherwise is RDPeek's, and not retried.
+        XCTAssertEqual(
+            outcome(after: makeReport(failure: .graphicsFrameHandler)),
             .end(RDPSessionEndReason(kind: .failed, message: "RDPeek could not show the remote desktop."))
         )
     }
@@ -569,11 +576,19 @@ final class SessionModelsTests: XCTestCase {
     }
 
     func testNothingIsRetriedOnceTheDesktopShowed() {
-        let report = makeReport(stage: "rdp-graphics-dynamic-channel", failure: .timedOut)
+        // The report counts the frames shown; the first frame came whether
+        // or not it was.
+        let report = makeReport(failure: .timedOut, presentedFrameCount: 1)
 
         XCTAssertEqual(
-            SessionAttemptOutcome.after(report, host: "winbox", presentedFrames: true),
+            outcome(after: report),
             .end(RDPSessionEndReason(kind: .ended, message: "The connection to the remote computer was lost."))
+        )
+        var unshown = makeReport(failure: .graphicsFrameHandler)
+        unshown.rdpGraphicsFirstFrame = makeFrameSnapshot()
+        XCTAssertEqual(
+            outcome(after: unshown),
+            .end(RDPSessionEndReason(kind: .failed, message: "RDPeek could not show the remote desktop."))
         )
     }
 
@@ -597,7 +612,7 @@ final class SessionModelsTests: XCTestCase {
     }
 
     func testEachAutomaticRetryHappensOnce() {
-        let report = makeReport(stage: "rdp-graphics-dynamic-channel", failure: .timedOut)
+        let report = makeReport(failure: .noFramePresented(framesReceived: 0, lastNotPresentedReason: nil))
         var budget = SessionAttemptBudget()
         budget.userStarted()
 
@@ -607,18 +622,14 @@ final class SessionModelsTests: XCTestCase {
     func testMixedFailuresStillEnd() {
         let reports = [
             makeReport(stage: "x224-rdp-negotiation", failure: .connect(error: RDPSocketError(errno: ETIMEDOUT))),
-            makeReport(stage: "rdp-graphics-dynamic-channel", failure: .timedOut),
+            makeReport(failure: .noFramePresented(framesReceived: 0, lastNotPresentedReason: nil)),
         ]
         var budget = SessionAttemptBudget()
         budget.userStarted()
         var attempts = 0
 
         while attempts < 100 {
-            let outcome = budget.outcome(
-                after: reports[attempts % reports.count],
-                host: "winbox",
-                presentedFrames: false
-            )
+            let outcome = budget.outcome(after: reports[attempts % reports.count], host: "winbox")
             budget.record(outcome)
             attempts += 1
             if case .end = outcome {
@@ -807,11 +818,7 @@ final class SessionModelsTests: XCTestCase {
     ) -> Int {
         var retries = 0
         while retries < 100 {
-            let outcome = budget.outcome(
-                after: report,
-                host: "winbox",
-                presentedFrames: false
-            )
+            let outcome = budget.outcome(after: report, host: "winbox")
             budget.record(outcome)
             switch outcome {
             case .retry:
@@ -824,8 +831,8 @@ final class SessionModelsTests: XCTestCase {
         return retries
     }
 
-    private func endReason(_ report: RDPConnectionReport, presentedFrames: Bool = false) -> RDPSessionEndReason {
-        RDPSessionEndReason(report: report, host: "winbox", presentedFrames: presentedFrames)
+    private func endReason(_ report: RDPConnectionReport) -> RDPSessionEndReason {
+        RDPSessionEndReason(report: report, host: "winbox")
     }
 
     private func outcome(
@@ -837,7 +844,6 @@ final class SessionModelsTests: XCTestCase {
         SessionAttemptOutcome.after(
             report,
             host: host,
-            presentedFrames: false,
             unreachableRetriesSpent: unreachableRetriesSpent,
             retriedFirstFrameTimeout: retriedFirstFrameTimeout
         )
@@ -850,10 +856,11 @@ final class SessionModelsTests: XCTestCase {
         nextStage: String? = nil,
         errorInfo: UInt32? = nil,
         failure: RDPConnectionFailure? = nil,
-        error: String? = nil
+        error: String? = nil,
+        presentedFrameCount: Int? = nil
     ) -> RDPConnectionReport {
         let failed = failure != nil || error != nil
-        return RDPConnectionReport(
+        var report = RDPConnectionReport(
             status: failed ? "failure" : "success",
             stage: stage,
             target: target,
@@ -867,5 +874,7 @@ final class SessionModelsTests: XCTestCase {
             error: error ?? failure.map { "RDPKit's words for \($0)" },
             failure: failure
         )
+        report.presentedFrameCount = presentedFrameCount
+        return report
     }
 }
