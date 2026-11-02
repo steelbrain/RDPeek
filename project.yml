@@ -66,6 +66,7 @@ targets:
       - path: Sources/Session/FramePresentationClockView.swift
       - path: Sources/Session/KeyboardLayouts.swift
       - path: Sources/Session/RemoteDesktopCanvasView.swift
+      - path: Sources/Session/RemoteDesktopGeometry.swift
       - path: Sources/Session/RemoteDesktopRenderer.swift
       - path: Sources/Session/RemoteInputCaptureView.swift
       - path: Sources/Session/SessionClipboard.swift
