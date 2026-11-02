@@ -1392,7 +1392,7 @@ final class SessionViewController: NSViewController {
     /// The server laid out its graphics again, as RDPKit tells ahead of
     /// the frames that follow.
     private func followServerLayout(_ layout: RDPServerLayout) {
-        guard displayControl.takeServerMonitors(layout.monitors) else {
+        guard displayControl.follow(layout) else {
             return
         }
         scheduleAutoDisplaySizeUpdate()

@@ -104,12 +104,22 @@ struct SessionDisplayControl {
         takeServerMonitors(session.serverMonitors)
     }
 
+    /// The server laid out its graphics, as RDPKit's `onServerLayout` tells
+    /// ahead of the frames after it: with each connection's first frame, a
+    /// redirection's target's included, and with each frame whose layout
+    /// changed. Returns whether its monitors changed; the same monitors
+    /// again, such as a target laying out the first server's, change
+    /// nothing.
+    mutating func follow(_ layout: RDPServerLayout) -> Bool {
+        takeServerMonitors(layout.monitors)
+    }
+
     /// Returns whether the server's monitors changed. Several pause window
     /// matching, and the window's size goes out again once it resumes, even
     /// when it was sent last; back at one, it resumes without the user
     /// doing anything.
     @discardableResult
-    mutating func takeServerMonitors(_ monitors: [RDPRemoteMonitor]) -> Bool {
+    private mutating func takeServerMonitors(_ monitors: [RDPRemoteMonitor]) -> Bool {
         guard monitors != serverMonitors else {
             return false
         }

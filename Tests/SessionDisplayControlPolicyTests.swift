@@ -144,7 +144,7 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         // RDPKit hands Display Control out before the first frame's layout
         // reaches the window, already holding that frame's monitors.
         let server = try await displayControlServer()
-        server.resetGraphics(monitors: sideBySideMonitors())
+        let firstFramesLayout = server.resetGraphics(monitors: sideBySideMonitors())
         var displayControl = SessionDisplayControl()
 
         displayControl.ready(server.session)
@@ -152,7 +152,7 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         XCTAssertEqual(displayControl.serverMonitors, sideBySideMonitors())
         XCTAssertEqual(windowResize(displayControl), .cancel)
         // The first frame's layout, which follows, brings nothing new.
-        XCTAssertFalse(displayControl.takeServerMonitors(sideBySideMonitors()))
+        XCTAssertFalse(displayControl.follow(firstFramesLayout))
         XCTAssertEqual(server.sentLayouts, [])
     }
 
@@ -198,6 +198,42 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         XCTAssertEqual(target.sentLayouts, [retinaRequest.monitorLayout])
     }
 
+    func testATargetsFirstLayoutLikeTheFirstServersChangesNothing() async throws {
+        // RDPKit hands over each connection's first layout, a redirection
+        // target's too, even when it lays out the monitors the first server
+        // did last. The target's Display Control comes just before it.
+        let first = try await displayControlServer()
+        first.resetGraphics(monitors: [monitor(0, 0, 2880, 1800)])
+        var displayControl = SessionDisplayControl()
+        displayControl.ready(first.session)
+        XCTAssertTrue(displayControl.send(retinaRequest))
+        first.endSession()
+        XCTAssertTrue(displayControl.dropSessionIfEnded())
+
+        let target = try await displayControlServer()
+        let targetsFirstLayout = target.resetGraphics(monitors: [monitor(0, 0, 2880, 1800)])
+        displayControl.ready(target.session)
+        XCTAssertEqual(windowResize(displayControl), .send(retinaRequest))
+        XCTAssertTrue(displayControl.send(retinaRequest))
+        XCTAssertFalse(displayControl.follow(targetsFirstLayout))
+        XCTAssertEqual(windowResize(displayControl), .skip)
+        XCTAssertEqual(target.sentLayouts, [retinaRequest.monitorLayout])
+
+        // Several monitors on both keep matching paused, and send nothing.
+        let pausedFirst = try await displayControlServer()
+        pausedFirst.resetGraphics(monitors: sideBySideMonitors())
+        displayControl = SessionDisplayControl()
+        displayControl.ready(pausedFirst.session)
+        pausedFirst.endSession()
+        XCTAssertTrue(displayControl.dropSessionIfEnded())
+        let pausedTarget = try await displayControlServer()
+        let pausedTargetsFirstLayout = pausedTarget.resetGraphics(monitors: sideBySideMonitors())
+        displayControl.ready(pausedTarget.session)
+        XCTAssertFalse(displayControl.follow(pausedTargetsFirstLayout))
+        XCTAssertEqual(windowResize(displayControl), .cancel)
+        XCTAssertEqual(pausedFirst.sentLayouts + pausedTarget.sentLayouts, [])
+    }
+
     func testMatchingThatResumesSendsTheSameSizeToTheServerAgain() async throws {
         // 2880x1800 at 200% went out; the server then laid out two
         // monitors, and came back to one at 1920x1080. The window did not
@@ -209,14 +245,11 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         XCTAssertTrue(displayControl.send(retinaRequest))
 
         // A reset to the same monitors changes nothing.
-        server.resetGraphics(monitors: [monitor(0, 0, 2880, 1800)])
-        XCTAssertFalse(displayControl.takeServerMonitors(server.session.serverMonitors))
+        XCTAssertFalse(displayControl.follow(server.resetGraphics(monitors: [monitor(0, 0, 2880, 1800)])))
         XCTAssertEqual(windowResize(displayControl), .skip)
-        server.resetGraphics(monitors: sideBySideMonitors())
-        XCTAssertTrue(displayControl.takeServerMonitors(server.session.serverMonitors))
+        XCTAssertTrue(displayControl.follow(server.resetGraphics(monitors: sideBySideMonitors())))
         XCTAssertEqual(windowResize(displayControl), .cancel)
-        server.resetGraphics(monitors: [monitor(0, 0, 1920, 1080)])
-        XCTAssertTrue(displayControl.takeServerMonitors(server.session.serverMonitors))
+        XCTAssertTrue(displayControl.follow(server.resetGraphics(monitors: [monitor(0, 0, 1920, 1080)])))
         XCTAssertEqual(windowResize(displayControl), .send(retinaRequest))
         XCTAssertTrue(displayControl.send(retinaRequest))
 
