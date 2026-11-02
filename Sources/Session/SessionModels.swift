@@ -107,8 +107,8 @@ struct RDPSessionEndReason: Equatable {
         message: "Connection cancelled by user."
     )
 
-    /// The remote computer did not show the desktop in time after accepting
-    /// the sign-in.
+    /// The remote computer did not show the desktop in time after
+    /// activating the session.
     static let firstFrameTimeout = RDPSessionEndReason(
         kind: .failed,
         message: "The remote computer did not show the desktop in time."
@@ -393,7 +393,7 @@ struct RDPSessionEndReason: Equatable {
 enum SessionAutoRetryReason: Equatable {
     /// The server could not be reached.
     case networkHiccup
-    /// The server accepted the sign-in but sent no desktop in time.
+    /// The server activated the session but sent no desktop in time.
     case firstFrameTimeout
 
     var statusDetail: String {
@@ -437,9 +437,9 @@ enum SessionAttemptOutcome: Equatable {
     ///   connection macOS did not allow is not tried again.
     /// - A certificate that refuses ECDHE gets one attempt with RSA key
     ///   exchange; the handshake failed before any credential was sent.
-    /// - A server that accepted the sign-in but did not show the desktop in
-    ///   time (RDPKit bounds the wait for the first frame) gets one more
-    ///   attempt, with the credentials it accepted.
+    /// - A server that activated the session but did not show the desktop
+    ///   in time (RDPKit bounds the wait for the first frame) gets one more
+    ///   attempt, with the same credentials.
     /// - A licensing failure on a connection that had a stored client
     ///   license to present gets one attempt without it, so the server can
     ///   issue a new one. Licensing follows the sign-in, which goes to the

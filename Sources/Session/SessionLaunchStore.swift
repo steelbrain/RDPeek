@@ -37,6 +37,10 @@ final class SessionLaunchStore: ObservableObject, RemoteSessionOpening {
     /// have its flag updated.
     var onCredentialPersistence: ((UUID, RDPConnectionIdentity, _ remembered: Bool) -> Void)?
 
+    /// Called when a session's sign-in, which the server verified, was
+    /// kept, so a PC saved with no user name takes the account.
+    var onAcceptedSignIn: ((UUID, RDPConnectionIdentity) -> Void)?
+
     /// Whether a profile other than the given one remembers its password
     /// under the identity, so the Keychain item must stay.
     var passwordRememberedElsewhere: ((RDPConnectionIdentity, _ excludingDeviceID: UUID) -> Bool)?
@@ -96,6 +100,10 @@ final class SessionLaunchStore: ObservableObject, RemoteSessionOpening {
 
     func recordCredentialPersistence(for deviceID: UUID, identity: RDPConnectionIdentity, remembered: Bool) {
         onCredentialPersistence?(deviceID, identity, remembered)
+    }
+
+    func recordAcceptedSignIn(for deviceID: UUID, identity: RDPConnectionIdentity) {
+        onAcceptedSignIn?(deviceID, identity)
     }
 
     func registerDiagnostics(_ model: RemoteSessionDiagnosticsModel, for id: UUID) {

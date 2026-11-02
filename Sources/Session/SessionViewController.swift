@@ -33,6 +33,11 @@ final class SessionViewController: NSViewController {
     private var sentClientName: String?
     /// The password the Keychain holds for the draft's identity, when known.
     private var rememberedPassword: String?
+    /// The Keychain may hold a password for the draft's identity, though
+    /// `rememberedPassword` may not know it: the session read the Keychain
+    /// for it, whatever the read found. Turning Remember off then deletes
+    /// it.
+    private var keychainMayHoldPassword = false
     /// The Keychain read under way: a connection started for the same
     /// account waits on it, as a read cannot be stopped and a second one
     /// could ask the user to allow access again.
@@ -361,8 +366,19 @@ final class SessionViewController: NSViewController {
         // shows the overlay.
         hudModel.update(\.prefillUsername, to: draft.username)
         hudModel.update(\.prefillDomain, to: draft.domain)
-        hudModel.update(\.prefillRememberPassword, to: draft.rememberPassword)
+        // Signed in as an account the PC can't remember, the sheet starts
+        // from the PC's own choice, which shows once its account is typed.
+        let canRememberDraftAccount = SessionCredentialPolicy.canRememberPassword(
+            signingInAs: draft.identity,
+            onPCSavedAs: savedDraft.identity
+        )
+        hudModel.update(
+            \.prefillRememberPassword,
+            to: canRememberDraftAccount ? draft.rememberPassword : savedDraft.rememberPassword
+        )
         hudModel.update(\.credentialsErrorMessage, to: credentialsErrorMessage)
+        hudModel.update(\.canRememberPassword, to: isPCDeleted == false)
+        hudModel.update(\.savedIdentity, to: savedDraft.identity)
 
         let nextPhase = currentPhase
         if hudModel.phase != nextPhase {
@@ -686,6 +702,7 @@ final class SessionViewController: NSViewController {
             insteadOf: previousIdentity
         ) == false {
             rememberedPassword = nil
+            keychainMayHoldPassword = false
         }
         isAwaitingCredentials = false
         credentialsErrorMessage = nil
@@ -703,15 +720,16 @@ final class SessionViewController: NSViewController {
         }
         if saved.name != savedDraft.name {
             draft.name = saved.name
-            render()
         }
         savedDraft = saved
+        render()
     }
 
     /// The PC was deleted: the session may go on, but no password it signs
     /// in with is kept for a PC that is gone.
     func savedDeviceWasDeleted() {
         isPCDeleted = true
+        render()
     }
 
     /// Connect on the PC in the Connection Center: a session that ended or
@@ -736,6 +754,7 @@ final class SessionViewController: NSViewController {
             insteadOf: previous.identity
         ) == false {
             rememberedPassword = nil
+            keychainMayHoldPassword = false
         }
         if draft.clipboardSharingEnabled != previous.clipboardSharingEnabled {
             setClipboardSharing(draft.clipboardSharingEnabled)
@@ -1039,6 +1058,12 @@ final class SessionViewController: NSViewController {
                 onInputReady: { session in
                     let report = liveReport.snapshot
                     let redirectionDepth = report?.redirectionDepth ?? 0
+                    // RDPKit: 0.6.0 reports no logon. Once it does, a
+                    // TLS-only server that logged the user on verifies the
+                    // sign-in too.
+                    let signInVerified = SessionCredentialPolicy.verifiesSignIn(
+                        selectedProtocols: report?.selectedProtocols
+                    )
                     // Licensing ends before activation; the license is saved
                     // now rather than when the session ends, which a quit or
                     // a crash could prevent.
@@ -1046,7 +1071,11 @@ final class SessionViewController: NSViewController {
                         clientLicense.issue(license, save: saveIssuedClientLicense)
                     }
                     sink.apply { controller in
-                        controller.sessionActivated(session, redirectionDepth: redirectionDepth)
+                        controller.sessionActivated(
+                            session,
+                            redirectionDepth: redirectionDepth,
+                            signInVerified: signInVerified
+                        )
                     }
                 },
                 onDisplayControlReady: { session in
@@ -1148,10 +1177,12 @@ final class SessionViewController: NSViewController {
         sessionThread.start()
     }
 
-    /// The server activated the session: it accepted the sign-in. Also
-    /// after a reactivation, and on a server redirection's target, which
-    /// `redirectionDepth` redirections led to.
-    private func sessionActivated(_ session: RDPInputSession, redirectionDepth: Int) {
+    /// The server activated the session. Also after a reactivation, and on
+    /// a server redirection's target, which `redirectionDepth` redirections
+    /// led to. Activation shows the server took the sign-in only when
+    /// `signInVerified`: a server that does not check the password first
+    /// activates the session whatever it is.
+    private func sessionActivated(_ session: RDPInputSession, redirectionDepth: Int, signInVerified: Bool) {
         inputSession = session
         // A Display Control session from before a redirection sends
         // nothing, and RDPKit does not say so. RDPKit 0.6.0 hands out the
@@ -1165,7 +1196,7 @@ final class SessionViewController: NSViewController {
             cancelPendingDisplayResize()
         }
         if attemptBudget.sessionActivated() {
-            keepAcceptedCredentials()
+            keepSignIn(isVerified: signInVerified)
         }
         render()
     }
@@ -1758,21 +1789,33 @@ final class SessionViewController: NSViewController {
         render()
         let read = keychainPasswordReadTask(for: key)
         credentialResolutionTask = Task { @MainActor [weak self] in
-            let savedPassword = try? await read.value
+            let result: Result<String?, any Error>
+            do {
+                result = try await .success(read.value)
+            } catch {
+                result = .failure(error)
+            }
 
             guard Task.isCancelled == false, let self, didClose == false else {
                 return
             }
             credentialResolutionTask = nil
             isResolvingStoredCredentials = false
+            // Whatever the read found, a password may be saved for this
+            // sign-in, which turning Remember off deletes.
+            keychainMayHoldPassword = true
 
-            if let savedPassword, savedPassword.isEmpty == false {
+            switch result {
+            case let .success(savedPassword?) where savedPassword.isEmpty == false:
                 rememberedPassword = savedPassword
                 draft.password = savedPassword
                 startConnectionAttempt()
-            } else {
+            case .success:
                 rememberedPassword = nil
                 connect(using: credentialSource(remembersPassword: false))
+            case .failure:
+                rememberedPassword = nil
+                promptForCredentials(errorMessage: "RDPeek could not read the saved password from the Keychain.")
             }
         }
     }
@@ -1798,15 +1841,25 @@ final class SessionViewController: NSViewController {
         return task
     }
 
-    /// Keeps the password the server just accepted: in the Keychain when
-    /// the user asked to remember it, else for this app run only. Turning
-    /// Remember off deletes a password the Keychain held for this identity.
-    private func keepAcceptedCredentials() {
+    /// Deals with the sign-in once the server activated the session. One
+    /// the server verified is kept: in the Keychain when the user asked to
+    /// remember it, else for this app run only, and turning Remember off
+    /// deletes a password the Keychain held for this identity. One it did
+    /// not verify is not kept, not even for this app run, as the server
+    /// activates the session whatever the password; the window keeps it
+    /// for Reconnect. Turning Remember off still applies: it saves nothing.
+    private func keepSignIn(isVerified: Bool) {
+        // The PC as the connection the user started found it: an editor
+        // save since applies from the next one.
+        let pcRemembersPassword = followedSavedDraft.rememberPassword
+            && followedSavedDraft.identity.hasSameConnectionIdentity(as: draft.identity)
         let keep = SessionCredentialPolicy.keep(
             password: draft.password,
             identity: draft.identity,
+            savedIdentity: savedDraft.identity,
             remembersPassword: draft.rememberPassword,
             rememberedPassword: rememberedPassword,
+            keychainMayHoldPassword: keychainMayHoldPassword || pcRemembersPassword,
             isRememberedByAnotherPC: launchStore?.isPasswordRemembered(
                 for: draft.identity,
                 byOtherThan: draft.deviceID
@@ -1816,16 +1869,27 @@ final class SessionViewController: NSViewController {
         guard let key = keep.key else {
             return
         }
-        credentialCache.setPassword(draft.password, for: key.account)
+        if isVerified {
+            credentialCache.setPassword(draft.password, for: key.account)
+            // A PC saved with no user name takes the account.
+            if savedDraft.identity.credentialAccountName == nil {
+                launchStore?.recordAcceptedSignIn(for: draft.deviceID, identity: draft.identity)
+            }
+        }
         switch keep {
         case .nothing, .cacheOnly:
             break
         case .save:
-            persistAcceptedCredentials(.save(key: key, password: draft.password))
+            if isVerified {
+                persistAcceptedCredentials(.save(key: key, password: draft.password))
+            } else {
+                toast("Password not remembered: this server doesn't confirm sign-ins", systemImage: "key")
+            }
         case .delete:
             persistAcceptedCredentials(.delete(key: key))
         case .stopRemembering:
             rememberedPassword = nil
+            keychainMayHoldPassword = false
             launchStore?.recordCredentialPersistence(for: draft.deviceID, identity: draft.identity, remembered: false)
         }
     }
@@ -1875,6 +1939,7 @@ final class SessionViewController: NSViewController {
         case .success(.deleted):
             if matchesCurrentDraft {
                 rememberedPassword = nil
+                keychainMayHoldPassword = false
             }
         case let .failure(error):
             let action = switch request {

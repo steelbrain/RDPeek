@@ -73,11 +73,76 @@ final class SessionCredentialPolicyTests: XCTestCase {
         XCTAssertEqual(keep(remembersPassword: true, rememberedPassword: nil), .save(key))
     }
 
-    func testAPasswordNotRememberedIsOnlyCachedWhenTheKeychainHeldNone() throws {
+    func testAPasswordNotRememberedIsOnlyCachedWhenTheKeychainHoldsNone() throws {
         let key = try XCTUnwrap(KeychainCredentialKey(identity: alice))
 
         XCTAssertEqual(keep(rememberedPassword: nil), .cacheOnly(key))
         XCTAssertEqual(keep(rememberedPassword: nil, isRememberedByAnotherPC: true), .cacheOnly(key))
+    }
+
+    func testTurningRememberOffDeletesAPasswordTheSessionCouldNotRead() throws {
+        // The PC remembers a password the session never read: the read
+        // failed or found nothing, or the user typed one at sign-in.
+        let key = try XCTUnwrap(KeychainCredentialKey(identity: alice))
+
+        XCTAssertEqual(keep(rememberedPassword: nil, keychainMayHoldPassword: true), .delete(key))
+        XCTAssertEqual(
+            keep(rememberedPassword: nil, keychainMayHoldPassword: true, isRememberedByAnotherPC: true),
+            .stopRemembering(key)
+        )
+        // Remember on saves the password, as without the doubt.
+        XCTAssertEqual(keep(remembersPassword: true, keychainMayHoldPassword: true), .save(key))
+    }
+
+    func testRememberAppliesOnlyToThePCsOwnAccount() throws {
+        let bob = RDPConnectionIdentity(host: "WinBox", username: "bob", domain: "CORP")
+        let bobsKey = try XCTUnwrap(KeychainCredentialKey(identity: bob))
+
+        // Signed in as someone else: nothing is saved under an account no
+        // PC reads, and nothing another PC may remember is deleted.
+        XCTAssertEqual(keep(identity: bob, remembersPassword: true), .cacheOnly(bobsKey))
+        XCTAssertEqual(keep(identity: bob, rememberedPassword: "secret"), .cacheOnly(bobsKey))
+        XCTAssertEqual(
+            keep(identity: bob, keychainMayHoldPassword: true, isRememberedByAnotherPC: true),
+            .cacheOnly(bobsKey)
+        )
+        // The PC's own account, written another way, is its own.
+        let sameAccount = RDPConnectionIdentity(host: "winbox", username: "CORP\\alice")
+        XCTAssertEqual(
+            keep(identity: sameAccount, remembersPassword: true),
+            .save(try XCTUnwrap(KeychainCredentialKey(identity: sameAccount)))
+        )
+    }
+
+    func testAPCSavedWithNoUserNameRemembersAnyAccountOnItsHost() throws {
+        let hostOnly = RDPConnectionIdentity(host: "winbox")
+        let key = try XCTUnwrap(KeychainCredentialKey(identity: alice))
+
+        XCTAssertEqual(keep(savedIdentity: hostOnly, remembersPassword: true), .save(key))
+        XCTAssertEqual(keep(savedIdentity: hostOnly, keychainMayHoldPassword: true), .delete(key))
+        // Not one on another host or port.
+        for otherHost in [RDPConnectionIdentity(host: "otherbox"), RDPConnectionIdentity(host: "winbox", port: 3390)] {
+            XCTAssertEqual(keep(savedIdentity: otherHost, remembersPassword: true), .cacheOnly(key), "\(otherHost)")
+        }
+    }
+
+    func testTheSignInSheetOffersRememberOnlyForAnAccountThePCMayRemember() {
+        let hostOnly = RDPConnectionIdentity(host: "winbox", domain: "CORP")
+
+        XCTAssertTrue(SessionCredentialPolicy.canRememberPassword(signingInAs: alice, onPCSavedAs: alice))
+        XCTAssertTrue(SessionCredentialPolicy.canRememberPassword(
+            signingInAs: RDPConnectionIdentity(host: "WINBOX", username: "alice", domain: "CORP"),
+            onPCSavedAs: alice
+        ))
+        XCTAssertFalse(SessionCredentialPolicy.canRememberPassword(
+            signingInAs: RDPConnectionIdentity(host: "WinBox", username: "alice"),
+            onPCSavedAs: alice
+        ))
+        XCTAssertTrue(SessionCredentialPolicy.canRememberPassword(signingInAs: alice, onPCSavedAs: hostOnly))
+        XCTAssertTrue(SessionCredentialPolicy.canRememberPassword(
+            signingInAs: RDPConnectionIdentity(host: "winbox", username: "bob"),
+            onPCSavedAs: hostOnly
+        ))
     }
 
     func testTurningRememberOffDeletesTheItemUnlessAnotherPCRemembersIt() throws {
@@ -97,6 +162,22 @@ final class SessionCredentialPolicyTests: XCTestCase {
             .stopRemembering(key),
         ] {
             XCTAssertEqual(keep.key, key, "\(keep)")
+        }
+    }
+
+    // MARK: - Verified sign-ins
+
+    func testOnlyASignInBeforeActivationVerifiesThePassword() {
+        for protocols in [["tls", "credssp"], ["tls", "credssp-early-user-auth"], ["tls", "rdstls"]] {
+            XCTAssertTrue(SessionCredentialPolicy.verifiesSignIn(selectedProtocols: protocols), "\(protocols)")
+        }
+        // TLS alone and Standard RDP Security activate the session whatever
+        // the password; a report without the negotiation says nothing.
+        for protocols in [["tls"], ["standard-rdp-security"], [], nil] {
+            XCTAssertFalse(
+                SessionCredentialPolicy.verifiesSignIn(selectedProtocols: protocols),
+                "\(String(describing: protocols))"
+            )
         }
     }
 
@@ -181,16 +262,20 @@ final class SessionCredentialPolicyTests: XCTestCase {
     private func keep(
         password: String = "secret",
         identity: RDPConnectionIdentity? = nil,
+        savedIdentity: RDPConnectionIdentity? = nil,
         remembersPassword: Bool = false,
         rememberedPassword: String? = nil,
+        keychainMayHoldPassword: Bool = false,
         isRememberedByAnotherPC: Bool = false,
         isPCDeleted: Bool = false
     ) -> SessionCredentialPolicy.Keep {
         SessionCredentialPolicy.keep(
             password: password,
             identity: identity ?? alice,
+            savedIdentity: savedIdentity ?? alice,
             remembersPassword: remembersPassword,
             rememberedPassword: rememberedPassword,
+            keychainMayHoldPassword: keychainMayHoldPassword,
             isRememberedByAnotherPC: isRememberedByAnotherPC,
             isPCDeleted: isPCDeleted
         )

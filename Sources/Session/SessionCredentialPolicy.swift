@@ -44,9 +44,43 @@ enum SessionCredentialPolicy {
         return cachedPassword(key.account).map { .cache(password: $0) } ?? .prompt
     }
 
-    /// What a session does with the password a server just accepted. Every
-    /// case but `nothing` also keeps it for this app run, under `key`: the
-    /// cache serves other PCs with this sign-in that do not remember it.
+    /// Whether the server checked the password before it activated the
+    /// session, by the security protocols it selected (RDPKit's names).
+    /// CredSSP signs in before activation, and a server redirection's
+    /// RDSTLS target is reached through such a sign-in. A server that chose
+    /// TLS alone, or Standard RDP Security, activates the session whatever
+    /// the password, then may show its own logon screen in the desktop.
+    static func verifiesSignIn(selectedProtocols: [String]?) -> Bool {
+        let verifyingProtocols: Set = ["credssp", "credssp-early-user-auth", "rdstls"]
+        return selectedProtocols?.contains { verifyingProtocols.contains($0) } ?? false
+    }
+
+    /// Whether a sign-in as `identity` may be remembered for the PC saved
+    /// as `savedIdentity`: only as the PC's own account, so that no
+    /// Keychain item is left that no PC reads or deletes. A PC saved with
+    /// no user name may remember any account on its host and port, and
+    /// takes that account.
+    static func canRememberPassword(
+        signingInAs identity: RDPConnectionIdentity,
+        onPCSavedAs savedIdentity: RDPConnectionIdentity
+    ) -> Bool {
+        guard savedIdentity.credentialAccountName == nil else {
+            return identity.hasSameConnectionIdentity(as: savedIdentity)
+        }
+        let savedHostAccount = RDPConnectionIdentity(
+            host: savedIdentity.host,
+            port: savedIdentity.port,
+            username: identity.username,
+            domain: identity.domain
+        )
+        return identity.hasSameConnectionIdentity(as: savedHostAccount)
+    }
+
+    /// What a session does with the password it signed in with, once the
+    /// server activated the session. When the server verified the sign-in,
+    /// every case but `nothing` also keeps it for this app run, under
+    /// `key`: the cache serves other PCs with this sign-in that do not
+    /// remember it.
     enum Keep: Equatable {
         /// There is no user name or password to keep, or the PC was
         /// deleted: its window may go on, but keeps nothing for it.
@@ -71,13 +105,19 @@ enum SessionCredentialPolicy {
         }
     }
 
-    /// `rememberedPassword` is the password the Keychain holds for the
-    /// identity, when the session knows it.
+    /// `savedIdentity` is the PC's, as saved; Remember applies only to its
+    /// own account. `rememberedPassword` is the password the Keychain holds
+    /// for the identity, when the session knows it.
+    /// `keychainMayHoldPassword` says the Keychain may hold one although
+    /// the session may not know it: the PC remembers it, or the session
+    /// read the Keychain for it, whatever the read found.
     static func keep(
         password: String,
         identity: RDPConnectionIdentity,
+        savedIdentity: RDPConnectionIdentity,
         remembersPassword: Bool,
         rememberedPassword: String?,
+        keychainMayHoldPassword: Bool,
         isRememberedByAnotherPC: Bool,
         isPCDeleted: Bool
     ) -> Keep {
@@ -87,11 +127,16 @@ enum SessionCredentialPolicy {
         else {
             return .nothing
         }
+        // Another account's Keychain item is neither written nor deleted:
+        // no PC would read it, and another PC may remember it.
+        guard Self.canRememberPassword(signingInAs: identity, onPCSavedAs: savedIdentity) else {
+            return .cacheOnly(key)
+        }
         if remembersPassword {
             // A password read from the Keychain is there already.
             return password == rememberedPassword ? .cacheOnly(key) : .save(key)
         }
-        guard rememberedPassword != nil else {
+        guard rememberedPassword != nil || keychainMayHoldPassword else {
             return .cacheOnly(key)
         }
         return isRememberedByAnotherPC ? .stopRemembering(key) : .delete(key)

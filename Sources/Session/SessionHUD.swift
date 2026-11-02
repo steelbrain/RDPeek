@@ -1,4 +1,5 @@
 import AppKit
+import RDPKit
 import SwiftUI
 
 enum SessionPhase: Equatable {
@@ -58,6 +59,12 @@ final class SessionHUDModel: ObservableObject {
     @Published var prefillDomain = ""
     @Published var prefillRememberPassword = false
     @Published var credentialsErrorMessage: String?
+    /// False once the PC was deleted: nothing its window signs in with is
+    /// remembered.
+    @Published var canRememberPassword = true
+    /// The PC as saved: the sign-in sheet offers to remember only its own
+    /// account, or any account for a PC saved with no user name.
+    @Published var savedIdentity = RDPConnectionIdentity(host: "")
 
     var onReconnect: () -> Void = {}
     var onCancel: () -> Void = {}
@@ -333,10 +340,18 @@ private struct SessionCredentialsOverlay: View {
                             submit()
                         }
 
-                    Toggle("Remember in Keychain", isOn: $rememberPassword)
-                        .toggleStyle(.checkbox)
-                        .foregroundStyle(.white.opacity(0.7))
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if model.canRememberPassword {
+                        Toggle("Remember in Keychain", isOn: rememberBinding)
+                            .toggleStyle(.checkbox)
+                            .foregroundStyle(.white.opacity(0.7))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .disabled(canRememberTypedAccount == false)
+                            .help(
+                                canRememberTypedAccount
+                                    ? Text(verbatim: "")
+                                    : Text("Only this PC's own account can be remembered.")
+                            )
+                    }
                 }
                 .frame(width: 300)
 
@@ -373,8 +388,31 @@ private struct SessionCredentialsOverlay: View {
         }
     }
 
+    /// Whether the account typed is one the PC may remember.
+    private var canRememberTypedAccount: Bool {
+        SessionCredentialPolicy.canRememberPassword(
+            signingInAs: RDPConnectionIdentity(
+                host: model.savedIdentity.host,
+                port: model.savedIdentity.port,
+                username: username,
+                domain: domain
+            ),
+            onPCSavedAs: model.savedIdentity
+        )
+    }
+
+    /// Unchecked while the account typed can't be remembered; the choice
+    /// comes back with the PC's account.
+    private var rememberBinding: Binding<Bool> {
+        Binding(
+            get: { rememberPassword && canRememberTypedAccount },
+            set: { rememberPassword = $0 }
+        )
+    }
+
     private func submit() {
-        model.onSubmitCredentials(username, domain, password, rememberPassword)
+        let remember = rememberPassword && canRememberTypedAccount && model.canRememberPassword
+        model.onSubmitCredentials(username, domain, password, remember)
     }
 }
 
