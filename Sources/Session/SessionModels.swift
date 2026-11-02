@@ -530,7 +530,8 @@ enum SessionAttemptOutcome: Equatable {
 /// the password is kept at most once however often the session activates.
 struct SessionAttemptBudget {
     /// Retries spent on a server that could not be reached, since the user
-    /// started the connection or the desktop last showed.
+    /// started the connection. A session that showed the desktop is not
+    /// retried, and the next one is one the user starts.
     private(set) var unreachableRetriesSpent = 0
     private(set) var retriedFirstFrameTimeout = false
     /// The attempt under way sent credentials, which its first activation
@@ -547,12 +548,6 @@ struct SessionAttemptBudget {
     /// An attempt starts, with credentials or without.
     mutating func attemptStarted(sendsCredentials: Bool) {
         isAwaitingSignIn = sendsCredentials
-    }
-
-    /// The attempt showed the desktop: a server lost later may be retried
-    /// as often again.
-    mutating func presentedFirstFrame() {
-        unreachableRetriesSpent = 0
     }
 
     /// What follows an attempt that ended without the user ending it, with

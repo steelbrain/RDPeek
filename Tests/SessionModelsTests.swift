@@ -777,20 +777,6 @@ final class SessionModelsTests: XCTestCase {
         XCTAssertLessThanOrEqual(attempts, SessionAttemptOutcome.maximumUnreachableRetries + 2)
     }
 
-    func testAShownDesktopRestoresTheUnreachableRetries() {
-        let unreachable = makeReport(stage: "x224-rdp-negotiation", failure: .connect(error: RDPSocketError(errno: EHOSTUNREACH)))
-        var budget = SessionAttemptBudget()
-        budget.userStarted()
-        _ = retriesUntilTheEnd(of: &budget, feeding: unreachable)
-
-        budget.presentedFirstFrame()
-
-        XCTAssertEqual(
-            retriesUntilTheEnd(of: &budget, feeding: unreachable),
-            SessionAttemptOutcome.maximumUnreachableRetries
-        )
-    }
-
     func testTheSignInIsDecidedOnOncePerConnectionTheUserStarts() {
         var budget = SessionAttemptBudget()
         budget.userStarted()

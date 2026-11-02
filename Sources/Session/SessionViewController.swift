@@ -1288,7 +1288,6 @@ final class SessionViewController: NSViewController {
         if wasFirstPresentedFrame {
             hasPresentedFrame = true
             hasEverPresentedFrame = true
-            attemptBudget.presentedFirstFrame()
         }
         return wasFirstPresentedFrame || layoutChanged
     }
