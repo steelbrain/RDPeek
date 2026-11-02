@@ -52,6 +52,8 @@ final class SessionClipboard {
     private let pasteboard: NSPasteboard
     /// Holds a directory for each remote file download.
     private let downloadRoot: URL
+    /// The time, for download timeouts and temporary shares.
+    private let now: @MainActor () -> Date
     private var pasteboardChangeCount: Int
     /// Whether the local copy last seen has not reached the server: it
     /// could not be read or sent, or its read was cut short. A remote copy
@@ -81,18 +83,20 @@ final class SessionClipboard {
     /// Download roots this process has cleared of earlier runs' downloads.
     private static var clearedDownloadRoots: Set<URL> = []
 
-    /// `pasteboard` and `downloadRoot` are the user's clipboard and a
-    /// directory in the temporary directory except in tests, which use their
-    /// own.
+    /// `pasteboard`, `downloadRoot` and `now` are the user's clipboard, a
+    /// directory in the temporary directory, and the clock, except in tests,
+    /// which use their own.
     init(
         isSharingEnabled: Bool,
         pasteboard: NSPasteboard = .general,
         downloadRoot: URL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("RDPeekRemoteClipboard", isDirectory: true)
+            .appendingPathComponent("RDPeekRemoteClipboard", isDirectory: true),
+        now: @escaping @MainActor () -> Date = { Date() }
     ) {
         self.isSharingEnabled = isSharingEnabled
         self.pasteboard = pasteboard
         self.downloadRoot = downloadRoot
+        self.now = now
         pasteboardChangeCount = pasteboard.changeCount
         if Self.clearedDownloadRoots.insert(downloadRoot).inserted {
             removeEarlierDownloads()
@@ -116,7 +120,7 @@ final class SessionClipboard {
         guard let temporarySharingExpiresAt else {
             return nil
         }
-        let remainingSeconds = temporarySharingExpiresAt.timeIntervalSinceNow
+        let remainingSeconds = temporarySharingExpiresAt.timeIntervalSince(now())
         return max(0, Int(ceil(remainingSeconds)))
     }
 
@@ -216,14 +220,15 @@ final class SessionClipboard {
         }
 
         setSharingEnabled(true)
-        temporarySharingExpiresAt = Date().addingTimeInterval(30)
+        temporarySharingExpiresAt = now().addingTimeInterval(30)
         onToast("Sharing clipboard for 30 seconds", "clock")
     }
 
     /// Called once a second: ends an expired temporary share, fails a
     /// download the server stopped answering, and publishes local
     /// pasteboard changes.
-    func poll(now: Date = Date()) {
+    func poll() {
+        let now = self.now()
         // A temporary share is always one that turned sharing on.
         if let temporarySharingExpiresAt, now >= temporarySharingExpiresAt {
             setSharingEnabled(false)
@@ -599,7 +604,7 @@ final class SessionClipboard {
         transfer.requestedByteCount = UInt32(
             min(sessionMaximumFileRangeByteCount, expectedByteCount - receivedByteCount)
         )
-        transfer.requestSentAt = Date()
+        transfer.requestSentAt = now()
         fileTransfer = transfer
         do {
             try session.requestRemoteFileRange(
@@ -650,7 +655,7 @@ final class SessionClipboard {
         }
 
         var transfer = transfer
-        transfer.requestSentAt = Date()
+        transfer.requestSentAt = now()
         fileTransfer = transfer
         do {
             try session.requestRemoteFileSize(

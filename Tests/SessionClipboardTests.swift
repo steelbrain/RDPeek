@@ -85,11 +85,14 @@ final class SessionClipboardTests: XCTestCase {
     /// read or replace the user's clipboard or its downloads.
     private var pasteboard: NSPasteboard!
     private var downloadRoot: URL!
+    /// The bridge's clock, which only the test moves.
+    private var now = Date()
 
     override func setUp() async throws {
         pasteboard = NSPasteboard(name: NSPasteboard.Name("RDPeekTests.\(UUID().uuidString)"))
         downloadRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("RDPeekTests.\(UUID().uuidString)", isDirectory: true)
+        now = Date()
     }
 
     override func tearDown() async throws {
@@ -111,7 +114,8 @@ final class SessionClipboardTests: XCTestCase {
         XCTAssertFalse(clipboard.canStartTemporarySharing)
         clipboard.startTemporarySharing()
         XCTAssertFalse(clipboard.isTemporarySharingActive)
-        clipboard.poll(now: Date().addingTimeInterval(31))
+        now += 31
+        clipboard.poll()
         XCTAssertTrue(clipboard.isSharingEnabled)
         XCTAssertFalse(toasts.contains("Clipboard sharing ended"))
 
@@ -121,7 +125,8 @@ final class SessionClipboardTests: XCTestCase {
         XCTAssertTrue(clipboard.isSharingEnabled)
         XCTAssertTrue(clipboard.isTemporarySharingActive)
         XCTAssertTrue(clipboard.canStartTemporarySharing, "A running temporary share can be restarted")
-        clipboard.poll(now: Date().addingTimeInterval(31))
+        now += 31
+        clipboard.poll()
         XCTAssertFalse(clipboard.isSharingEnabled)
         XCTAssertFalse(clipboard.isTemporarySharingActive)
         XCTAssertEqual(toasts.last, "Clipboard sharing ended")
@@ -130,7 +135,8 @@ final class SessionClipboardTests: XCTestCase {
         clipboard.startTemporarySharing()
         clipboard.setSharingEnabled(true)
         XCTAssertFalse(clipboard.isTemporarySharingActive)
-        clipboard.poll(now: Date().addingTimeInterval(31))
+        now += 31
+        clipboard.poll()
         XCTAssertTrue(clipboard.isSharingEnabled)
     }
 
@@ -144,7 +150,8 @@ final class SessionClipboardTests: XCTestCase {
 
         clipboard.startTemporarySharing()
         XCTAssertEqual(session.publishedTexts, [nil, "local"])
-        clipboard.poll(now: Date().addingTimeInterval(31))
+        now += 31
+        clipboard.poll()
         XCTAssertEqual(session.publishedTexts, [nil, "local", nil])
 
         // An empty pasteboard left nothing there to clear.
@@ -166,7 +173,8 @@ final class SessionClipboardTests: XCTestCase {
         XCTAssertEqual(session.publishedTexts, [nil, "local"])
 
         clipboard.receiveText("remote paragraph", copyNumber: session.announceRemoteCopy())
-        clipboard.poll(now: Date().addingTimeInterval(31))
+        now += 31
+        clipboard.poll()
         XCTAssertFalse(clipboard.isSharingEnabled)
         XCTAssertEqual(session.publishedTexts, [nil, "local"])
 
@@ -191,7 +199,8 @@ final class SessionClipboardTests: XCTestCase {
         for isEmpty in [false, true] {
             clipboard.startTemporarySharing()
             clipboard.receiveRemoteCopyUnavailable(isEmpty: isEmpty, copyNumber: session.announceRemoteCopy())
-            clipboard.poll(now: Date().addingTimeInterval(31))
+            now += 31
+            clipboard.poll()
             XCTAssertFalse(clipboard.isSharingEnabled)
         }
         XCTAssertEqual(session.publishedTexts, [nil, "local", "local"])
@@ -373,7 +382,8 @@ final class SessionClipboardTests: XCTestCase {
 
         clipboard.startTemporarySharing()
         XCTAssertTrue(session.fetchesRemoteCopies)
-        clipboard.poll(now: Date().addingTimeInterval(31))
+        now += 31
+        clipboard.poll()
         XCTAssertFalse(session.fetchesRemoteCopies)
         clipboard.setSharingEnabled(true)
         XCTAssertTrue(session.fetchesRemoteCopies)
@@ -834,7 +844,8 @@ final class SessionClipboardTests: XCTestCase {
         try startRemoteFileDownload(contents, to: clipboard, from: session)
         var received = 0
         while received < contents.count {
-            clipboard.poll(now: Date().addingTimeInterval(110))
+            now += 110
+            clipboard.poll()
             let request = try XCTUnwrap(session.rangeRequests.last)
             session.rangeRequests.removeAll()
             let end = received + Int(request.requestedByteCount)
@@ -858,9 +869,11 @@ final class SessionClipboardTests: XCTestCase {
         clipboard.attach(session)
         try startRemoteFileDownload(Data(count: 10), to: clipboard, from: session)
 
-        clipboard.poll(now: Date().addingTimeInterval(119))
+        now += 119
+        clipboard.poll()
         XCTAssertFalse(toasts.contains("Remote file transfer timed out"))
-        clipboard.poll(now: Date().addingTimeInterval(121))
+        now += 1
+        clipboard.poll()
         XCTAssertEqual(toasts.last, "Remote file transfer timed out")
 
         // An answer after the timeout is dropped.
@@ -1093,7 +1106,12 @@ final class SessionClipboardTests: XCTestCase {
     // MARK: - Helpers
 
     private func makeClipboard(isSharingEnabled: Bool = true) -> SessionClipboard {
-        SessionClipboard(isSharingEnabled: isSharingEnabled, pasteboard: pasteboard, downloadRoot: downloadRoot)
+        SessionClipboard(
+            isSharingEnabled: isSharingEnabled,
+            pasteboard: pasteboard,
+            downloadRoot: downloadRoot,
+            now: { self.now }
+        )
     }
 
     private func copiedFileURL() -> URL? {
