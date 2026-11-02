@@ -25,58 +25,36 @@ struct RemoteDisplayLayout: Equatable {
     init(frame: RDPFrameMetadata) {
         self.init(
             frameSize: CGSize(width: Int(frame.width), height: Int(frame.height)),
-            monitors: frame.monitors
+            monitors: frame.monitors,
+            monitorLayoutIssues: frame.monitorLayoutIssues
         )
     }
 
     /// The union of the displays need not cover the frame: a server may pad its output, and
-    /// All Displays shows the frame regardless.
-    init(frameSize: CGSize, monitors: [RDPRemoteMonitor]) {
+    /// All Displays shows the frame regardless. `monitorLayoutIssues` are what RDPKit found off
+    /// about `monitors`.
+    init(frameSize: CGSize, monitors: [RDPRemoteMonitor], monitorLayoutIssues: RDPRemoteMonitorLayoutIssues = []) {
         self.frameSize = frameSize
+        // Overlapping displays would show some pixels twice and leave no single display for a
+        // pointer position, so such a layout offers no choice of displays. Neighbours a server
+        // sends with exclusive right and bottom edges overlap by a pixel: RDPKit reads every edge
+        // inclusive, as the protocol says, and reports them rather than guess.
+        guard monitorLayoutIssues.contains(.overlapping) == false else {
+            displays = []
+            return
+        }
         let frameRect = CGRect(origin: .zero, size: frameSize)
         // RDPKit clips monitors to the graphics output already; clipping again keeps a layout
         // that outlived a desktop resize inside the frame it is applied to.
-        var candidates = monitors.compactMap { monitor -> (rect: CGRect, isPrimary: Bool)? in
+        let shown = monitors.compactMap { monitor -> (rect: CGRect, isPrimary: Bool)? in
             let rect = Self.rect(monitor.rect).intersection(frameRect)
             guard rect.isEmpty == false else {
                 return nil
             }
             return (rect, monitor.isPrimary)
         }
-        // RDPKit reads a monitor's right and bottom edges as inclusive, as the protocol says, so
-        // a server that sends them exclusive (KRdp) gets every monitor one pixel too wide and too
-        // tall. Clipping corrects the edges on the output's edge. One neighbour overlapping
-        // another by that pixel shows the server's convention, so every other right and bottom
-        // edge gives its pixel back, those beside empty output too, where no neighbour shows it.
-        let sendsExclusiveEdges = candidates.indices.contains { first in
-            candidates.indices.contains { second in
-                second > first && Self.overlapByAnExclusiveEdge(candidates[first].rect, candidates[second].rect)
-            }
-        }
-        if sendsExclusiveEdges {
-            for index in candidates.indices {
-                if candidates[index].rect.maxX < frameRect.maxX {
-                    candidates[index].rect.size.width -= 1
-                }
-                if candidates[index].rect.maxY < frameRect.maxY {
-                    candidates[index].rect.size.height -= 1
-                }
-            }
-            candidates.removeAll { $0.rect.isEmpty }
-        }
-        let overlaps = candidates.indices.contains { first in
-            candidates.indices.contains { second in
-                second > first && candidates[first].rect.intersects(candidates[second].rect)
-            }
-        }
-        // Overlapping displays would show some pixels twice and leave no single display for a
-        // pointer position, so such a layout offers no choice of displays.
-        guard overlaps == false else {
-            displays = []
-            return
-        }
-        displays = candidates.enumerated().map { index, candidate in
-            RemoteDisplay(number: index + 1, rect: candidate.rect, isPrimary: candidate.isPrimary)
+        displays = shown.enumerated().map { index, display in
+            RemoteDisplay(number: index + 1, rect: display.rect, isPrimary: display.isPrimary)
         }
     }
 
@@ -92,21 +70,6 @@ struct RemoteDisplayLayout: Equatable {
             width: Int(rect.width),
             height: Int(rect.height)
         )
-    }
-
-    /// Whether one monitor ends exactly one pixel past the start of another it overlaps, the
-    /// overlap a monitor read one pixel too wide or tall makes with its neighbour.
-    private static func overlapByAnExclusiveEdge(_ first: CGRect, _ second: CGRect) -> Bool {
-        guard first.intersects(second) else {
-            return false
-        }
-        return endsOnePixelInto(first, second) || endsOnePixelInto(second, first)
-    }
-
-    private static func endsOnePixelInto(_ near: CGRect, _ far: CGRect) -> Bool {
-        let overshootsRight = near.minX < far.minX && near.maxX == far.minX + 1
-        let overshootsBottom = near.minY < far.minY && near.maxY == far.minY + 1
-        return overshootsRight || overshootsBottom
     }
 }
 

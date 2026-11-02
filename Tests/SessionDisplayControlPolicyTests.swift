@@ -100,6 +100,23 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         XCTAssertEqual(changes, [true, false, true, true])
     }
 
+    func testSeveralMonitorsPauseMatchingAsDisplayControlIsReady() {
+        // RDPKit hands Display Control out before the first frame reaches
+        // the window, already holding that frame's monitors. Read then,
+        // they pause matching before the first resize is scheduled, and the
+        // first frame, of the same layout, brings nothing new.
+        var layout = SessionServerLayout()
+
+        XCTAssertTrue(layout.follow(graphicsResetCount: 1) { sideBySideMonitors() })
+        let isInEffect = isWindowMatchingInEffect(reportedMonitors: layout.monitors)
+        XCTAssertFalse(isInEffect)
+        XCTAssertEqual(resizeDecision(isInEffect: isInEffect, viewerRequest: retinaRequest), .cancel)
+        XCTAssertFalse(layout.follow(graphicsResetCount: 1) {
+            XCTFail("The first frame's monitors were read again")
+            return []
+        })
+    }
+
     func testARedirectionTargetsFirstLayoutIsRead() {
         // The target counts its ResetGraphics from the start, so its first
         // layout may come with the count the first server's last had.
@@ -179,61 +196,6 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         )
     }
 
-    // MARK: - Sending a request
-
-    func testARequestMapsToTheOneMonitorItAsksFor() {
-        // A session records the request it sent, so the layout that goes
-        // out must be exactly that request.
-        let requests = [
-            connectLayout,
-            RDPViewerPixelSize(
-                pointSize: CGSize(width: 1440, height: 872),
-                backingScaleFactor: 2
-            ).displayRequest,
-            RDPDisplayRequest(
-                width: 3000,
-                height: 2000,
-                scaleFactors: RDPDisplayScaleFactors(backingScaleFactor: 1.5)
-            ),
-        ]
-        for request in requests {
-            let layout = SessionDisplayControlPolicy.monitorLayout(for: request)
-            let monitor = layout.monitors.first
-
-            XCTAssertEqual(layout.monitors.count, 1, request.label)
-            XCTAssertEqual(monitor?.isPrimary, true, request.label)
-            XCTAssertEqual(monitor?.left, 0, request.label)
-            XCTAssertEqual(monitor?.top, 0, request.label)
-            XCTAssertEqual(monitor?.width, request.width, request.label)
-            XCTAssertEqual(monitor?.height, request.height, request.label)
-            XCTAssertEqual(monitor?.desktopScaleFactor, request.scaleFactors.desktopScaleFactor, request.label)
-            XCTAssertEqual(monitor?.deviceScaleFactor, request.scaleFactors.deviceScaleFactor, request.label)
-            XCTAssertEqual(layout.desktopWidth, request.width, request.label)
-            XCTAssertEqual(layout.desktopHeight, request.height, request.label)
-        }
-    }
-
-    func testAResizeGoesOutAsTheOneMonitorItAsksFor() {
-        // The session records the request, so what goes out must be it.
-        var sentLayouts: [RDPMonitorLayout] = []
-        let didSend = SessionDisplayControlPolicy.sendResize(retinaRequest) { layout in
-            sentLayouts.append(layout)
-        }
-
-        XCTAssertTrue(didSend)
-        XCTAssertEqual(sentLayouts, [SessionDisplayControlPolicy.monitorLayout(for: retinaRequest)])
-    }
-
-    func testARefusedResizeDoesNotCountAsSent() {
-        // The session skips a size it sent last; one the server's
-        // capabilities refused was never sent.
-        let didSend = SessionDisplayControlPolicy.sendResize(retinaRequest) { _ in
-            throw RefusedLayout()
-        }
-
-        XCTAssertFalse(didSend)
-    }
-
     // MARK: - Helpers
 
     private func isWindowMatchingInEffect(
@@ -297,6 +259,3 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         RDPFrameRect(left: left, top: top, right: right, bottom: bottom)
     }
 }
-
-/// What a session's send throws when the server's capabilities refuse a layout.
-private struct RefusedLayout: Error {}

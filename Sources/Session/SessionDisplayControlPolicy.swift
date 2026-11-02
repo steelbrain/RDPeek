@@ -21,7 +21,7 @@ enum SessionDisplayControlPolicy {
     /// a size, and the desktop has at most one monitor. No monitors, as
     /// before the server's first layout or outside RDPGFX, counts as one.
     /// Whether a frame showed yet does not matter: Display Control comes
-    /// after the first frame the server delivers, even one that failed to
+    /// with the first frame the server delivers, even one that fails to
     /// decode, and a resize waiting on a shown frame might never be sent.
     static func isWindowMatchingInEffect(
         followsWindowSize: Bool,
@@ -55,32 +55,6 @@ enum SessionDisplayControlPolicy {
             return .skip
         }
         return .send(viewerRequest)
-    }
-
-    /// Sends `request` as `RDPDisplayControlSession.send(_:)` would, but
-    /// through `send`, the call that throws, and says whether it went out.
-    /// A request the server's capabilities refuse must not count as sent.
-    static func sendResize(
-        _ request: RDPDisplayRequest,
-        through send: (RDPMonitorLayout) throws -> Void
-    ) -> Bool {
-        do {
-            try send(monitorLayout(for: request))
-        } catch {
-            return false
-        }
-        return true
-    }
-
-    /// The layout `RDPDisplayControlSession.send(_:)` sends for `request`,
-    /// so a session can send it with the call that throws instead.
-    static func monitorLayout(for request: RDPDisplayRequest) -> RDPMonitorLayout {
-        .singlePrimary(
-            width: request.width,
-            height: request.height,
-            desktopScaleFactor: request.scaleFactors.desktopScaleFactor,
-            deviceScaleFactor: request.scaleFactors.deviceScaleFactor
-        )
     }
 }
 

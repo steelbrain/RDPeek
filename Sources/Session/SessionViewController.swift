@@ -83,9 +83,6 @@ final class SessionViewController: NSViewController {
     /// Size was turned off and on again, and the server may have left that
     /// size meanwhile.
     private var resendsWindowSize = false
-    /// How many server redirections led to the connection whose Display
-    /// Control the session has; nil while it has none.
-    private var displayControlRedirectionDepth: Int?
     private var viewerPixelSize: RDPViewerPixelSize?
     /// The monitors the server laid out last, which window matching goes
     /// by.
@@ -1112,11 +1109,10 @@ final class SessionViewController: NSViewController {
     private func sessionActivated(_ session: RDPInputSession) {
         let context = session.connectionContext
         inputSession = session
-        // A Display Control session from before a redirection sends
-        // nothing, and RDPKit does not say so: resizes wait for the
-        // target's own. A reactivation of the same connection keeps it.
-        if let displayControlRedirectionDepth, context.redirectionDepth > displayControlRedirectionDepth {
-            self.displayControlRedirectionDepth = nil
+        // A Display Control session from before a redirection has ended
+        // with its connection: resizes wait for the target's own. A
+        // reactivation of the same connection keeps it.
+        if displayControlSession?.isEnded == true {
             displayControlSession = nil
             cancelPendingDisplayResize()
         }
@@ -1237,7 +1233,6 @@ final class SessionViewController: NSViewController {
     /// it: a session that is over pauses nothing.
     private func detachSessionChannels() {
         cancelPendingDisplayResize(resetLastRequestedSize: true)
-        displayControlRedirectionDepth = nil
         serverLayout = SessionServerLayout()
         inputSession = nil
         displayControlSession = nil
@@ -1501,16 +1496,12 @@ final class SessionViewController: NSViewController {
     }
 
     /// Records the request only once it goes out: one the server's
-    /// capabilities refused is not the size the server was sent last.
+    /// capabilities refused, or one a session that ended since dropped, is
+    /// not the size the server was sent last.
     private func applyDisplayRequestToActiveSession(_ request: RDPDisplayRequest) {
-        guard let displayControlSession else {
-            return
-        }
-
-        let didSend = SessionDisplayControlPolicy.sendResize(request) { layout in
-            try displayControlSession.send(layout)
-        }
-        guard didSend else {
+        guard let displayControlSession,
+              (try? displayControlSession.send(request.monitorLayout)) == true
+        else {
             return
         }
         lastRequestedDisplayRequest = request
@@ -1518,14 +1509,17 @@ final class SessionViewController: NSViewController {
         requestedDesktopSizeLabel = request.label
     }
 
-    /// RDPKit handed out Display Control, after the first frames of the
-    /// connection the session's context says redirections led to.
+    /// RDPKit handed out Display Control, on the first server or a
+    /// redirection's target, once frames came but before the first one
+    /// reaches the window.
     private func displayControlReady(_ session: RDPDisplayControlSession) {
         displayControlSession = session
-        displayControlRedirectionDepth = session.connectionContext.redirectionDepth
         // A server redirection's target has not been sent the layout the
         // first server got.
         lastRequestedDisplayRequest = nil
+        // The session already holds the first frame's monitors, so several
+        // pause matching before the first resize is scheduled.
+        followServerLayout(decodedFrame: nil)
         scheduleAutoDisplaySizeUpdate()
         render()
     }
