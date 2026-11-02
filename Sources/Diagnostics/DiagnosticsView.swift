@@ -50,7 +50,7 @@ private struct PerformanceMetricsView: View {
                 DiagnosticRow("Display", framePacing.screenName)
                 DiagnosticRow("Display Max", RDPDiagnosticText.hertz(framePacing.maximumRefreshRate))
                 DiagnosticRow("Display Link", RDPDiagnosticText.framesPerSecond(framePacing.displayLinkFramesPerSecond))
-                DiagnosticRow("Refresh Range", refreshRange(framePacing))
+                DiagnosticRow("Refresh Range", RDPDiagnosticText.refreshRange(framePacing))
                 DiagnosticRow("Wire RX", RDPDiagnosticText.megabitsPerSecond(rollingWireMegabitsPerSecond))
                 DiagnosticRow("Wire RX Average", RDPDiagnosticText.megabitsPerSecond(averageWireMegabitsPerSecond))
                 DiagnosticRow("Wire RX Total", RDPDiagnosticText.bytes(metrics.wireByteCount))
@@ -83,18 +83,6 @@ private struct PerformanceMetricsView: View {
                 }
             }
         }
-    }
-
-    private func refreshRange(_ framePacing: RDPFramePacingState) -> String {
-        let minimum = RDPDiagnosticText.refreshInterval(framePacing.minimumRefreshInterval)
-        let maximum = RDPDiagnosticText.refreshInterval(framePacing.maximumRefreshInterval)
-        let granularity: String
-        if framePacing.displayUpdateGranularity == 0 {
-            granularity = "variable"
-        } else {
-            granularity = RDPDiagnosticText.refreshInterval(framePacing.displayUpdateGranularity)
-        }
-        return "\(minimum)-\(maximum), step \(granularity)"
     }
 }
 
@@ -205,7 +193,7 @@ struct RemoteSessionDiagnosticsWindowContent: View {
                         DiagnosticRow("Attach User", report.mcsAttachUserResult ?? "not requested")
                         DiagnosticRow("User Channel", RDPDiagnosticText.number(report.mcsUserChannelID))
                         DiagnosticRow("Joined", RDPDiagnosticText.channels(report.mcsJoinedChannels))
-                        DiagnosticRow("Client Info", clientInfoState(report))
+                        DiagnosticRow("Client Info", RDPDiagnosticText.clientInfo(of: report))
                         DiagnosticRow("Credentials Sent", RDPDiagnosticText.yesNo(report.rdpClientInfoCredentialsIncluded, missing: "unknown"))
                         DiagnosticRow("Client Info Bytes", RDPDiagnosticText.byteCount(report.rdpClientInfoRequestBytes))
                         DiagnosticRow("Auto-Detect", report.rdpAutoDetectRequestType ?? "not requested")
@@ -446,13 +434,6 @@ struct RemoteSessionDiagnosticsWindowContent: View {
     private func licensingSummary(_ report: RDPConnectionReport) -> String {
         let firstMessage = report.rdpLicensingResponseType ?? "not observed"
         return report.rdpIssuedClientLicense == nil ? firstMessage : "\(firstMessage), license issued"
-    }
-
-    private func clientInfoState(_ report: RDPConnectionReport?) -> String {
-        guard let sent = report?.rdpClientInfoSent else {
-            return "not attempted"
-        }
-        return sent ? "sent" : "not sent"
     }
 
     private func clipboardState(_ snapshot: RemoteSessionDiagnosticsSnapshot) -> String {
