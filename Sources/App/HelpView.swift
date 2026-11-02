@@ -60,8 +60,9 @@ struct HelpView: View {
                             "layout instead of following the window. Displays, in the ⋯ " +
                             "menu and the Session menu, shows all of its displays or only " +
                             "those you check, arranged as on the remote. They are numbered " +
-                            "in the order the server lists them, which may differ from the " +
-                            "remote's own numbering."
+                            "by their place in the server's list, so a display with nothing " +
+                            "to show leaves a gap, and the numbers may differ from the " +
+                            "remote's own."
                     )
                     HelpBody(
                         "Clipboard sharing can be turned on, or shared for 30 seconds, " +
@@ -84,6 +85,12 @@ struct HelpView: View {
                             "intercept the connection could pose as the server and " +
                             "capture them. A certificate that replaced one you trusted " +
                             "is still refused."
+                    )
+                    HelpBody(
+                        "A PC that signs in with an outdated version of Network Level " +
+                            "Authentication, CredSSP 2 to 4, is refused before any password " +
+                            "is sent; use Connect Anyway, for that one connection, only on " +
+                            "a network you trust."
                     )
                 }
 
