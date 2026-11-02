@@ -165,3 +165,53 @@ enum SessionKeyframeRequest: Equatable {
     /// last, or else the one it connected with.
     case layout(RDPMonitorLayout)
 }
+
+/// The keyframe request a frame that failed to decode makes while the
+/// session has no Display Control to send it through, kept until Display
+/// Control is ready. RDPKit hands Display Control out only after a
+/// connection's first frames, so a first frame that fails to decode asks
+/// with nothing to send through, and the throttle holds the next ask back
+/// for seconds.
+struct SessionKeyframeRequestHold {
+    /// What the frame that failed asked with: its graphics output, and the
+    /// desktop the connection started with.
+    private struct Request {
+        var graphicsOutputRect: RDPFrameRect?
+        var connectLayout: RDPDisplayRequest
+    }
+
+    private var request: Request?
+
+    /// Keeps the request a frame made with no Display Control to send it
+    /// through. A later one replaces it: its frame is newer.
+    mutating func hold(graphicsOutputRect: RDPFrameRect?, connectLayout: RDPDisplayRequest) {
+        request = Request(graphicsOutputRect: graphicsOutputRect, connectLayout: connectLayout)
+    }
+
+    /// Video decoded again, so no keyframe is awaited, and the request
+    /// would only make the server reset its graphics. A server that offers
+    /// Display Control late can send many frames before it is ready.
+    mutating func recordDecodedVideo() {
+        request = nil
+    }
+
+    /// Display Control is ready: what to send for the request held, if
+    /// any. It goes out once, by the monitors the server reports now, not
+    /// those of the frame that asked: the server may have laid out several
+    /// monitors since, which a one-monitor layout would merge.
+    mutating func displayControlReady(reportedMonitors: [RDPRemoteMonitor]) -> SessionKeyframeRequest? {
+        guard let request else {
+            return nil
+        }
+        self.request = nil
+        // Nothing went out through this Display Control yet, so there is
+        // no request to send again, and matching does not come into it.
+        return SessionDisplayControlPolicy.keyframeRequest(
+            lastSent: nil,
+            isWindowMatchingInEffect: false,
+            reportedMonitors: reportedMonitors,
+            graphicsOutputRect: request.graphicsOutputRect,
+            connectLayout: request.connectLayout
+        )
+    }
+}

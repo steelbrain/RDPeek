@@ -80,11 +80,8 @@ final class SessionViewController: NSViewController {
     /// stays recorded: keyframe requests send it again at its own scale.
     private var resendsAfterPause = false
     /// A keyframe a frame asked for before Display Control was ready, sent
-    /// once it is. RDPKit hands Display Control out only after the first
-    /// frames return, so a first frame that fails to decode asks with
-    /// nothing to send through, and the throttle holds the next ask back
-    /// for seconds.
-    private var pendingKeyframeRequest: PendingKeyframeRequest?
+    /// once it is.
+    private var keyframeRequestHold = SessionKeyframeRequestHold()
     private var viewerPixelSize: RDPViewerPixelSize?
     /// The monitors the server's latest delivered frame reports, which
     /// window matching goes by; a frame that could not be shown counts too.
@@ -1029,13 +1026,7 @@ final class SessionViewController: NSViewController {
                 },
                 onDisplayControlReady: { session in
                     sink.apply { controller in
-                        controller.displayControlSession = session
-                        // A server redirection's target has not been sent
-                        // the layout the first server got.
-                        controller.lastRequestedDisplayRequest = nil
-                        controller.sendPendingKeyframeRequest()
-                        controller.scheduleAutoDisplaySizeUpdate()
-                        controller.render()
+                        controller.displayControlReady(session)
                     }
                 },
                 onClipboardReady: { session in
@@ -1278,7 +1269,7 @@ final class SessionViewController: NSViewController {
     /// next connection's server: it never sent the frame that asked.
     private func detachSessionChannels() {
         cancelPendingDisplayResize(resetLastRequestedSize: true)
-        pendingKeyframeRequest = nil
+        keyframeRequestHold = SessionKeyframeRequestHold()
         reportedMonitors = []
         inputSession = nil
         displayControlSession = nil
@@ -1291,6 +1282,9 @@ final class SessionViewController: NSViewController {
 
     @discardableResult
     private func presentDecodedFrame(_ presentation: RDPDecodedFramePresentation) -> Bool {
+        if presentation.frame.contentKind == .video {
+            keyframeRequestHold.recordDecodedVideo()
+        }
         guard hasPresentedFrame else {
             return applyFramePresentation(presentation)
         }
@@ -1546,20 +1540,36 @@ final class SessionViewController: NSViewController {
         requestedDesktopSizeLabel = request.label
     }
 
+    /// RDPKit handed out Display Control, after the connection's first
+    /// frames.
+    private func displayControlReady(_ session: RDPDisplayControlSession) {
+        displayControlSession = session
+        // A server redirection's target has not been sent the layout the
+        // first server got.
+        lastRequestedDisplayRequest = nil
+        // The held request goes out although Match Window Size may send a
+        // layout 350 ms from now, which brings a keyframe too. The extra
+        // graphics reset happens only after a first frame failed, and the
+        // request always goes out before that resize, so it cannot undo it.
+        let keyframeRequest = keyframeRequestHold.displayControlReady(reportedMonitors: reportedMonitors)
+        sendKeyframeRequest(keyframeRequest, through: session)
+        scheduleAutoDisplaySizeUpdate()
+        render()
+    }
+
     /// Windows and gnome-remote-desktop send no keyframe by themselves, but
     /// answer the monitor layout sent again with one. The policy picks a
     /// layout the server already has, so asking never resizes or rescales
     /// the desktop, or merges its monitors into one. `monitors` are those
     /// of the frame that failed to decode. Before Display Control is ready,
-    /// the request waits for it with that frame's layout.
+    /// the request waits for it.
     private func requestKeyframe(
         monitors: [RDPRemoteMonitor],
         graphicsOutputRect: RDPFrameRect?,
         connectLayout: RDPDisplayRequest
     ) {
         guard let displayControlSession else {
-            pendingKeyframeRequest = PendingKeyframeRequest(
-                monitors: monitors,
+            keyframeRequestHold.hold(
                 graphicsOutputRect: graphicsOutputRect,
                 connectLayout: connectLayout
             )
@@ -1572,31 +1582,23 @@ final class SessionViewController: NSViewController {
             graphicsOutputRect: graphicsOutputRect,
             connectLayout: connectLayout
         )
+        sendKeyframeRequest(keyframeRequest, through: displayControlSession)
+    }
+
+    private func sendKeyframeRequest(
+        _ keyframeRequest: SessionKeyframeRequest?,
+        through session: RDPDisplayControlSession
+    ) {
         switch keyframeRequest {
         case let .request(request):
-            displayControlSession.send(request)
+            session.send(request)
         case let .layout(layout):
             // A layout the server's capabilities refuse stays unsent; the
             // video then waits for the server's next keyframe.
-            try? displayControlSession.send(layout)
+            try? session.send(layout)
         case nil:
             break
         }
-    }
-
-    /// Sends the keyframe request a frame made before Display Control was
-    /// ready, now that it is. It goes by that frame's layout, as if
-    /// Display Control had been there when the frame asked.
-    private func sendPendingKeyframeRequest() {
-        guard let pendingKeyframeRequest else {
-            return
-        }
-        self.pendingKeyframeRequest = nil
-        requestKeyframe(
-            monitors: pendingKeyframeRequest.monitors,
-            graphicsOutputRect: pendingKeyframeRequest.graphicsOutputRect,
-            connectLayout: pendingKeyframeRequest.connectLayout
-        )
     }
 
     private func cancelPendingDisplayResize(resetLastRequestedSize: Bool = false) {
@@ -1824,14 +1826,6 @@ final class SessionViewController: NSViewController {
 }
 
 // MARK: - Support types
-
-/// What a frame that failed to decode asked a keyframe with: its layout,
-/// and the desktop the connection started with.
-private struct PendingKeyframeRequest {
-    var monitors: [RDPRemoteMonitor]
-    var graphicsOutputRect: RDPFrameRect?
-    var connectLayout: RDPDisplayRequest
-}
 
 private final class SessionMainActorSink: @unchecked Sendable {
     weak var controller: SessionViewController?
