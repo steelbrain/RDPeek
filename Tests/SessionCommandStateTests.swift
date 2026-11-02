@@ -93,16 +93,82 @@ final class SessionCommandStateTests: XCTestCase {
                 hasReport: false,
                 hasEndReason: false,
                 hostIsEmpty: hostIsEmpty,
+                isClipboardSharingEnabled: false,
                 canSyncClipboard: false,
                 canShareClipboardTemporarily: false,
+                isAudioPlaybackEnabled: false,
+                followsWindowSize: false,
+                reportedMonitors: [],
                 displayLayout: RemoteDisplayLayout(frameSize: .zero, monitors: []),
-                displaySelection: .all
+                displaySelection: .all,
+                isMetricsOverlayVisible: false
             )
             let isIdle = !isConnecting && !isResolving && !isAutoRetryPending
             XCTAssertTrue(
                 state.canStart || state.canCancel || (isIdle && (hostIsEmpty || isAwaitingCredentials)),
                 "Dead-end command state for input mask \(mask)"
             )
+        }
+    }
+
+    // MARK: - Toggles
+
+    func testShareClipboardShowsTheSessionsSetting() {
+        // The Session menu checks Share Clipboard from the value the ⋯ menu
+        // checks it from, so the two menus can't disagree.
+        for isOn in [false, true] {
+            let state = makeState(isClipboardSharingEnabled: isOn)
+            XCTAssertEqual(state.isClipboardSharingEnabled, isOn, "sharing \(isOn)")
+        }
+    }
+
+    func testRemoteAudioShowsTheSessionsSetting() {
+        // The Session menu checks Remote Audio from the value the ⋯ menu
+        // checks it from, so the two menus can't disagree.
+        for isOn in [false, true] {
+            let state = makeState(isAudioPlaybackEnabled: isOn)
+            XCTAssertEqual(state.isAudioPlaybackEnabled, isOn, "audio \(isOn)")
+        }
+    }
+
+    func testPerformanceOverlayShowsTheSessionsSetting() {
+        // The Session menu checks Performance Overlay from the value the ⋯
+        // menu checks it from, so the two menus can't disagree.
+        for isOn in [false, true] {
+            let state = makeState(isMetricsOverlayVisible: isOn)
+            XCTAssertEqual(state.isMetricsOverlayVisible, isOn, "overlay \(isOn)")
+        }
+    }
+
+    func testMatchWindowSizeShowsThePreferenceWithAtMostOneMonitor() {
+        // No monitors, as before the server's first layout, counts as one;
+        // with one, the window follows the preference, so the toggle shows it.
+        for count in 0 ... 1 {
+            for preference in [false, true] {
+                let state = makeState(followsWindowSize: preference, reportedMonitors: monitorsInARow(count))
+                XCTAssertEqual(
+                    state.isFollowWindowSizeEnabled,
+                    preference,
+                    "\(count) monitors, preference \(preference)"
+                )
+            }
+        }
+    }
+
+    func testSeveralMonitorsShowMatchWindowSizeUnchecked() {
+        // Several monitors pause window matching, so the toggle shows that
+        // it isn't in effect rather than the preference it keeps for later.
+        let state = makeState(followsWindowSize: true, reportedMonitors: monitorsInARow(2))
+
+        XCTAssertFalse(state.isFollowWindowSizeEnabled)
+    }
+
+    func testMatchWindowSizeIsDisabledExactlyWhileSeveralMonitorsAreReported() {
+        // Both menus disable the toggle while several monitors pause it, and
+        // only then: with at most one, the user can turn matching on or off.
+        for count in 0 ... 3 {
+            let state = makeState(reportedMonitors: monitorsInARow(count))
+            XCTAssertEqual(state.canFollowWindowSize, count < 2, "\(count) monitors")
         }
     }
 
@@ -205,7 +271,12 @@ final class SessionCommandStateTests: XCTestCase {
         hasReport: Bool = false,
         hasEndReason: Bool = false,
         hostIsEmpty: Bool = false,
-        displayLayout: RemoteDisplayLayout = RemoteDisplayLayout(frameSize: .zero, monitors: [])
+        isClipboardSharingEnabled: Bool = true,
+        isAudioPlaybackEnabled: Bool = false,
+        followsWindowSize: Bool = SessionDisplayControlPolicy.followsWindowSizeByDefault,
+        reportedMonitors: [RDPRemoteMonitor] = [],
+        displayLayout: RemoteDisplayLayout = RemoteDisplayLayout(frameSize: .zero, monitors: []),
+        isMetricsOverlayVisible: Bool = false
     ) -> SessionCommandState {
         SessionCommandState.make(
             isConnecting: isConnecting,
@@ -216,10 +287,15 @@ final class SessionCommandStateTests: XCTestCase {
             hasReport: hasReport,
             hasEndReason: hasEndReason,
             hostIsEmpty: hostIsEmpty,
+            isClipboardSharingEnabled: isClipboardSharingEnabled,
             canSyncClipboard: false,
             canShareClipboardTemporarily: false,
+            isAudioPlaybackEnabled: isAudioPlaybackEnabled,
+            followsWindowSize: followsWindowSize,
+            reportedMonitors: reportedMonitors,
             displayLayout: displayLayout,
-            displaySelection: .all
+            displaySelection: .all,
+            isMetricsOverlayVisible: isMetricsOverlayVisible
         )
     }
 
@@ -244,6 +320,19 @@ final class SessionCommandStateTests: XCTestCase {
                 monitor(3840, 0, 5760, 1080, isPrimary: false),
             ]
         )
+    }
+
+    /// `count` 1920x1080 monitors in a row, the first one primary.
+    private func monitorsInARow(_ count: Int) -> [RDPRemoteMonitor] {
+        (0 ..< count).map { index in
+            monitor(
+                UInt16(index * 1920),
+                0,
+                UInt16((index + 1) * 1920),
+                1080,
+                isPrimary: index == 0
+            )
+        }
     }
 
     private func monitor(

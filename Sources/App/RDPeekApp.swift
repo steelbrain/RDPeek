@@ -165,6 +165,14 @@ private struct SessionCommands: Commands {
 
             Divider()
 
+            Toggle(
+                "Share Clipboard",
+                isOn: Binding(
+                    get: { commands.isClipboardSharingEnabled },
+                    set: { sessionController?.setClipboardSharing($0) }
+                )
+            )
+
             Button("Sync Clipboard Now") {
                 sessionController?.syncClipboardNow()
             }
@@ -175,9 +183,26 @@ private struct SessionCommands: Commands {
             }
             .disabled(commands.canShareClipboardTemporarily == false)
 
-            if commands.displays.isEmpty == false {
-                Divider()
+            Divider()
 
+            Toggle(
+                "Remote Audio",
+                isOn: Binding(
+                    get: { commands.isAudioPlaybackEnabled },
+                    set: { sessionController?.setAudioPlayback($0) }
+                )
+            )
+
+            Toggle(
+                "Match Window Size",
+                isOn: Binding(
+                    get: { commands.isFollowWindowSizeEnabled },
+                    set: { sessionController?.setFollowWindowSize($0) }
+                )
+            )
+            .disabled(commands.canFollowWindowSize == false)
+
+            if commands.displays.isEmpty == false {
                 Menu("Displays") {
                     SessionDisplayMenuItems(
                         displays: commands.displays,
@@ -188,6 +213,14 @@ private struct SessionCommands: Commands {
             }
 
             Divider()
+
+            Toggle(
+                "Performance Overlay",
+                isOn: Binding(
+                    get: { commands.isMetricsOverlayVisible },
+                    set: { sessionController?.setMetricsOverlayVisible($0) }
+                )
+            )
 
             Button("Stats for Nerds") {
                 sessionController?.openDiagnosticsWindow()

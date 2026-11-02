@@ -374,21 +374,18 @@ final class SessionViewController: NSViewController {
             to: nextPhase == .connecting ? autoRetryReason?.statusDetail : nil
         )
         hudModel.update(\.certificateNotice, to: certificateNoticeState())
-        hudModel.update(\.isMetricsOverlayVisible, to: isMetricsOverlayVisible)
+        // One command state feeds the HUD and the Session menu, so they
+        // agree on what can be done and on which toggles are on.
+        let commands = sessionCommandState
+        hudModel.update(\.isMetricsOverlayVisible, to: commands.isMetricsOverlayVisible)
         // The overlay measures the desktop, so it shows only while the
         // desktop does.
         hudModel.update(\.metricsSummary, to: nextPhase.isActive ? viewerMetricsSummary : nil)
-        hudModel.update(\.isClipboardSharingEnabled, to: clipboard.isSharingEnabled)
-        hudModel.update(\.isAudioPlaybackEnabled, to: audioPlaybackEnabled)
-        // While the server reports several monitors, Match Window Size
-        // shows that it is paused, not the preference it keeps.
-        let reportsSeveralMonitors = SessionDisplayControlPolicy.reportsSeveralMonitors(reportedMonitors)
-        hudModel.update(\.isFollowWindowSizeEnabled, to: followsWindowSize && reportsSeveralMonitors == false)
-        hudModel.update(\.canFollowWindowSize, to: reportsSeveralMonitors == false)
+        hudModel.update(\.isClipboardSharingEnabled, to: commands.isClipboardSharingEnabled)
+        hudModel.update(\.isAudioPlaybackEnabled, to: commands.isAudioPlaybackEnabled)
+        hudModel.update(\.isFollowWindowSizeEnabled, to: commands.isFollowWindowSizeEnabled)
+        hudModel.update(\.canFollowWindowSize, to: commands.canFollowWindowSize)
         hudModel.update(\.temporaryClipboardSecondsRemaining, to: clipboard.temporarySharingSecondsRemaining)
-        // One command state feeds the HUD and the Session menu, so they
-        // agree on what can be done.
-        let commands = sessionCommandState
         hudModel.update(\.startTitle, to: commands.startTitle)
         hudModel.update(\.canReconnect, to: commands.canStart)
         hudModel.update(\.canCancel, to: commands.canCancel)
@@ -424,10 +421,15 @@ final class SessionViewController: NSViewController {
             hasReport: report != nil,
             hasEndReason: sessionEndReason != nil,
             hostIsEmpty: draft.host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            isClipboardSharingEnabled: clipboard.isSharingEnabled,
             canSyncClipboard: clipboard.canSync,
             canShareClipboardTemporarily: clipboard.canStartTemporarySharing,
+            isAudioPlaybackEnabled: audioPlaybackEnabled,
+            followsWindowSize: followsWindowSize,
+            reportedMonitors: reportedMonitors,
             displayLayout: displayLayout,
-            displaySelection: displaySelection
+            displaySelection: displaySelection,
+            isMetricsOverlayVisible: isMetricsOverlayVisible
         )
     }
 
@@ -1398,7 +1400,7 @@ final class SessionViewController: NSViewController {
         return false
     }
 
-    private func setMetricsOverlayVisible(_ visible: Bool) {
+    func setMetricsOverlayVisible(_ visible: Bool) {
         isMetricsOverlayVisible = visible
         updateViewerMetricsSummary(renderMetricsStore.metrics)
         render()
@@ -1606,7 +1608,7 @@ final class SessionViewController: NSViewController {
         }
     }
 
-    private func setFollowWindowSize(_ enabled: Bool) {
+    func setFollowWindowSize(_ enabled: Bool) {
         followsWindowSize = enabled
         if enabled {
             scheduleAutoDisplaySizeUpdate()
@@ -1628,7 +1630,7 @@ final class SessionViewController: NSViewController {
         render()
     }
 
-    private func setClipboardSharing(_ enabled: Bool) {
+    func setClipboardSharing(_ enabled: Bool) {
         clipboard.setSharingEnabled(enabled)
         render()
     }
@@ -1650,7 +1652,7 @@ final class SessionViewController: NSViewController {
         }
     }
 
-    private func setAudioPlayback(_ enabled: Bool) {
+    func setAudioPlayback(_ enabled: Bool) {
         audioPlaybackEnabled = enabled
         if !enabled {
             remoteAudioPlayer.reset()
