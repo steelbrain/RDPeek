@@ -1681,8 +1681,9 @@ final class SessionViewController: NSViewController {
             session.send(request)
         case let .layout(layout):
             // A layout the server's capabilities refuse stays unsent; the
-            // video then waits for the server's next keyframe.
-            try? session.send(layout)
+            // video then waits for the server's next keyframe. RDPKit 0.7
+            // prep: whether it went out is not used yet.
+            _ = try? session.send(layout)
         case nil:
             break
         }

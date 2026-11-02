@@ -237,6 +237,11 @@ struct RDPSessionEndReason: Equatable {
                 + "such as Standard RDP Security."
         case .tls, .tlsKeyUsageIncorrect:
             return "A secure connection to the remote computer could not be set up."
+        case let .legacyCredSSPVersion(version):
+            // RDPKit 0.7 prep: a plain message until the bump adds the
+            // consent to connect again with `legacyCredSSP` on.
+            return "The remote computer signs in with CredSSP \(version), an outdated version of "
+                + "Network Level Authentication, which RDPeek refuses. No password was sent."
         case .credentialsRequired:
             return credentialsRequiredMessage
         case let .credSSP(status):
