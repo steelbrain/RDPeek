@@ -99,6 +99,43 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         XCTAssertEqual(resizeDecision(viewerRequest: retinaRequest, lastSent: retinaRequest), .skip)
     }
 
+    func testMatchingThatResumesSendsTheSameSizeAgain() {
+        // 2880x1800 at 200% went out; the server then laid out two
+        // monitors, and came back to one at 1920x1080. The window did not
+        // change, so its size must go out again for the desktop to fit it.
+        let paused = isWindowMatchingInEffect(reportedMonitors: sideBySideMonitors())
+        let resumed = isWindowMatchingInEffect(reportedMonitors: [monitor(0, 0, 1920, 1080)])
+
+        XCTAssertEqual(
+            resizeDecision(
+                isInEffect: paused,
+                viewerRequest: retinaRequest,
+                lastSent: retinaRequest,
+                resends: true
+            ),
+            .cancel
+        )
+        XCTAssertEqual(
+            resizeDecision(
+                isInEffect: resumed,
+                viewerRequest: retinaRequest,
+                lastSent: retinaRequest,
+                resends: true
+            ),
+            .send(retinaRequest)
+        )
+    }
+
+    func testKeyframesAfterAPauseKeepTheScaleSentLast() {
+        // Why the resend does not forget the last request: a keyframe
+        // request would then send the server's 1920x1080 at 100%, while
+        // its desktop is at 200%.
+        XCTAssertEqual(
+            keyframeRequest(lastSent: retinaRequest, reportedMonitors: [monitor(0, 0, 1920, 1080)]),
+            .request(retinaRequest)
+        )
+    }
+
     // MARK: - Keyframe request
 
     func testSeveralMonitorsGetNoKeyframeRequest() {
@@ -291,12 +328,14 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
     private func resizeDecision(
         isInEffect: Bool = true,
         viewerRequest: RDPDisplayRequest?,
-        lastSent: RDPDisplayRequest? = nil
+        lastSent: RDPDisplayRequest? = nil,
+        resends: Bool = false
     ) -> SessionResizeDecision {
         SessionDisplayControlPolicy.resizeDecision(
             isWindowMatchingInEffect: isInEffect,
             viewerRequest: viewerRequest,
-            lastSent: lastSent
+            lastSent: lastSent,
+            resendsAfterPause: resends
         )
     }
 

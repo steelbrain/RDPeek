@@ -75,6 +75,10 @@ final class SessionViewController: NSViewController {
     private var displaySelection = RemoteDisplaySelection.all
     private var pendingDisplayResizeTask: Task<Void, Never>?
     private var lastRequestedDisplayRequest: RDPDisplayRequest?
+    /// The server laid out several monitors since the last resize went out,
+    /// so the next one goes out even when it is the same. The last request
+    /// stays recorded: keyframe requests send it again at its own scale.
+    private var resendsAfterPause = false
     private var viewerPixelSize: RDPViewerPixelSize?
     /// The monitors the server's latest delivered frame reports, which
     /// window matching goes by; a frame that could not be shown counts too.
@@ -1466,6 +1470,9 @@ final class SessionViewController: NSViewController {
     /// The server laid its desktop out anew. Several monitors pause window
     /// matching; back at one, it resumes without the user doing anything.
     private func updateReportedMonitors(_ monitors: [RDPRemoteMonitor]) {
+        if SessionDisplayControlPolicy.reportsSeveralMonitors(monitors) {
+            resendsAfterPause = true
+        }
         reportedMonitors = monitors
         scheduleAutoDisplaySizeUpdate()
         render()
@@ -1504,7 +1511,8 @@ final class SessionViewController: NSViewController {
         SessionDisplayControlPolicy.resizeDecision(
             isWindowMatchingInEffect: isWindowMatchingInEffect,
             viewerRequest: viewerRequest,
-            lastSent: lastRequestedDisplayRequest
+            lastSent: lastRequestedDisplayRequest,
+            resendsAfterPause: resendsAfterPause
         )
     }
 
@@ -1523,6 +1531,7 @@ final class SessionViewController: NSViewController {
             return
         }
         lastRequestedDisplayRequest = request
+        resendsAfterPause = false
         requestedDesktopSizeLabel = request.label
     }
 
@@ -1562,6 +1571,7 @@ final class SessionViewController: NSViewController {
         pendingDisplayResizeTask = nil
         if resetLastRequestedSize {
             lastRequestedDisplayRequest = nil
+            resendsAfterPause = false
         }
     }
 

@@ -35,18 +35,22 @@ enum SessionDisplayControlPolicy {
     }
 
     /// What the session does with the window's size when it reschedules a
-    /// resize. Only a size the server was not sent last goes out.
+    /// resize. Only a size the server was not sent last goes out, unless
+    /// `resendsAfterPause`: the server laid out several monitors since that
+    /// size went out, and may have left it, so the window's size is sent
+    /// once matching resumes even when it is the same.
     static func resizeDecision(
         isWindowMatchingInEffect: Bool,
         viewerRequest: RDPDisplayRequest?,
-        lastSent: RDPDisplayRequest?
+        lastSent: RDPDisplayRequest?,
+        resendsAfterPause: Bool
     ) -> SessionResizeDecision {
         guard isWindowMatchingInEffect,
               let viewerRequest
         else {
             return .cancel
         }
-        guard viewerRequest != lastSent else {
+        guard resendsAfterPause || viewerRequest != lastSent else {
             return .skip
         }
         return .send(viewerRequest)
