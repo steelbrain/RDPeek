@@ -118,6 +118,8 @@ private struct DeviceCommands: Commands {
     var deviceList: DeviceListModel
     @ObservedObject var launchStore: SessionLaunchStore
     @Environment(\.openWindow) private var openWindow
+    /// The selected PC, while the Connection Center is the key window.
+    @FocusedValue(\.selectedDevice) private var selectedDevice
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -132,6 +134,22 @@ private struct DeviceCommands: Commands {
                     deviceList.addNewDevice()
                 }
                 .keyboardShortcut("n", modifiers: [.command])
+
+                Button("Edit PC…") {
+                    if let selectedDevice {
+                        deviceList.edit(selectedDevice)
+                    }
+                }
+                .keyboardShortcut("e", modifiers: [.command])
+                .disabled(selectedDevice == nil)
+
+                Button("Duplicate PC") {
+                    if let selectedDevice {
+                        deviceList.duplicate(selectedDevice)
+                    }
+                }
+                .keyboardShortcut("d", modifiers: [.command])
+                .disabled(selectedDevice == nil)
             }
         }
     }

@@ -20,6 +20,7 @@ struct ConnectionCenterView: View {
     ]
 
     var body: some View {
+        let devices = deviceList.filteredDevices
         Group {
             if deviceList.loadFailed {
                 // Not the empty state: its Add PC would fail to save.
@@ -33,9 +34,17 @@ struct ConnectionCenterView: View {
                     deviceList.addNewDevice()
                 }
             } else {
-                deviceGrid(deviceList.filteredDevices)
+                deviceGrid(devices)
             }
         }
+        // For Edit PC and Duplicate PC in the File menu. None while the
+        // editor or the Delete dialog is up, which they would replace.
+        .focusedSceneValue(
+            \.selectedDevice,
+            deviceList.editorState == nil && deviceList.devicePendingDeletion == nil
+                ? devices.first { $0.id == selectedDeviceID }
+                : nil
+        )
         .safeAreaInset(edge: .top, spacing: 0) {
             if deviceList.unreadableDeviceCount > 0 {
                 UnreadableDevicesNotice(count: deviceList.unreadableDeviceCount) {
@@ -220,6 +229,18 @@ struct ConnectionCenterView: View {
                 }
             }
         )
+    }
+}
+
+/// The PC selected in the Connection Center.
+struct SelectedDeviceKey: FocusedValueKey {
+    typealias Value = DeviceProfile
+}
+
+extension FocusedValues {
+    var selectedDevice: DeviceProfile? {
+        get { self[SelectedDeviceKey.self] }
+        set { self[SelectedDeviceKey.self] = newValue }
     }
 }
 

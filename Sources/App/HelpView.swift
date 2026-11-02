@@ -89,6 +89,8 @@ struct HelpView: View {
                         HelpShortcutRow("⌘N", "Add PC")
                         HelpShortcutRow("Arrow keys", "Select another PC")
                         HelpShortcutRow("Return", "Connect to the selected PC")
+                        HelpShortcutRow("⌘E", "Edit the selected PC")
+                        HelpShortcutRow("⌘D", "Duplicate the selected PC")
                         HelpShortcutRow("Delete", "Delete the selected PC")
                         HelpShortcutRow("⌘R", "Reconnect a session that ended")
                         HelpShortcutRow("⌘.", "Cancel connecting")
