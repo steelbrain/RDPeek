@@ -175,6 +175,18 @@ private struct SessionCommands: Commands {
             }
             .disabled(commands.canShareClipboardTemporarily == false)
 
+            if commands.displays.isEmpty == false {
+                Divider()
+
+                Menu("Displays") {
+                    SessionDisplayMenuItems(
+                        displays: commands.displays,
+                        onShowAll: { sessionController?.showAllDisplays() },
+                        onToggle: { sessionController?.toggleDisplay($0) }
+                    )
+                }
+            }
+
             Divider()
 
             Button("Stats for Nerds") {

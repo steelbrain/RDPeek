@@ -1,4 +1,5 @@
 import Foundation
+import RDPKit
 import XCTest
 
 final class SessionCommandStateTests: XCTestCase {
@@ -93,7 +94,9 @@ final class SessionCommandStateTests: XCTestCase {
                 hasEndReason: false,
                 hostIsEmpty: hostIsEmpty,
                 canSyncClipboard: false,
-                canShareClipboardTemporarily: false
+                canShareClipboardTemporarily: false,
+                displayLayout: RemoteDisplayLayout(frameSize: .zero, monitors: []),
+                displaySelection: .all
             )
             let isIdle = !isConnecting && !isResolving && !isAutoRetryPending
             XCTAssertTrue(
@@ -101,6 +104,94 @@ final class SessionCommandStateTests: XCTestCase {
                 "Dead-end command state for input mask \(mask)"
             )
         }
+    }
+
+    // MARK: - Displays
+
+    func testDisplaysAreListedWhileConnected() {
+        // The Displays submenus appear once a live session shows several.
+        let state = makeState(isConnecting: true, hasFrame: true, displayLayout: sideBySideLayout())
+
+        XCTAssertEqual(state.displays.map(\.number), [1, 2])
+    }
+
+    func testDisplaysAreHiddenWhileConnecting() {
+        // Before the first frame there is no layout to choose from.
+        XCTAssertEqual(makeState(isConnecting: true).displays, [])
+    }
+
+    func testDisplaysAreHiddenOnceTheSessionEnds() {
+        // The last frame stays in the window, but the next connection may
+        // bring other displays.
+        let state = makeState(hasFrame: true, hasReport: true, displayLayout: sideBySideLayout())
+
+        XCTAssertEqual(state.displays, [])
+    }
+
+    func testOneDisplayOffersNoChoice() {
+        // A Displays submenu could do nothing with one display.
+        let layout = RemoteDisplayLayout(
+            frameSize: CGSize(width: 1920, height: 1080),
+            monitors: [monitor(0, 0, 1920, 1080, isPrimary: true)]
+        )
+
+        XCTAssertEqual(SessionDisplayChoice.choices(in: layout, selection: .all), [])
+    }
+
+    func testChoicesFollowTheServersOrder() {
+        // The menus number the displays as the server lists them and title
+        // each with its size, marking the primary one.
+        XCTAssertEqual(
+            SessionDisplayChoice.choices(in: sideBySideLayout(), selection: .all),
+            [
+                SessionDisplayChoice(
+                    number: 1,
+                    width: 2560,
+                    height: 1440,
+                    isPrimary: false,
+                    isSelected: true,
+                    canToggle: true
+                ),
+                SessionDisplayChoice(
+                    number: 2,
+                    width: 1920,
+                    height: 1080,
+                    isPrimary: true,
+                    isSelected: true,
+                    canToggle: true
+                ),
+            ]
+        )
+    }
+
+    func testTheLastShownDisplayCannotBeHidden() {
+        // The window would otherwise show nothing.
+        let choices = SessionDisplayChoice.choices(in: sideBySideLayout(), selection: .subset([2]))
+
+        XCTAssertEqual(choices.map(\.isSelected), [false, true])
+        XCTAssertEqual(choices.map(\.canToggle), [true, false])
+    }
+
+    func testAllDisplaysIsCheckedExactlyWhenEveryDisplayShows() {
+        // The menus check All Displays when every choice is checked, which
+        // must mean the window shows all displays.
+        let layout = threeDisplayLayout()
+        let selections: [RemoteDisplaySelection] = [.all, .subset([1]), .subset([1, 3]), .subset([2, 3])]
+        for selection in selections {
+            let choices = SessionDisplayChoice.choices(in: layout, selection: selection)
+            XCTAssertEqual(choices.allSatisfy(\.isSelected), selection == .all, "\(selection)")
+        }
+    }
+
+    func testCheckingTheLastHiddenDisplayChecksAllDisplays() {
+        // Choosing every display one by one is All Displays, so a display
+        // the server adds later shows too.
+        let layout = threeDisplayLayout()
+        var selection = RemoteDisplaySelection.subset([1, 3])
+        selection.toggle(2, in: layout)
+
+        XCTAssertEqual(selection, .all)
+        XCTAssertTrue(SessionDisplayChoice.choices(in: layout, selection: selection).allSatisfy(\.isSelected))
     }
 
     // MARK: - Helpers
@@ -113,7 +204,8 @@ final class SessionCommandStateTests: XCTestCase {
         hasFrame: Bool = false,
         hasReport: Bool = false,
         hasEndReason: Bool = false,
-        hostIsEmpty: Bool = false
+        hostIsEmpty: Bool = false,
+        displayLayout: RemoteDisplayLayout = RemoteDisplayLayout(frameSize: .zero, monitors: [])
     ) -> SessionCommandState {
         SessionCommandState.make(
             isConnecting: isConnecting,
@@ -125,7 +217,45 @@ final class SessionCommandStateTests: XCTestCase {
             hasEndReason: hasEndReason,
             hostIsEmpty: hostIsEmpty,
             canSyncClipboard: false,
-            canShareClipboardTemporarily: false
+            canShareClipboardTemporarily: false,
+            displayLayout: displayLayout,
+            displaySelection: .all
+        )
+    }
+
+    /// A 2560x1440 display beside a primary 1920x1080 one, tops aligned.
+    private func sideBySideLayout() -> RemoteDisplayLayout {
+        RemoteDisplayLayout(
+            frameSize: CGSize(width: 4480, height: 1440),
+            monitors: [
+                monitor(0, 0, 2560, 1440, isPrimary: false),
+                monitor(2560, 0, 4480, 1080, isPrimary: true),
+            ]
+        )
+    }
+
+    /// Three 1920x1080 displays in a row, the middle one primary.
+    private func threeDisplayLayout() -> RemoteDisplayLayout {
+        RemoteDisplayLayout(
+            frameSize: CGSize(width: 5760, height: 1080),
+            monitors: [
+                monitor(0, 0, 1920, 1080, isPrimary: false),
+                monitor(1920, 0, 3840, 1080, isPrimary: true),
+                monitor(3840, 0, 5760, 1080, isPrimary: false),
+            ]
+        )
+    }
+
+    private func monitor(
+        _ left: UInt16,
+        _ top: UInt16,
+        _ right: UInt16,
+        _ bottom: UInt16,
+        isPrimary: Bool
+    ) -> RDPRemoteMonitor {
+        RDPRemoteMonitor(
+            rect: RDPFrameRect(left: left, top: top, right: right, bottom: bottom),
+            isPrimary: isPrimary
         )
     }
 }

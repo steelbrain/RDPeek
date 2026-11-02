@@ -1,5 +1,4 @@
 import AppKit
-import RDPKit
 import SwiftUI
 
 enum SessionPhase: Equatable {
@@ -26,14 +25,6 @@ struct SessionToast: Equatable, Identifiable {
     var systemImage: String
 }
 
-struct SessionDisplayChoice: Identifiable, Equatable {
-    var id: Int
-    var label: String
-    var monitor: RDPRemoteMonitor
-    var isSelected: Bool
-    var canToggle: Bool
-}
-
 /// Published UI state for the session window, rendered by the SwiftUI HUD
 /// layers that float above the AppKit canvas.
 @MainActor
@@ -52,8 +43,8 @@ final class SessionHUDModel: ObservableObject {
     /// False while the server reports several monitors, which pause Match
     /// Window Size.
     @Published var canFollowWindowSize = true
+    /// The Displays submenu's items; none hides the submenu.
     @Published var displays: [SessionDisplayChoice] = []
-    @Published var areAllDisplaysSelected = true
     @Published var canSyncClipboard = false
     @Published var canShareClipboardTemporarily = false
     @Published var temporaryClipboardSecondsRemaining: Int?
@@ -79,8 +70,9 @@ final class SessionHUDModel: ObservableObject {
     var onSetClipboardSharing: (Bool) -> Void = { _ in }
     var onSetAudioPlayback: (Bool) -> Void = { _ in }
     var onSetFollowWindowSize: (Bool) -> Void = { _ in }
-    var onSelectAllDisplays: () -> Void = {}
-    var onToggleDisplay: (RDPRemoteMonitor) -> Void = { _ in }
+    var onShowAllDisplays: () -> Void = {}
+    /// Takes the display's number.
+    var onToggleDisplay: (Int) -> Void = { _ in }
     var onSetMetricsOverlayVisible: (Bool) -> Void = { _ in }
     var onOpenDiagnostics: () -> Void = {}
 
@@ -637,6 +629,18 @@ struct SessionTitlebarAccessory: View {
                 }
                 .disabled(model.canFollowWindowSize == false)
 
+                if model.displays.isEmpty == false {
+                    Menu {
+                        SessionDisplayMenuItems(
+                            displays: model.displays,
+                            onShowAll: { model.onShowAllDisplays() },
+                            onToggle: { model.onToggleDisplay($0) }
+                        )
+                    } label: {
+                        Label("Displays", systemImage: "display.2")
+                    }
+                }
+
                 Divider()
 
                 Toggle(isOn: metricsBinding) {
@@ -684,6 +688,46 @@ struct SessionTitlebarAccessory: View {
             get: { model.isMetricsOverlayVisible },
             set: { model.onSetMetricsOverlayVisible($0) }
         )
+    }
+}
+
+/// The Displays submenu's items, shared by the ⋯ menu and the Session menu
+/// so the two cannot drift apart.
+struct SessionDisplayMenuItems: View {
+    var displays: [SessionDisplayChoice]
+    var onShowAll: () -> Void
+    var onToggle: (Int) -> Void
+
+    var body: some View {
+        Toggle("All Displays", isOn: allDisplaysBinding)
+
+        Divider()
+
+        ForEach(displays) { display in
+            Toggle(title(of: display), isOn: binding(for: display))
+                .disabled(display.canToggle == false)
+        }
+    }
+
+    /// Checked exactly when every display shows; choosing it while checked
+    /// leaves them all showing.
+    private var allDisplaysBinding: Binding<Bool> {
+        Binding(
+            get: { displays.allSatisfy(\.isSelected) },
+            set: { _ in onShowAll() }
+        )
+    }
+
+    private func binding(for display: SessionDisplayChoice) -> Binding<Bool> {
+        Binding(
+            get: { display.isSelected },
+            set: { _ in onToggle(display.number) }
+        )
+    }
+
+    private func title(of display: SessionDisplayChoice) -> String {
+        let title = "Display \(display.number) — \(display.width) × \(display.height)"
+        return display.isPrimary ? title + " (Primary)" : title
     }
 }
 

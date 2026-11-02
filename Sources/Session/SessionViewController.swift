@@ -318,18 +318,11 @@ final class SessionViewController: NSViewController {
         hudModel.onSetFollowWindowSize = { [weak self] enabled in
             self?.setFollowWindowSize(enabled)
         }
-        hudModel.onSelectAllDisplays = { [weak self] in
+        hudModel.onShowAllDisplays = { [weak self] in
             self?.showAllDisplays()
         }
-        hudModel.onToggleDisplay = { [weak self] monitor in
-            guard let self,
-                  let display = displayLayout.displays.first(where: {
-                      $0.rect.origin == CGPoint(x: Int(monitor.rect.left), y: Int(monitor.rect.top))
-                  })
-            else {
-                return
-            }
-            toggleDisplay(display.number)
+        hudModel.onToggleDisplay = { [weak self] number in
+            self?.toggleDisplay(number)
         }
         hudModel.onSetMetricsOverlayVisible = { [weak self] visible in
             self?.setMetricsOverlayVisible(visible)
@@ -366,8 +359,6 @@ final class SessionViewController: NSViewController {
             updateOverlayVisibility(for: nextPhase)
             startMetricsOverlayLoopIfNeeded()
         }
-        hudModel.update(\.displays, to: [])
-        hudModel.update(\.areAllDisplaysSelected, to: displaySelection == .all)
         hudModel.update(
             \.connectingStatusDetail,
             to: nextPhase == .connecting ? autoRetryReason?.statusDetail : nil
@@ -393,6 +384,7 @@ final class SessionViewController: NSViewController {
         hudModel.update(\.canCancel, to: commands.canCancel)
         hudModel.update(\.canSyncClipboard, to: commands.canSyncClipboard)
         hudModel.update(\.canShareClipboardTemporarily, to: commands.canShareClipboardTemporarily)
+        hudModel.update(\.displays, to: commands.displays)
 
         frameClockView.isEnabled = framePresentationClockEnabled
         publishSessionCommandStateIfKey(commands)
@@ -423,7 +415,9 @@ final class SessionViewController: NSViewController {
             hasEndReason: sessionEndReason != nil,
             hostIsEmpty: draft.host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             canSyncClipboard: clipboard.canSync,
-            canShareClipboardTemporarily: clipboard.canStartTemporarySharing
+            canShareClipboardTemporarily: clipboard.canStartTemporarySharing,
+            displayLayout: displayLayout,
+            displaySelection: displaySelection
         )
     }
 
