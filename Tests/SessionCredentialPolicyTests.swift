@@ -181,6 +181,20 @@ final class SessionCredentialPolicyTests: XCTestCase {
         }
     }
 
+    // MARK: - A password saved in the editor
+
+    func testAPasswordSavedInTheEditorReplacesOnlyTheSameSignIns() {
+        XCTAssertTrue(SessionCredentialPolicy.dropsSessionPassword(
+            signingInAs: alice,
+            savedPasswordChangedFor: RDPConnectionIdentity(host: "winbox", username: "CORP\\alice")
+        ))
+        XCTAssertFalse(SessionCredentialPolicy.dropsSessionPassword(
+            signingInAs: alice,
+            savedPasswordChangedFor: RDPConnectionIdentity(host: "winbox", username: "bob", domain: "CORP")
+        ))
+        XCTAssertFalse(SessionCredentialPolicy.dropsSessionPassword(signingInAs: alice, savedPasswordChangedFor: nil))
+    }
+
     // MARK: - Forgetting
 
     func testOnlyTheRejectedPasswordIsDroppedFromTheCache() {

@@ -106,6 +106,15 @@ final class SessionLaunchStore: ObservableObject, RemoteSessionOpening {
         onAcceptedSignIn?(deviceID, identity)
     }
 
+    /// The PC editor saved a new password for the identity: windows signing
+    /// in as it find that password from the next connection the user
+    /// starts, rather than send the one they signed in with.
+    func savedPasswordChanged(for identity: RDPConnectionIdentity) {
+        for controller in sessionWindowControllers.values {
+            controller.sessionController.savedPasswordChanged(for: identity)
+        }
+    }
+
     func registerDiagnostics(_ model: RemoteSessionDiagnosticsModel, for id: UUID) {
         diagnosticsModels[id] = model
     }

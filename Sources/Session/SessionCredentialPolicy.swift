@@ -142,6 +142,16 @@ enum SessionCredentialPolicy {
         return isRememberedByAnotherPC ? .stopRemembering(key) : .delete(key)
     }
 
+    /// Whether a connection the user starts drops the session's password,
+    /// so that it finds the password the PC editor saved for
+    /// `changedIdentity` since: only when it signs in as that identity.
+    static func dropsSessionPassword(
+        signingInAs identity: RDPConnectionIdentity,
+        savedPasswordChangedFor changedIdentity: RDPConnectionIdentity?
+    ) -> Bool {
+        changedIdentity.map(identity.hasSameConnectionIdentity(as:)) ?? false
+    }
+
     /// Whether to drop this app run's copy of a password the server
     /// rejected: only when the cache holds that password, not one kept for
     /// the sign-in since.
