@@ -52,9 +52,10 @@ final class DeviceListModel: ObservableObject {
     /// sign-in it is for, so an open session window uses it rather than
     /// one it kept.
     var onPasswordSaved: ((RDPConnectionIdentity) -> Void)?
-    /// The latest keychain deletion, which runs off the main thread: a
-    /// keychain call can block on the access-approval dialog.
-    private(set) var pendingKeychainDeletion: Task<Void, Never>?
+    /// The latest keychain work, a deletion or an editor save, which runs
+    /// off the main thread: a keychain call can block on the
+    /// access-approval dialog. Each runs after the one queued before it.
+    private(set) var pendingKeychainWork: Task<Void, Never>?
     @Published var sortOrder: DeviceSortOrder {
         didSet {
             defaults.set(sortOrder.rawValue, forKey: "device-sort-order")
@@ -169,6 +170,9 @@ final class DeviceListModel: ObservableObject {
 
     /// Persists the edited device and applies any keychain change, off the
     /// main thread: a keychain call can block on the access-approval dialog.
+    /// It runs as part of `pendingKeychainWork`, so a password saved now is
+    /// not removed by a deletion still under way, and a deletion queued
+    /// meanwhile sees the saved PC.
     /// `editor.device` must remain the snapshot from sheet-open time — the
     /// stale-keychain-entry cleanup compares against its original identity,
     /// and the Remember toggle counts as untouched while the edited flag
@@ -182,6 +186,30 @@ final class DeviceListModel: ObservableObject {
         loadedPassword: String?,
         hadRememberedPassword: Bool
     ) async throws -> DeviceProfile {
+        let previous = pendingKeychainWork
+        let saving = Task {
+            await previous?.value
+            return try await saveAfterEarlierKeychainWork(
+                editor: editor,
+                editedDevice: editedDevice,
+                password: password,
+                loadedPassword: loadedPassword,
+                hadRememberedPassword: hadRememberedPassword
+            )
+        }
+        pendingKeychainWork = Task {
+            _ = await saving.result
+        }
+        return try await saving.value
+    }
+
+    private func saveAfterEarlierKeychainWork(
+        editor: DeviceEditorState,
+        editedDevice: DeviceProfile,
+        password: String,
+        loadedPassword: String?,
+        hadRememberedPassword: Bool
+    ) async throws -> DeviceProfile {
         var device = editedDevice
         let target = try RDPConnectionTarget(host: device.host, portText: String(device.port))
         device.host = target.host
@@ -189,9 +217,6 @@ final class DeviceListModel: ObservableObject {
         device.username = device.username.trimmingCharacters(in: .whitespacesAndNewlines)
         device.domain = device.domain.trimmingCharacters(in: .whitespacesAndNewlines)
         device.updatedAt = Date()
-        // A password saved now must not be removed by a deletion still
-        // under way.
-        await pendingKeychainDeletion?.value
 
         // Reading first stops an unreadable store before any keychain
         // change.
@@ -342,7 +367,7 @@ final class DeviceListModel: ObservableObject {
     }
 
     /// Deletes the profile at once, then its keychain entry off the main
-    /// thread, in `pendingKeychainDeletion`.
+    /// thread, in `pendingKeychainWork`.
     func confirmDeletion(of device: DeviceProfile) {
         do {
             // Delete the profile first: if the store write throws, nothing
@@ -375,13 +400,20 @@ final class DeviceListModel: ObservableObject {
         devicePendingDeletion = nil
     }
 
-    /// Runs a keychain deletion off the main thread, after any started
-    /// before it. The confirmation dialog promised the saved password is
+    /// Runs a keychain deletion off the main thread, after the keychain
+    /// work queued before it, unless `isNeeded` says then that the item is
+    /// still needed. The confirmation dialog promised the saved password is
     /// removed, so a failure must surface, not be swallowed.
-    private func deleteFromKeychain(_ deletion: @escaping @Sendable () throws -> Void) {
-        let previous = pendingKeychainDeletion
-        pendingKeychainDeletion = Task {
+    private func deleteFromKeychain(
+        unless isNeeded: @escaping @MainActor () -> Bool = { false },
+        _ deletion: @escaping @Sendable () throws -> Void
+    ) {
+        let previous = pendingKeychainWork
+        pendingKeychainWork = Task {
             await previous?.value
+            guard isNeeded() == false else {
+                return
+            }
             do {
                 try await KeychainQueue.run(deletion)
             } catch {
@@ -444,13 +476,14 @@ final class DeviceListModel: ObservableObject {
     func recordCredentialPersistence(deviceID: UUID, identity: RDPConnectionIdentity, remembered: Bool) {
         guard var device = devices.first(where: { $0.id == deviceID }) else {
             // The PC was deleted while the session saved its password, so
-            // the save brought back an item the deletion removed.
-            if remembered,
-               let key = KeychainCredentialKey(identity: identity),
-               rememberedPasswordIsShared(identity, excluding: deviceID) == false
-            {
+            // the save brought back an item the deletion removed. Whether
+            // another PC remembers it is decided when the deletion runs:
+            // an editor save under way may add one.
+            if remembered, let key = KeychainCredentialKey(identity: identity) {
                 let credentialStore = credentialStore
-                deleteFromKeychain { try credentialStore.deletePassword(for: key) }
+                deleteFromKeychain(unless: { self.rememberedPasswordIsShared(identity, excluding: deviceID) }) {
+                    try credentialStore.deletePassword(for: key)
+                }
             }
             return
         }

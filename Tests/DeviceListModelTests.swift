@@ -119,7 +119,7 @@ final class DeviceListModelTests: XCTestCase {
         harness.cache.setPassword("cached", for: account)
 
         harness.model.confirmDeletion(of: device)
-        await harness.model.pendingKeychainDeletion?.value
+        await harness.model.pendingKeychainWork?.value
 
         XCTAssertEqual(harness.model.devices.map(\.id), [twin.id])
         XCTAssertEqual(harness.credentials.deletedAccounts, [])
@@ -138,7 +138,7 @@ final class DeviceListModelTests: XCTestCase {
         harness.cache.setPassword("cached", for: account)
 
         harness.model.confirmDeletion(of: device)
-        await harness.model.pendingKeychainDeletion?.value
+        await harness.model.pendingKeychainWork?.value
 
         XCTAssertEqual(harness.credentials.deletedAccounts, [account])
         XCTAssertEqual(harness.credentials.movedLegacyAccounts, [])
@@ -155,7 +155,7 @@ final class DeviceListModelTests: XCTestCase {
         harness.cache.setPassword("cached", for: account)
 
         harness.model.confirmDeletion(of: device)
-        await harness.model.pendingKeychainDeletion?.value
+        await harness.model.pendingKeychainWork?.value
 
         XCTAssertEqual(harness.model.devices.map(\.id), [other.id])
         XCTAssertEqual(harness.credentials.deletedAccounts, [account])
@@ -173,7 +173,7 @@ final class DeviceListModelTests: XCTestCase {
         harness.cache.setPassword("cached", for: account)
 
         harness.model.confirmDeletion(of: device)
-        await harness.model.pendingKeychainDeletion?.value
+        await harness.model.pendingKeychainWork?.value
 
         XCTAssertEqual(harness.credentials.deletedAccounts, [])
         XCTAssertEqual(harness.cache.password(for: account), "cached")
@@ -190,7 +190,7 @@ final class DeviceListModelTests: XCTestCase {
         harness.defaults.set(Data("not json".utf8), forKey: "device-profiles.v1")
 
         harness.model.confirmDeletion(of: device)
-        await harness.model.pendingKeychainDeletion?.value
+        await harness.model.pendingKeychainWork?.value
 
         XCTAssertNotNil(harness.model.errorMessage)
         XCTAssertEqual(harness.credentials.deletedAccounts, [])
@@ -204,7 +204,7 @@ final class DeviceListModelTests: XCTestCase {
         harness.credentials.deleteError = KeychainError.unexpectedStatus(-1)
 
         harness.model.confirmDeletion(of: device)
-        await harness.model.pendingKeychainDeletion?.value
+        await harness.model.pendingKeychainWork?.value
 
         XCTAssertEqual(harness.model.devices, [])
         XCTAssertEqual(harness.credentials.deletedAccounts, [try account(for: device)])
@@ -227,9 +227,9 @@ final class DeviceListModelTests: XCTestCase {
             hadRememberedPassword: true
         )
         harness.model.confirmDeletion(of: try XCTUnwrap(harness.model.devices.first { $0.id == device.id }))
-        await harness.model.pendingKeychainDeletion?.value
+        await harness.model.pendingKeychainWork?.value
         harness.model.confirmDeletion(of: twin)
-        await harness.model.pendingKeychainDeletion?.value
+        await harness.model.pendingKeychainWork?.value
 
         XCTAssertEqual(harness.credentials.readAccounts.count, 1)
         XCTAssertEqual(harness.credentials.savedAccounts.count, 1)
@@ -891,7 +891,7 @@ final class DeviceListModelTests: XCTestCase {
             identity: device.identity,
             remembered: false
         )
-        await harness.model.pendingKeychainDeletion?.value
+        await harness.model.pendingKeychainWork?.value
 
         XCTAssertNil(harness.model.errorMessage)
         XCTAssertEqual(try DeviceProfileStore(defaults: harness.defaults).devices(), persistedBefore)
@@ -907,11 +907,11 @@ final class DeviceListModelTests: XCTestCase {
         let harness = try makeHarness(devices: [device, other])
         let account = try account(for: device)
         harness.model.confirmDeletion(of: device)
-        await harness.model.pendingKeychainDeletion?.value
+        await harness.model.pendingKeychainWork?.value
         harness.credentials.passwords[account] = "from-session"
 
         harness.model.recordCredentialPersistence(deviceID: device.id, identity: device.identity, remembered: true)
-        await harness.model.pendingKeychainDeletion?.value
+        await harness.model.pendingKeychainWork?.value
 
         XCTAssertNil(harness.credentials.passwords[account])
         XCTAssertEqual(harness.credentials.deletedAccounts, [account, account])
@@ -925,14 +925,56 @@ final class DeviceListModelTests: XCTestCase {
         let harness = try makeHarness(devices: [device, twin])
         let account = try account(for: device)
         harness.model.confirmDeletion(of: device)
-        await harness.model.pendingKeychainDeletion?.value
+        await harness.model.pendingKeychainWork?.value
         harness.credentials.passwords[account] = "from-session"
 
         harness.model.recordCredentialPersistence(deviceID: device.id, identity: device.identity, remembered: true)
-        await harness.model.pendingKeychainDeletion?.value
+        await harness.model.pendingKeychainWork?.value
 
         XCTAssertEqual(harness.credentials.passwords[account], "from-session")
         XCTAssertEqual(harness.credentials.deletedAccounts, [])
+    }
+
+    /// A session's save lands for a deleted PC while the editor saves a new
+    /// PC that remembers the same sign-in: the new PC's password stays.
+    func testPasswordSavedForADeletedPCStaysWhenAPCBeingSavedRemembersIt() async throws {
+        let device = makeDevice(rememberPassword: true)
+        let harness = try makeHarness(devices: [device])
+        let account = try account(for: device)
+        harness.model.confirmDeletion(of: device)
+        await harness.model.pendingKeychainWork?.value
+        let newPC = makeDevice(name: "New PC", rememberPassword: true)
+        var blank = newPC
+        blank.username = ""
+        blank.rememberPassword = false
+        // The new PC's password is in the Keychain; its save has not
+        // returned yet.
+        let saveLanded = expectation(description: "The new PC's password is saved")
+        let finishSave = DispatchSemaphore(value: 0)
+        harness.credentials.afterSave = {
+            saveLanded.fulfill()
+            finishSave.wait()
+        }
+        let saving = Task {
+            try await harness.model.save(
+                editor: DeviceEditorState(device: blank, isNew: true),
+                editedDevice: newPC,
+                password: "typed",
+                loadedPassword: nil,
+                hadRememberedPassword: false
+            )
+        }
+        await fulfillment(of: [saveLanded], timeout: 5)
+
+        harness.model.recordCredentialPersistence(deviceID: device.id, identity: device.identity, remembered: true)
+        finishSave.signal()
+        _ = try await saving.value
+        await harness.model.pendingKeychainWork?.value
+
+        XCTAssertEqual(harness.credentials.passwords[account], "typed")
+        XCTAssertEqual(harness.credentials.deletedAccounts, [account], "Only the deleted PC's own deletion")
+        XCTAssertEqual(try DeviceProfileStore(defaults: harness.defaults).devices().map(\.id), [newPC.id])
+        XCTAssertNil(harness.model.errorMessage)
     }
 
     // MARK: - recordAcceptedSignIn
@@ -1211,6 +1253,9 @@ private final class CredentialStoreRecorder: CredentialStoring, @unchecked Senda
     var readError: Error?
     var saveError: Error?
     var deleteError: Error?
+    /// Runs on the keychain thread once a save has written, before it
+    /// returns.
+    var afterSave: (@Sendable () -> Void)?
 
     private(set) var readAccounts: [String] = []
     private(set) var savedAccounts: [String] = []
@@ -1237,6 +1282,7 @@ private final class CredentialStoreRecorder: CredentialStoring, @unchecked Senda
             throw saveError
         }
         passwords[key.account] = password
+        afterSave?()
     }
 
     func deletePassword(for key: KeychainCredentialKey) throws {
