@@ -4,6 +4,11 @@ import RDPKit
 /// what it sends to ask the server for a keyframe. Only the decisions live
 /// here; the session sends what they return.
 enum SessionDisplayControlPolicy {
+    /// Match Window Size starts on, as in 1.2.0: the desktop then switches
+    /// to full Retina resolution once Display Control is ready, and follows
+    /// the window from there.
+    static let followsWindowSizeByDefault = true
+
     /// Whether the server lays its desktop out on more than one monitor.
     /// Display Control can only ask for one monitor here, which would merge
     /// them, so such a layout is left as it is.

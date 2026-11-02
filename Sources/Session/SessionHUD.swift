@@ -48,7 +48,7 @@ final class SessionHUDModel: ObservableObject {
     @Published var isMetricsOverlayVisible = false
     @Published var isClipboardSharingEnabled = true
     @Published var isAudioPlaybackEnabled = false
-    @Published var isFollowWindowSizeEnabled = false
+    @Published var isFollowWindowSizeEnabled = SessionDisplayControlPolicy.followsWindowSizeByDefault
     @Published var canMatchWindowSize = false
     @Published var displays: [SessionDisplayChoice] = []
     @Published var areAllDisplaysSelected = true

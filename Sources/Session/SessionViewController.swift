@@ -69,7 +69,9 @@ final class SessionViewController: NSViewController {
     private var sessionEndReason: RDPSessionEndReason?
     private var inputSession: RDPInputSession?
     private var displayControlSession: RDPDisplayControlSession?
-    private var autoApplyViewerSize = false
+    /// Match Window Size: the user's choice for this window. No connection
+    /// attempt, retry or layout change alters it.
+    private var followsWindowSize = SessionDisplayControlPolicy.followsWindowSizeByDefault
     private var displaySelection = RemoteDisplaySelection.all
     private var pendingDisplayResizeTask: Task<Void, Never>?
     private var lastRequestedDisplayRequest: RDPDisplayRequest?
@@ -377,7 +379,7 @@ final class SessionViewController: NSViewController {
         hudModel.update(\.metricsSummary, to: nextPhase.isActive ? viewerMetricsSummary : nil)
         hudModel.update(\.isClipboardSharingEnabled, to: clipboard.isSharingEnabled)
         hudModel.update(\.isAudioPlaybackEnabled, to: audioPlaybackEnabled)
-        hudModel.update(\.isFollowWindowSizeEnabled, to: autoApplyViewerSize)
+        hudModel.update(\.isFollowWindowSizeEnabled, to: followsWindowSize)
         hudModel.update(\.temporaryClipboardSecondsRemaining, to: clipboard.temporarySharingSecondsRemaining)
         // One command state feeds the HUD and the Session menu, so they
         // agree on what can be done.
@@ -1428,7 +1430,7 @@ final class SessionViewController: NSViewController {
     }
 
     private func scheduleAutoDisplaySizeUpdate() {
-        guard autoApplyViewerSize,
+        guard followsWindowSize,
               hasPresentedFrame,
               let previewFrame,
               remoteDisplayAllowsWindowMatching(hasPresentedFrame: hasPresentedFrame,
@@ -1460,7 +1462,7 @@ final class SessionViewController: NSViewController {
 
     private func applyAutoDisplayRequest(_ displayRequest: RDPDisplayRequest) {
         pendingDisplayResizeTask = nil
-        guard autoApplyViewerSize,
+        guard followsWindowSize,
               hasPresentedFrame,
               let previewFrame,
               remoteDisplayAllowsWindowMatching(hasPresentedFrame: hasPresentedFrame,
@@ -1508,8 +1510,7 @@ final class SessionViewController: NSViewController {
     }
 
     private func setFollowWindowSize(_ enabled: Bool) {
-        guard enabled == false || hudModel.canMatchWindowSize else { return }
-        autoApplyViewerSize = enabled
+        followsWindowSize = enabled
         if enabled {
             scheduleAutoDisplaySizeUpdate()
         } else {

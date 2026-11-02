@@ -11,6 +11,12 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
 
     // MARK: - Window matching
 
+    func testMatchWindowSizeIsOnByDefault() {
+        // Off by default, sessions stayed at the window's size in points at
+        // 100%, soft on Retina, and never followed the window.
+        XCTAssertTrue(SessionDisplayControlPolicy.followsWindowSizeByDefault)
+    }
+
     func testWindowMatchingAppliesOnceDisplayControlIsReady() {
         // The 1.2.0 Retina switch: no frame or layout has to be known
         // first, or a first frame that failed to decode would stop it.
