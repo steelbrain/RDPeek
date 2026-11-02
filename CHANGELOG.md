@@ -29,7 +29,7 @@
 - A password changed in a PC's settings is used by its open window
   from the next connection.
 - Cancelling and reconnecting while macOS asks to allow Keychain
-  access no longer asks a second time.
+  access to the saved password no longer asks for it a second time.
 - A client license the server issues is saved as soon as the session
   starts.
 - A host that answers as another service, such as SSH, is said not to
@@ -50,9 +50,10 @@
 - ⌃ and ⌘ shortcuts land on the keys they are labelled on with
   Turkish F, German – Standard, Slovenian – QWERTZ, ABC – QWERTZ,
   ABC – AZERTY, Romanian, Finnish – Extended and Latvian, whose remote
-  layouts put letters on other keys. Latvian sessions get US English,
-  whose letters match it. A Windows session left signed in from before
-  keeps its old layout, so sign out of it once.
+  layouts put letters on other keys. Latvian sessions get Windows'
+  Latvian (QWERTY) layout, whose letters match it. A Windows session
+  left signed in from before keeps its old layout, so sign out of it
+  once.
 - Albanian, Hungarian – QWERTY, Lithuanian, Lithuanian – ĄŽERTY and
   Kabyle – AZERTY get a remote layout with their letters on the same
   keys, so ⌃ and ⌘ shortcuts land where they are labelled there too.
@@ -98,9 +99,6 @@
 - With Match Window Size off, recovering from a video glitch keeps
   the remote desktop's size instead of returning it to the size the
   window last asked for.
-- A video glitch on a remote desktop with several displays now also
-  gets the server to send a fresh picture, asked for with its displays
-  laid out as they are.
 - Turning Match Window Size back on fits the remote desktop to the
   window again, even when the remote desktop changed its size while it
   was off.
@@ -168,7 +166,7 @@
 
 ### Under the hood
 
-- Updated to RDPKit 0.6.0.
+- Updated to RDPKit 0.7.0.
 
 ## 1.2.0
 
