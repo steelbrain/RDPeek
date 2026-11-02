@@ -99,7 +99,110 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         try assertVideo(of: canvas, follows: geometry)
     }
 
+    // MARK: - Covers, clip and crop for chosen displays
+
+    func testTheWholeFrameDrawsWithNoClipCropCoverOrMask() throws {
+        // All Displays and single-monitor sessions draw as they always did: the display layer
+        // where the canvas put it, aspect-fitting the whole frame, in a container that clips
+        // nothing.
+        let canvas = makeCanvas(size: CGSize(width: 1440, height: 872), scale: 2, showing: wideFrame)
+
+        let displayLayer = try XCTUnwrap(displayLayer(of: canvas))
+        let root = try XCTUnwrap(canvas.displayView.layer)
+        XCTAssertFalse(try XCTUnwrap(displayLayer.superlayer).masksToBounds)
+        XCTAssertEqual(root.sublayers?.count, 1, "No covers")
+        XCTAssertNil(canvas.displayView.sourceRect)
+        XCTAssertEqual(displayLayer.videoGravity, .resizeAspect)
+        XCTAssertFalse(hasMask(root))
+    }
+
+    func testChosenDisplaysCropClipAndCoverTheVideo() throws {
+        // The video is cropped to the chosen displays' bounding box. A rectangular clip and
+        // opaque covers over what lies between them, with no mask, keep it off an offscreen pass.
+        let canvas = makeCanvas(
+            size: CGSize(width: 1440, height: 872),
+            scale: 2,
+            showing: wideFrame,
+            visibleRects: outerTwoOfThree
+        )
+        let root = try XCTUnwrap(canvas.displayView.layer)
+
+        XCTAssertTrue(try XCTUnwrap(displayLayer(of: canvas)?.superlayer).masksToBounds)
+        XCTAssertEqual(canvas.displayView.sourceRect, RDPFrameRect(left: 0, top: 0, right: 7040, bottom: 1440))
+        XCTAssertEqual(covers(of: canvas).count, 1, "The middle display and the gap below it are one cover")
+        XCTAssertTrue(covers(of: canvas).allSatisfy { $0.backgroundColor == NSColor.black.cgColor && $0.isOpaque })
+        XCTAssertFalse(hasMask(root))
+        try assertVideo(of: canvas, follows: XCTUnwrap(mappedGeometry(of: canvas)))
+
+        // One display alone is a crop with nothing to cover.
+        canvas.update(frame: wideFrame, visibleRects: [outerTwoOfThree[1]], hasPresentedFrame: true, inputSession: nil)
+        XCTAssertEqual(canvas.displayView.sourceRect, RDPFrameRect(left: 4480, top: 0, right: 7040, bottom: 1440))
+        XCTAssertEqual(covers(of: canvas), [])
+        try assertVideo(of: canvas, follows: XCTUnwrap(mappedGeometry(of: canvas)))
+    }
+
+    func testTheDisplayLayerKeepsItsParentAcrossDisplayChoices() throws {
+        // Moving a sample-buffer layer to another parent may drop its image, which an idle remote
+        // desktop never sends again; switching to chosen displays and back leaves it where it is,
+        // with no clip, crop or cover behind.
+        let canvas = makeCanvas(size: CGSize(width: 1440, height: 872), scale: 2, showing: wideFrame)
+        let displayLayer = try XCTUnwrap(displayLayer(of: canvas))
+        let container = try XCTUnwrap(displayLayer.superlayer)
+
+        canvas.update(frame: wideFrame, visibleRects: outerTwoOfThree, hasPresentedFrame: true, inputSession: nil)
+        XCTAssertTrue(self.displayLayer(of: canvas) === displayLayer)
+        XCTAssertTrue(displayLayer.superlayer === container)
+
+        canvas.update(frame: wideFrame, visibleRects: nil, hasPresentedFrame: true, inputSession: nil)
+        XCTAssertTrue(self.displayLayer(of: canvas) === displayLayer)
+        XCTAssertTrue(displayLayer.superlayer === container)
+        XCTAssertFalse(container.masksToBounds)
+        XCTAssertNil(canvas.displayView.sourceRect)
+        XCTAssertEqual(covers(of: canvas), [], "The covers are gone")
+        try assertVideo(of: canvas, follows: XCTUnwrap(mappedGeometry(of: canvas)))
+    }
+
+    func testCoversAreReusedAcrossLayouts() {
+        // A live resize applies a geometry at every step; reusing the covers allocates no layers.
+        let canvas = makeCanvas(
+            size: CGSize(width: 1440, height: 872),
+            scale: 2,
+            showing: wideFrame,
+            visibleRects: outerTwoOfThree
+        )
+        let firstCovers = covers(of: canvas)
+
+        canvas.setFrameSize(CGSize(width: 1000, height: 700))
+        canvas.layoutSubtreeIfNeeded()
+
+        XCTAssertEqual(firstCovers.count, 1)
+        XCTAssertEqual(covers(of: canvas).count, firstCovers.count)
+        XCTAssertTrue(zip(firstCovers, covers(of: canvas)).allSatisfy { $0 === $1 })
+    }
+
+    // MARK: - RDPKit's video view
+
+    /// RDPKit's suite has no test of this yet, so it stays here.
+    func testAScaleChangeDoesNotAnimateTheVideo() throws {
+        // The window moving to a display of another scale, once the layers are on screen:
+        // layers that haven't been committed yet never animate.
+        let canvas = makeCanvas(size: CGSize(width: 1440, height: 872), scale: 2, showing: wideFrame)
+        let window = try XCTUnwrap(canvas.window as? TestWindow)
+        let displayLayer = try XCTUnwrap(displayLayer(of: canvas))
+        XCTAssertEqual(displayLayer.contentsScale, 2)
+        CATransaction.flush()
+
+        window.scale = 1
+        canvas.displayView.viewDidChangeBackingProperties()
+
+        XCTAssertEqual(displayLayer.contentsScale, 1)
+        XCTAssertNil(displayLayer.animationKeys())
+    }
+
     // MARK: - Helpers
+
+    /// Three displays side by side, 2560 x 1440 | 1920 x 1080 | 2560 x 1440.
+    private let wideFrame = makeFrameMetadata(width: 7040, height: 1440)
 
     /// 2560 x 1440 | 1920 x 1080 | 2560 x 1440 with the outer two chosen.
     private let outerTwoOfThree = [
@@ -160,9 +263,24 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         }
         XCTAssertEqual(videoFrame.minX, geometry.videoLayerFrame.minX, accuracy: 1e-9, file: file, line: line)
         XCTAssertEqual(videoFrame.minY, geometry.videoLayerFrame.minY, accuracy: 1e-9, file: file, line: line)
-        XCTAssertEqual(videoFrame.size, geometry.videoLayerFrame.size, file: file, line: line)
+        XCTAssertEqual(videoFrame.width, geometry.videoLayerFrame.width, accuracy: 1e-9, file: file, line: line)
+        XCTAssertEqual(videoFrame.height, geometry.videoLayerFrame.height, accuracy: 1e-9, file: file, line: line)
+        XCTAssertEqual(canvas.displayView.sourceRect, geometry.videoSourceRect, file: file, line: line)
         let covers = (root.sublayers ?? []).filter { $0 !== container }
         XCTAssertEqual(covers.map(\.frame), geometry.coverRects, file: file, line: line)
+    }
+
+    /// Every layer in the video view's layer besides the video's container.
+    private func covers(of canvas: RemoteDesktopCanvasNSView) -> [CALayer] {
+        let container = displayLayer(of: canvas)?.superlayer
+        return (canvas.displayView.layer?.sublayers ?? []).filter { $0 !== container }
+    }
+
+    private func hasMask(_ layer: CALayer?) -> Bool {
+        guard let layer else {
+            return false
+        }
+        return layer.mask != nil || (layer.sublayers ?? []).contains { hasMask($0) }
     }
 
     private func inputView(of canvas: RemoteDesktopCanvasNSView) -> RDPRemoteInputView? {

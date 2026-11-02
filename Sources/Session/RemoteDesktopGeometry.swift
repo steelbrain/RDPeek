@@ -11,18 +11,22 @@ import RDPKitAppKit
 ///
 /// The whole frame is drawn and mapped exactly as RDPKit's `RDPRemoteDisplayViewport` does, so
 /// All Displays and a single-monitor desktop behave as they did before displays could be chosen.
-/// Chosen displays are drawn as their bounding box, aspect-fit like the whole frame, with the
-/// parts of it nobody chose covered in black.
+/// Chosen displays are drawn as their bounding box, cropped from each frame and aspect-fit like
+/// the whole frame, with the parts of it nobody chose covered in black.
 struct RemoteDesktopGeometry: Equatable, RDPRemotePointMapping {
     /// Where the shown source area, the whole frame or the chosen displays' bounding box, is
     /// drawn. Its origin is on a device pixel, so a desktop drawn one to one stays sharp.
     let contentRect: CGRect
-    /// Where the whole frame's video layer goes. For the whole frame it is the canvas, shifted
-    /// as `contentRect` is, and the layer aspect-fits the video into it; for chosen displays it
-    /// is the frame at the content's scale, placed so the shown area lands on `contentRect`.
+    /// Where the video layer goes. For the whole frame it is the canvas, shifted as
+    /// `contentRect` is, and the layer aspect-fits the video into it; for chosen displays it is
+    /// `contentRect`, which the cropped video fills.
     let videoLayerFrame: CGRect
+    /// The part of each frame the video shows: the chosen displays' bounding box, in remote
+    /// pixels. nil for the whole frame.
+    let videoSourceRect: RDPFrameRect?
     /// What the video is clipped to: the device pixels wholly inside the shown area, so none
-    /// shows part of a display past it. nil for the whole frame, which needs no clip.
+    /// shows part of a display past it, as scaling at the crop's edge could. nil for the whole
+    /// frame, which needs no clip.
     let clipRect: CGRect?
     /// The hidden parts of the shown area: gaps between chosen displays and the displays left
     /// out. Each grows to every device pixel the hidden area reaches into, so no sliver of a
@@ -76,6 +80,7 @@ struct RemoteDesktopGeometry: Equatable, RDPRemotePointMapping {
             // letterboxes the video itself, so a frame of a new size never stretches while its
             // geometry catches up.
             videoLayerFrame = bounds.offsetBy(dx: alignment.dx, dy: alignment.dy)
+            videoSourceRect = nil
             clipRect = nil
             coverRects = []
             self.visibleRects = nil
@@ -101,11 +106,12 @@ struct RemoteDesktopGeometry: Equatable, RDPRemotePointMapping {
                 maxY: up(localY(rect.minY))
             )
         }
-        videoLayerFrame = CGRect(
-            x: localX(0),
-            y: localY(frameSize.height),
-            width: frameSize.width * scale,
-            height: frameSize.height * scale
+        videoLayerFrame = contentRect
+        videoSourceRect = RDPFrameRect(
+            left: UInt16(clamping: Int(sourceRect.minX)),
+            top: UInt16(clamping: Int(sourceRect.minY)),
+            right: UInt16(clamping: Int(sourceRect.maxX)),
+            bottom: UInt16(clamping: Int(sourceRect.maxY))
         )
         clipRect = Self.rect(
             minX: up(localX(sourceRect.minX)),

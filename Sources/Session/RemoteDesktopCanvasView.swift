@@ -4,8 +4,11 @@ import RDPKitAppKit
 
 /// Hosts the video surface and the input capture layer, edge to edge.
 final class RemoteDesktopCanvasNSView: NSView {
-    let displayView = RemoteDesktopSampleBufferNSView()
+    let displayView = RDPRemoteDesktopVideoView()
     private let inputView = RDPRemoteInputView()
+    /// Black covers over the parts of the chosen displays' bounding box nobody chose, above the
+    /// video in its view's layer, kept for reuse so a live resize allocates no layers.
+    private var coverLayers: [CALayer] = []
     private var lastReportedSurface: Surface?
     /// The frame size in remote pixels and the displays to show, as `update` last set them; the
     /// geometry is computed again from them whenever the canvas's size or backing changes.
@@ -91,7 +94,9 @@ final class RemoteDesktopCanvasNSView: NSView {
     /// Computes the one geometry the video and input views share and hands it to both in one
     /// transaction with actions disabled, so the video never animates to its new place and the
     /// pointer never maps through a layout the video doesn't show. The views fill the canvas,
-    /// so its coordinates are theirs.
+    /// so its coordinates are theirs. For the whole frame no clip, crop or cover is set, so it
+    /// draws as it did before displays could be chosen; a rectangular clip and opaque covers,
+    /// with no mask, keep chosen displays off an offscreen pass.
     private func applyGeometry() {
         let geometry = RemoteDesktopGeometry(
             frameSize: frameSize,
@@ -105,9 +110,31 @@ final class RemoteDesktopCanvasNSView: NSView {
         self.geometry = geometry
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        displayView.apply(geometry)
+        displayView.videoLayout = RDPRemoteDesktopVideoLayout(videoFrame: geometry.videoLayerFrame, clipRect: geometry.clipRect)
+        displayView.sourceRect = geometry.videoSourceRect
+        showCovers(at: geometry.coverRects)
         inputView.pointMapping = geometry
         CATransaction.commit()
+    }
+
+    /// The first `rects.count` covers are in use and the rest out of the layer tree. A solid
+    /// colour needs no contents scale.
+    private func showCovers(at rects: [CGRect]) {
+        while coverLayers.count < rects.count {
+            let cover = CALayer()
+            cover.backgroundColor = NSColor.black.cgColor
+            cover.isOpaque = true
+            coverLayers.append(cover)
+        }
+        for (cover, rect) in zip(coverLayers, rects) {
+            cover.frame = rect
+            if cover.superlayer == nil {
+                displayView.layer?.addSublayer(cover)
+            }
+        }
+        for cover in coverLayers.dropFirst(rects.count) where cover.superlayer != nil {
+            cover.removeFromSuperlayer()
+        }
     }
 
     private func reportSurfaceIfNeeded() {

@@ -125,7 +125,6 @@ final class SessionViewController: NSViewController {
     private var presentedFrameCount = 0
     private var framePresentationBuffer = RDPFramePresentationBuffer()
     private var framePacing = RDPFramePacingState()
-    private var remoteDesktopRenderer = RDPRemoteDesktopRenderer()
     private var renderMetricsStore = RDPRenderMetricsStore()
     private let diagnosticsModel = RemoteSessionDiagnosticsModel()
     private var certificateTrustedByApp = false
@@ -242,7 +241,6 @@ final class SessionViewController: NSViewController {
             self?.updateViewerSurface(pointSize: pointSize, backingScaleFactor: backingScaleFactor)
         }
         view.addSubview(canvasView)
-        remoteDesktopRenderer.attach(canvasView.displayView)
 
         frameClockView.translatesAutoresizingMaskIntoConstraints = false
         frameClockView.isHidden = true
@@ -1395,8 +1393,8 @@ final class SessionViewController: NSViewController {
     /// Returns whether the canvas needs a render: on the first frame and
     /// when the desktop's size or monitor layout changes. Every frame is
     /// kept for Stats for Nerds without a render; AVC444 can alternate
-    /// codecs frame by frame. A frame handed to the renderer counts as
-    /// presented whatever the display layer makes of it: the layer recovers
+    /// codecs frame by frame. A frame handed to the video view counts as
+    /// presented whatever the display layer makes of it: the view recovers
     /// from a failure by itself, and the session must not wait for it.
     @discardableResult
     private func applyFramePresentation(_ presentation: RDPDecodedFramePresentation) -> Bool {
@@ -1406,7 +1404,7 @@ final class SessionViewController: NSViewController {
             || previewFrame?.height != frame.height
             || previewFrame?.monitors != frame.monitors
         presentedFrameCount += 1
-        remoteDesktopRenderer.present(presentation, id: presentedFrameCount)
+        canvasView.displayView.present(presentation, id: presentedFrameCount)
         latestPresentedFrame = frame
         if layoutChanged {
             previewFrame = RDPFrameMetadata(frame)
@@ -1455,7 +1453,7 @@ final class SessionViewController: NSViewController {
     private func resetFramePresentationState() {
         framePresentationBuffer.clear()
         hasPresentedFrame = false
-        remoteDesktopRenderer.clear()
+        canvasView.displayView.clear()
     }
 
     // MARK: - Remote displays

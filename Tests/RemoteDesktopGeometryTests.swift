@@ -105,7 +105,9 @@ final class RemoteDesktopGeometryTests: XCTestCase {
 
         XCTAssertEqual(all.contentRect, CGRect(x: 0, y: 233.5, width: 1440, height: 405))
         XCTAssertEqual(right.contentRect, CGRect(x: 0, y: 31, width: 1440, height: 810))
-        XCTAssertEqual(right.videoLayerFrame, CGRect(x: -1440, y: 31, width: 2880, height: 810))
+        XCTAssertNil(all.videoSourceRect)
+        XCTAssertEqual(right.videoSourceRect, RDPFrameRect(left: 1920, top: 0, right: 3840, bottom: 1080))
+        XCTAssertEqual(right.videoLayerFrame, right.contentRect)
         XCTAssertEqual(right.clipRect, right.contentRect)
         XCTAssertEqual(right.coverRects, [])
         XCTAssertEqual(right.remotePoint(at: CGPoint(x: 0, y: 840.75)), RDPRemotePoint(x: 1920, y: 0))
@@ -434,14 +436,18 @@ final class RemoteDesktopGeometryTests: XCTestCase {
     }
 
     /// Every device pixel at 2x that a remote rect reaches into, however little, where the
-    /// geometry draws the frame. A millionth of a device pixel is rounding, not reach.
+    /// geometry draws the part of the frame it crops. A millionth of a device pixel is rounding,
+    /// not reach.
     private func devicePixels(reachedBy remote: CGRect, in geometry: RemoteDesktopGeometry, frame: CGSize) -> CGRect {
         let video = geometry.videoLayerFrame
-        let scale = video.width / frame.width
-        let minX = ((video.minX + remote.minX * scale) * 2 + 1e-6).rounded(.down)
-        let maxX = ((video.minX + remote.maxX * scale) * 2 - 1e-6).rounded(.up)
-        let minY = ((video.maxY - remote.maxY * scale) * 2 + 1e-6).rounded(.down)
-        let maxY = ((video.maxY - remote.minY * scale) * 2 - 1e-6).rounded(.up)
+        let source = geometry.videoSourceRect.map {
+            CGRect(x: Int($0.left), y: Int($0.top), width: Int($0.width), height: Int($0.height))
+        } ?? CGRect(origin: .zero, size: frame)
+        let scale = video.width / source.width
+        let minX = ((video.minX + (remote.minX - source.minX) * scale) * 2 + 1e-6).rounded(.down)
+        let maxX = ((video.minX + (remote.maxX - source.minX) * scale) * 2 - 1e-6).rounded(.up)
+        let minY = ((video.maxY - (remote.maxY - source.minY) * scale) * 2 + 1e-6).rounded(.down)
+        let maxY = ((video.maxY - (remote.minY - source.minY) * scale) * 2 - 1e-6).rounded(.up)
         return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
     }
 
