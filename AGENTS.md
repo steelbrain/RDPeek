@@ -60,9 +60,10 @@ implementation.
   `build` log, not `build-for-testing`: the test target compiles some app
   sources without their callers, which reads as unused code.
 - Swift leaves some warnings as warnings despite warnings-as-errors
-  (Sendable checks that a `@preconcurrency` API downgrades), so that
-  build log must contain no Swift `warning:` lines, as CI checks:
-  `! grep -E '\.swift:[0-9]+:[0-9]+: warning:' build.log`.
+  (Sendable checks that a `@preconcurrency` API downgrades), so neither
+  that build log nor the test command's log after it (`> test.log`,
+  which compiles `Tests`) may contain Swift `warning:` lines, as CI
+  checks: `! grep -E '\.swift:[0-9]+:[0-9]+: warning:' build.log test.log`.
 - App icon: the master artwork is `Sources/Resources/AppIcon.svg`
   (excluded from the app bundle); regenerate the asset catalog with
   `Sources/Resources/build-app-icon.sh`. The glyph is a custom path on
