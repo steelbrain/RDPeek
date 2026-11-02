@@ -87,12 +87,15 @@ final class SessionClipboardTests: XCTestCase {
     private var downloadRoot: URL!
     /// The bridge's clock, which only the test moves.
     private var now = Date()
+    /// Whether the bridge is told macOS denies it reading the pasteboard.
+    private var deniesPasteboardAccess = false
 
     override func setUp() async throws {
         pasteboard = NSPasteboard(name: NSPasteboard.Name("RDPeekTests.\(UUID().uuidString)"))
         downloadRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("RDPeekTests.\(UUID().uuidString)", isDirectory: true)
         now = Date()
+        deniesPasteboardAccess = false
     }
 
     override func tearDown() async throws {
@@ -661,6 +664,56 @@ final class SessionClipboardTests: XCTestCase {
         XCTAssertNil(clipboard.localFileRead)
         XCTAssertEqual(session.publishedFiles.count, 2)
         XCTAssertEqual(pasteboard.string(forType: .string), "remote")
+    }
+
+    /// With the app's clipboard access off in System Settings, macOS hands
+    /// it nothing from the pasteboard, which would read as an empty
+    /// clipboard: nothing goes, so the server keeps its copy. The user hears
+    /// why once, until access comes back, and on each Sync Now.
+    func testDeniedPasteboardAccessSendsNothing() async throws {
+        pasteboard.clearContents()
+        pasteboard.setString("local", forType: .string)
+        deniesPasteboardAccess = true
+        let session = RecordedClipboard()
+        let clipboard = makeClipboard()
+        var toasts: [String] = []
+        clipboard.onToast = { text, _ in toasts.append(text) }
+        let denied = "Clipboard access is off for RDPeek in System Settings"
+
+        clipboard.attach(session)
+        pasteboard.clearContents()
+        pasteboard.setString("newer local", forType: .string)
+        clipboard.poll()
+        let fileURL = try makeLocalFile(named: "notes.txt", contents: Data("hello".utf8))
+        pasteboard.clearContents()
+        pasteboard.writeObjects([fileURL as NSURL])
+        clipboard.poll()
+        XCTAssertNil(clipboard.localFileRead)
+        XCTAssertEqual(toasts, [denied])
+        clipboard.syncNow()
+        XCTAssertEqual(toasts, [denied, denied])
+        XCTAssertTrue(session.publishedTexts.isEmpty)
+        XCTAssertTrue(session.publishedFiles.isEmpty)
+
+        // Allowed again, Sync Now sends what could not be read, and new
+        // copies go as before.
+        deniesPasteboardAccess = false
+        clipboard.syncNow()
+        try await XCTUnwrap(clipboard.localFileRead).value
+        XCTAssertEqual(session.publishedFiles.map { $0.map(\.contents) }, [[Data("hello".utf8)]])
+        pasteboard.clearContents()
+        pasteboard.setString("newest local", forType: .string)
+        clipboard.poll()
+        XCTAssertEqual(session.publishedTexts.last, "newest local")
+
+        // Denied again, the user hears it again.
+        deniesPasteboardAccess = true
+        toasts.removeAll()
+        pasteboard.clearContents()
+        pasteboard.setString("hidden", forType: .string)
+        clipboard.poll()
+        XCTAssertEqual(toasts, [denied])
+        XCTAssertEqual(session.publishedTexts.last, "newest local")
     }
 
     // MARK: - Local files
@@ -1244,7 +1297,8 @@ final class SessionClipboardTests: XCTestCase {
             isSharingEnabled: isSharingEnabled,
             pasteboard: pasteboard,
             downloadRoot: downloadRoot,
-            now: { self.now }
+            now: { self.now },
+            pasteboardAccessIsDenied: { self.deniesPasteboardAccess }
         )
     }
 

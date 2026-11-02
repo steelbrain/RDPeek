@@ -57,6 +57,12 @@ final class SessionClipboard {
     private let downloadRoot: URL
     /// The time, for download timeouts and temporary shares.
     private let now: @MainActor () -> Date
+    /// Whether macOS denies this app reading the pasteboard, as the user
+    /// can choose in System Settings: a read then gets nothing.
+    private let pasteboardAccessIsDenied: @MainActor () -> Bool
+    /// Whether the user has heard that the pasteboard cannot be read since
+    /// it last could.
+    private var reportedDeniedPasteboardAccess = false
     private var pasteboardChangeCount: Int
     /// Whether the local copy last seen has not reached the server: it
     /// could not be read or sent, or its read was cut short. A remote copy
@@ -86,20 +92,23 @@ final class SessionClipboard {
     /// Download roots this process has cleared of earlier runs' downloads.
     private static var clearedDownloadRoots: Set<URL> = []
 
-    /// `pasteboard`, `downloadRoot` and `now` are the user's clipboard, a
-    /// directory in the temporary directory, and the clock, except in tests,
-    /// which use their own.
+    /// `pasteboard`, `downloadRoot`, `now` and `pasteboardAccessIsDenied`
+    /// are the user's clipboard, a directory in the temporary directory, the
+    /// clock, and the pasteboard's access setting, except in tests, which
+    /// use their own.
     init(
         isSharingEnabled: Bool,
         pasteboard: NSPasteboard = .general,
         downloadRoot: URL = FileManager.default.temporaryDirectory
             .appendingPathComponent("RDPeekRemoteClipboard", isDirectory: true),
-        now: @escaping @MainActor () -> Date = { Date() }
+        now: @escaping @MainActor () -> Date = { Date() },
+        pasteboardAccessIsDenied: (@MainActor () -> Bool)? = nil
     ) {
         self.isSharingEnabled = isSharingEnabled
         self.pasteboard = pasteboard
         self.downloadRoot = downloadRoot
         self.now = now
+        self.pasteboardAccessIsDenied = pasteboardAccessIsDenied ?? { Self.deniesAccess(to: pasteboard) }
         pasteboardChangeCount = pasteboard.changeCount
         if Self.clearedDownloadRoots.insert(downloadRoot).inserted {
             removeEarlierDownloads()
@@ -412,7 +421,8 @@ final class SessionClipboard {
     /// nothing of it, one just attached or with sharing just turned on, or
     /// again after a send that failed. `announce` reports the result even
     /// when it is no news, for a sync the user asked for. Returns whether
-    /// it sends, or starts reading files to send.
+    /// it sends, starts reading files to send, or says the pasteboard
+    /// cannot be read.
     @discardableResult
     private func publishPasteboardIfChanged(force: Bool = false, announce: Bool = false) -> Bool {
         guard isSharingEnabled, session != nil else {
@@ -435,6 +445,16 @@ final class SessionClipboard {
         pasteboardChangeCount = nextChangeCount
         localCopyIsUnsent = true
         cancelLocalFileRead()
+        // A denied read would look like an empty clipboard and empty the
+        // server's too, so nothing goes, and the server keeps its copy.
+        guard pasteboardAccessIsDenied() == false else {
+            if announce || reportedDeniedPasteboardAccess == false {
+                reportedDeniedPasteboardAccess = true
+                onToast("Clipboard access is off for RDPeek in System Settings", "hand.raised")
+            }
+            return true
+        }
+        reportedDeniedPasteboardAccess = false
         let fileURLs = pasteboardFileURLs()
         guard fileURLs.isEmpty else {
             // The files go once read, but they replace the server's copy
@@ -547,6 +567,15 @@ final class SessionClipboard {
             return
         }
         urls.append(url)
+    }
+
+    /// Whether the user has turned off this app's access to `pasteboard` in
+    /// System Settings, which macOS 15.4 added.
+    private static func deniesAccess(to pasteboard: NSPasteboard) -> Bool {
+        if #available(macOS 15.4, *) {
+            return pasteboard.accessBehavior == .alwaysDeny
+        }
+        return false
     }
 
     private nonisolated static func localFiles(from urls: [URL]) -> SessionLocalClipboardPayload {
