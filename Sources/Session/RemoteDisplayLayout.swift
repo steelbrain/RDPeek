@@ -152,11 +152,12 @@ enum RemoteDisplaySelection: Equatable {
     /// Re-matches a subset chosen in `old` to `new`. Returns false when it fell back to `.all`
     /// from a subset (the caller toasts).
     ///
-    /// A display is found again by its exact rect, which survives the server renumbering its
-    /// monitors; failing that, while the server reports as many displays as before, by its
-    /// number, which survives a display changing resolution. A layout that offers no choice
-    /// keeps the subset as it is, so a brief single-monitor reset doesn't lose the choice; the
-    /// caller reconciles against the last layout that offered one when a choice comes back.
+    /// While the server reports as many displays as before, a chosen display keeps its number:
+    /// a display changing resolution moves its neighbours, maybe onto another display's old
+    /// place, but the server's order stays. When the count changes, the numbers shift, and a
+    /// display is found again only at its exact rect. A layout that offers no choice keeps the
+    /// subset as it is, so a brief single-monitor reset doesn't lose the choice; the caller
+    /// reconciles against the last layout that offered one when a choice comes back.
     @discardableResult
     mutating func reconcile(from old: RemoteDisplayLayout?, to new: RemoteDisplayLayout) -> Bool {
         guard case let .subset(numbers) = self,
@@ -165,14 +166,14 @@ enum RemoteDisplaySelection: Equatable {
             return true
         }
         let oldDisplays = old?.displays ?? []
-        let keepsNumbers = oldDisplays.count == new.displays.count
-        var matched = Set<Int>()
-        for display in oldDisplays where numbers.contains(display.number) {
-            if let sameRect = new.displays.first(where: { $0.rect == display.rect }) {
-                matched.insert(sameRect.number)
-            } else if keepsNumbers {
-                matched.insert(display.number)
-            }
+        let matched: Set<Int>
+        if oldDisplays.count == new.displays.count {
+            matched = numbers.intersection(new.displays.map(\.number))
+        } else {
+            let chosen = oldDisplays.filter { numbers.contains($0.number) }
+            matched = Set(chosen.compactMap { display in
+                new.displays.first { $0.rect == display.rect }?.number
+            })
         }
         guard matched.isEmpty == false else {
             self = .all

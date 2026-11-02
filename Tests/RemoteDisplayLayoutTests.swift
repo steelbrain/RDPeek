@@ -251,7 +251,7 @@ final class RemoteDisplayLayoutTests: XCTestCase {
 
     // MARK: - Reconciling with a new layout
 
-    func testReconcileFindsAChosenDisplayByItsRect() {
+    func testReconcileFindsAChosenDisplayByItsRectWhenTheCountChanges() {
         // Display 1 went away, so display 3 is now display 2 and keeps its place.
         var selection = RemoteDisplaySelection.subset([3])
         let old = threeDisplays()
@@ -280,6 +280,31 @@ final class RemoteDisplayLayoutTests: XCTestCase {
 
         XCTAssertTrue(selection.reconcile(from: twoDisplays(), to: new))
         XCTAssertEqual(selection, .subset([2]))
+    }
+
+    func testReconcileKeepsTheNumberWhenANeighbourLandsOnTheOldRect() {
+        // Display 1 doubled its resolution and pushed display 2 onto display 3's old place:
+        // matching that rect would switch the window to the middle display.
+        var selection = RemoteDisplaySelection.subset([3])
+        let old = RemoteDisplayLayout(
+            frameSize: CGSize(width: 5760, height: 1080),
+            monitors: [
+                monitor(left: 0, top: 0, right: 1920, bottom: 1080, isPrimary: true),
+                monitor(left: 1920, top: 0, right: 3840, bottom: 1080),
+                monitor(left: 3840, top: 0, right: 5760, bottom: 1080),
+            ]
+        )
+        let new = RemoteDisplayLayout(
+            frameSize: CGSize(width: 7680, height: 2160),
+            monitors: [
+                monitor(left: 0, top: 0, right: 3840, bottom: 2160, isPrimary: true),
+                monitor(left: 3840, top: 0, right: 5760, bottom: 1080),
+                monitor(left: 5760, top: 0, right: 7680, bottom: 1080),
+            ]
+        )
+
+        XCTAssertTrue(selection.reconcile(from: old, to: new))
+        XCTAssertEqual(selection, .subset([3]))
     }
 
     func testReconcileFallsBackToAllWhenNoChosenDisplaySurvives() {
