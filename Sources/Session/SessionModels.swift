@@ -197,7 +197,7 @@ struct RDPSessionEndReason: Equatable {
     ) -> String {
         if report.redirectionDepth > 0 {
             let passedOn = { (clause: String) in
-                redirectionMessage(host: host, target: report.target, clause: clause)
+                redirectionMessage(host: host, report: report, clause: clause)
             }
             switch failure {
             case .addressResolution:
@@ -286,15 +286,20 @@ struct RDPSessionEndReason: Equatable {
         }
     }
 
-    /// `target` is RDPKit's "host:port"; the port shows only when it is
-    /// not the default, and a target that is the server typed in, as with
-    /// a routing token alone, is not named.
-    private static func redirectionMessage(host: String, target: String, clause: String) -> String {
-        let defaultPortSuffix = ":3389"
-        let targetLabel = target.hasSuffix(defaultPortSuffix) ? String(target.dropLast(defaultPortSuffix.count)) : target
-        guard targetLabel.isEmpty == false, targetLabel.caseInsensitiveCompare(host) != .orderedSame else {
+    /// Names the server a Server Redirection led to, with its port when
+    /// not the default. One the redirections did not name is not: a
+    /// routing token alone, as a load balancer sends, leads to the server
+    /// typed in again, at its port. Nor is one that names the server typed
+    /// in.
+    private static func redirectionMessage(host: String, report: RDPConnectionReport, clause: String) -> String {
+        let targetHost = report.targetHost
+        guard report.redirectionNamedHost,
+              targetHost.isEmpty == false,
+              targetHost.caseInsensitiveCompare(host) != .orderedSame
+        else {
             return "“\(host)” passed the session on to a server that \(clause)."
         }
+        let targetLabel = report.targetPort == 3389 ? targetHost : "\(targetHost):\(report.targetPort)"
         return "“\(host)” passed the session on to “\(targetLabel)”, which \(clause)."
     }
 

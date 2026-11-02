@@ -420,9 +420,15 @@ final class SessionModelsTests: XCTestCase {
         // so it is not blamed, whatever the target did, and the session
         // does not start over, which would sign in to it again. RDPKit
         // tries the target's TCP connect again itself.
-        func outcome(_ failure: RDPConnectionFailure, target: String = "host2:3389") -> SessionAttemptOutcome {
+        func outcome(_ failure: RDPConnectionFailure) -> SessionAttemptOutcome {
             SessionAttemptOutcome.after(
-                makeReport(stage: "x224-rdp-negotiation", target: target, redirectionDepth: 1, failure: failure),
+                makeReport(
+                    stage: "x224-rdp-negotiation",
+                    targetHost: "host2",
+                    redirectionDepth: 1,
+                    redirectionNamedHost: true,
+                    failure: failure
+                ),
                 host: "broker"
             )
         }
@@ -436,23 +442,70 @@ final class SessionModelsTests: XCTestCase {
             message: "“broker” passed the session on to “host2”, which this Mac could not find."
         )))
         XCTAssertEqual(
-            outcome(.noConnectionConfirm(reason: .unexpectedReply(firstBytes: Data("SSH-2.0".utf8))), target: "host2:3390"),
+            outcome(.noConnectionConfirm(reason: .unexpectedReply(firstBytes: Data("SSH-2.0".utf8)))),
             .end(RDPSessionEndReason(
                 kind: .failed,
-                message: "“broker” passed the session on to “host2:3390”, which did not answer as a Remote Desktop server."
+                message: "“broker” passed the session on to “host2”, which did not answer as a Remote Desktop server."
             ))
         )
         XCTAssertEqual(outcome(.noConnectionConfirm(reason: .reset)), .end(RDPSessionEndReason(
             kind: .failed,
             message: "“broker” passed the session on to “host2”, which stopped answering before the connection was set up."
         )))
-        // A redirection by routing token alone keeps the address typed in.
-        XCTAssertEqual(outcome(.connect(error: RDPSocketError(errno: ECONNREFUSED)), target: "broker:3389"), .end(
+    }
+
+    func testARedirectsTargetIsNamedOnlyWhenTheRedirectionNamedIt() {
+        // RDPKit says which host a redirection named, and the port, which
+        // the redirection keeps: the one typed in.
+        func message(
+            targetHost: String,
+            targetPort: UInt16 = 3389,
+            redirectionDepth: Int = 1,
+            namedHost: Bool
+        ) -> String {
             RDPSessionEndReason(
-                kind: .failed,
-                message: "“broker” passed the session on to a server that this Mac could not reach."
+                report: makeReport(
+                    stage: "x224-rdp-negotiation",
+                    targetHost: targetHost,
+                    targetPort: targetPort,
+                    redirectionDepth: redirectionDepth,
+                    redirectionNamedHost: namedHost,
+                    failure: .connect(error: RDPSocketError(errno: ECONNREFUSED))
+                ),
+                host: "broker"
+            ).message
+        }
+
+        // A named server shows its port when it is not the default.
+        XCTAssertEqual(
+            message(targetHost: "host2", namedHost: true),
+            "“broker” passed the session on to “host2”, which this Mac could not reach."
+        )
+        XCTAssertEqual(
+            message(targetHost: "host2", targetPort: 3390, namedHost: true),
+            "“broker” passed the session on to “host2:3390”, which this Mac could not reach."
+        )
+        // A routing token alone, as a load balancer sends, leads to the
+        // address typed in again, also on another port: the server behind
+        // it is not named, and neither is the broker as "broker:3390".
+        for port in [UInt16(3389), 3390] {
+            XCTAssertEqual(
+                message(targetHost: "broker", targetPort: port, namedHost: false),
+                "“broker” passed the session on to a server that this Mac could not reach.",
+                "\(port)"
             )
-        ))
+        }
+        // GNOME's second hand-over, by routing token, after the first named
+        // a host, still names it.
+        XCTAssertEqual(
+            message(targetHost: "host2", targetPort: 3390, redirectionDepth: 2, namedHost: true),
+            "“broker” passed the session on to “host2:3390”, which this Mac could not reach."
+        )
+        // A redirection that names the server typed in, in any case.
+        XCTAssertEqual(
+            message(targetHost: "BROKER", targetPort: 3390, namedHost: true),
+            "“broker” passed the session on to a server that this Mac could not reach."
+        )
     }
 
     func testUnresolvableHostIsNeverRetried() {
@@ -517,8 +570,9 @@ final class SessionModelsTests: XCTestCase {
         // that would send it the credentials without forward secrecy.
         let report = makeReport(
             stage: "tls-handshake",
-            target: "host2:3389",
+            targetHost: "host2",
             redirectionDepth: 1,
+            redirectionNamedHost: true,
             failure: .tlsKeyUsageIncorrect
         )
 
@@ -728,8 +782,9 @@ final class SessionModelsTests: XCTestCase {
         )))
         let redirected = makeReport(
             stage: "credssp",
-            target: "host2:3389",
+            targetHost: "host2",
             redirectionDepth: 1,
+            redirectionNamedHost: true,
             failure: .legacyCredSSPVersion(version: 4)
         )
         XCTAssertEqual(outcome(after: redirected), .end(RDPSessionEndReason(
@@ -843,7 +898,13 @@ final class SessionModelsTests: XCTestCase {
         // A server a redirection led to was not the user's choice, and
         // other failures offer nothing.
         for report in [
-            makeReport(stage: "credssp", target: "host2:3389", redirectionDepth: 1, failure: .legacyCredSSPVersion(version: 3)),
+            makeReport(
+                stage: "credssp",
+                targetHost: "host2",
+                redirectionDepth: 1,
+                redirectionNamedHost: true,
+                failure: .legacyCredSSPVersion(version: 3)
+            ),
             makeReport(stage: "credssp", failure: .credSSP(status: .logonFailure)),
             makeReport(stage: "credssp", failure: .cancelled),
         ] {
@@ -985,10 +1046,15 @@ final class SessionModelsTests: XCTestCase {
         )
     }
 
+    /// A report of a connection to `targetHost` at `targetPort`, which
+    /// `redirectionDepth` Server Redirections led to; one that named no
+    /// host (`redirectionNamedHost` false) leads to the server typed in.
     private func makeReport(
         stage: String = "rdp-graphics-dynamic-channel",
-        target: String = "winbox:3389",
+        targetHost: String = "winbox",
+        targetPort: UInt16 = 3389,
         redirectionDepth: Int = 0,
+        redirectionNamedHost: Bool = false,
         nextStage: String? = nil,
         errorInfo: UInt32? = nil,
         failure: RDPConnectionFailure? = nil,
@@ -1000,7 +1066,10 @@ final class SessionModelsTests: XCTestCase {
         var report = RDPConnectionReport(
             status: failed ? "failure" : "success",
             stage: stage,
-            target: target,
+            target: "\(targetHost):\(targetPort)",
+            targetHost: targetHost,
+            targetPort: targetPort,
+            redirectionNamedHost: redirectionNamedHost,
             redirectionDepth: redirectionDepth,
             passwordConfigured: true,
             requestedProtocols: [],
