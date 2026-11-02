@@ -5,171 +5,99 @@
 ### Connecting
 
 - GNOME Remote Login gets past the system sign-in to the user's
-  desktop. A refusal of the sign-in it passes the session on with is
-  explained, not asked about again. If the user's desktop then fails
-  to show, the session ends as Disconnected.
+  desktop.
 - Windows 11 sessions no longer end when the server confirms graphics
   with both AVC flags, and Network Level Authentication works with
   certificates signed with RSASSA-PSS and SHA-384 or SHA-512.
 - A remote computer that signs in with an outdated version of Network
   Level Authentication, CredSSP 2, 3 or 4 without the 2018 update, is
   refused before any password is sent. Connect Anyway, under the
-  message, signs in with the outdated version for that one connection
-  to that computer, which RDPeek does not retry on its own. A server
-  the session is passed on to, such as by a load balancer, is refused
-  the same way, without Connect Anyway.
+  message, signs in with it for that one connection. A server the
+  session is passed on to, such as by a load balancer, is refused
+  without that offer.
 - A password typed at sign-in is kept only when the server checked it
-  before showing the desktop. On servers that don't, such as xrdp or a
-  Windows PC set to the TLS security layer, a mistyped password is no
-  longer remembered or offered to other PCs; save the password in the
-  PC's settings instead.
+  before showing the desktop. For servers that don't, such as xrdp,
+  save the password in the PC's settings.
 - Remember in Keychain on the sign-in sheet applies to the PC's own
-  account only, and a PC added with just a host takes the account of a
-  sign-in the server checked, so its next connection doesn't ask again.
-- Unchecking Remember in Keychain at sign-in forgets the saved
-  password even when RDPeek couldn't read it, and the sign-in sheet
-  says when the Keychain refused access.
+  account, and a PC added with just a host takes the account of a
+  sign-in the server checked.
 - A password changed in a PC's settings is used by its open window
-  from the next connection.
-- Cancelling and reconnecting while macOS asks to allow Keychain
-  access to the saved password no longer asks for it a second time.
-- A client license the server issues is saved as soon as the session
-  starts.
-- A host that answers as another service, such as SSH, is said not to
-  be a Remote Desktop server, with a reminder to check the host and
-  port. One that stops answering before the connection is set up says
-  it may be at its connection limit, or that a firewall may block
-  Remote Desktop, instead of claiming it is not a Remote Desktop
-  server.
-- A server that closes the connection early in sign-in, before it
-  could check the user name and password, says so, instead of asking
-  for them again.
+  from the next connection, and unchecking Remember in Keychain at
+  sign-in forgets the saved password even when RDPeek couldn't read
+  it.
+- Connection errors say more: a host that answers as another service,
+  such as SSH, is said not to be a Remote Desktop server, one that
+  stops answering during setup may be at its connection limit or
+  behind a firewall, and a server that closes the connection early in
+  sign-in no longer asks for the password again.
 - While RDPeek tries again to reach a PC that did not answer, the
-  connecting screen says which try it is, such as “retrying (2 of 3)”,
-  once the one before fails. A server a session is passed on to is
-  tried again the same way.
-- When a load balancer passes the session on without naming the
-  server, and that server fails, the message says “a server” rather
-  than naming the PC itself with a port other than 3389.
+  connecting screen says which try it is, such as “retrying (2 of 3)”.
 
 ### Remote input
 
 - ⌃ and ⌘ shortcuts land on the keys they are labelled on with
   Turkish F, German – Standard, Slovenian – QWERTZ, ABC – QWERTZ,
-  ABC – AZERTY, Romanian, Finnish – Extended and Latvian, whose remote
-  layouts put letters on other keys. Latvian sessions get Windows'
-  Latvian (QWERTY) layout, whose letters match it. A Windows session
-  left signed in from before keeps its old layout, so sign out of it
-  once.
-- Albanian, Hungarian – QWERTY, Lithuanian, Lithuanian – ĄŽERTY and
-  Kabyle – AZERTY get a remote layout with their letters on the same
-  keys, so ⌃ and ⌘ shortcuts land where they are labelled there too.
-- On JIS keyboards, 英数 and かな no longer type a space on the remote,
-  and the keypad comma types “,”.
-- With a Japanese input source that types with the ABC or US layout,
-  the remote desktop gets a Japanese keyboard, 106/109-key on a JIS
-  keyboard and 101-key on others, so the remote's Japanese input method
-  takes the keys: 英数 and かな turn it off and on, and on other
-  keyboards left ⌥ with the key left of 1 does.
-- Releasing ⌘ or right ⌥ pressed while ⇧, ⌃ or left ⌥ was down, or
-  during a drag, no longer taps the Windows key or Alt.
-- ⌘-scroll now reaches the remote as the Windows key with the wheel,
-  and releasing ⌘ after it taps nothing.
-- A Caps Lock change made while a menu was open reaches the remote
-  with the next key, and keys held as a menu opens no longer stay down
-  on the remote.
-- Scrolling a session window in the background scrolls what is under
-  the pointer, also on servers that scroll at their own pointer.
-- The remote desktop's top row of pixels takes the pointer, hovers and
-  clicks also when the desktop fills the window.
-- A dead key typed right after one that went as an Alt shortcut
-  composes the next key, also on layouts such as German – Standard.
+  ABC – AZERTY, Romanian, Finnish – Extended, Latvian, Albanian,
+  Hungarian – QWERTY, Lithuanian, Lithuanian – ĄŽERTY and
+  Kabyle – AZERTY. A Windows session left signed in from before keeps
+  its old layout, so sign out of it once.
+- With a Japanese input source on the ABC or US layout, the remote
+  desktop gets a Japanese keyboard, so 英数 and かな turn its input method
+  off and on. On JIS keyboards they no longer type a space, and the
+  keypad comma types “,”.
+- ⌘-scroll reaches the remote as the Windows key with the wheel.
+- Releasing ⌘ or right ⌥ after ⇧, ⌃ or left ⌥, or during a drag, no
+  longer taps the Windows key or Alt, and keys held as a menu opens no
+  longer stay down on the remote.
+- Scrolling a window in the background scrolls what is under the
+  pointer, and the desktop's top row of pixels takes the pointer when
+  the desktop fills the window.
 
 ### Sessions
 
+- A remote desktop with several displays shows all of them, or only
+  those you check under Displays in the ⋯ menu or the Session menu.
+  Match Window Size pauses while it has more than one display.
+- The Session menu also has the ⋯ menu's Share Clipboard, Remote
+  Audio, Match Window Size and Performance Overlay toggles.
+- When a session's first video fails to decode, the server is asked
+  for a fresh picture at once, and with Match Window Size off a video
+  glitch no longer resizes the desktop. A session whose video never
+  decodes reconnects once.
+- Turning Match Window Size back on fits the remote desktop to the
+  window again, even when the desktop changed size while it was off.
 - Remote audio tells the server when each sample is heard, so it can
   keep video in step with the sound.
-- A remote desktop with several displays shows all of them, or only
-  those you check under Displays in the ⋯ menu or the Session menu,
-  laid out as on the remote and numbered as the remote lists them.
-  Match Window Size pauses while it has more than one display, so its
-  layout is kept.
-- The Session menu in the menu bar now also has the ⋯ menu's Share
-  Clipboard, Remote Audio, Match Window Size and Performance Overlay
-  toggles.
-- When the first video of a session fails to decode, the server is
-  asked for a fresh picture as soon as it can take the request, not a
-  few seconds later.
-- A session whose video arrives but never decodes now reconnects once,
-  as one that never shows the desktop does, before saying RDPeek could
-  not show the remote desktop.
-- With Match Window Size off, recovering from a video glitch keeps
-  the remote desktop's size instead of returning it to the size the
-  window last asked for.
-- Turning Match Window Size back on fits the remote desktop to the
-  window again, even when the remote desktop changed its size while it
-  was off.
-- Clicks and scrolls reach the remote desktop as soon as it appears,
-  instead of being lost while the connecting screen fades out.
-- The Stats for Nerds window's title follows the PC's name when you
-  rename it.
-- Moving a session window between displays of different resolutions
-  no longer briefly animates the remote desktop.
-- A window whose PC was deleted no longer offers to remember a
-  password.
-- Quitting with sessions open waits until each has closed its
-  connection, for up to two seconds, rather than a fixed moment, so
-  the remote computer sees the session end instead of a dropped
+- Clicks and scrolls reach the remote desktop as soon as it appears.
+- Quitting waits up to two seconds for each session to close, so the
+  remote computer sees the session end instead of a dropped
   connection.
-- Stats for Nerds' Graphics Failure row says how many messages the
-  failing update held, and from which one it lists them.
 
 ### Clipboard
 
 - Once the remote computer copies something, it can no longer read the
   Mac's earlier copy.
-- Pasted remote files are never saved under a hidden name, and none is
-  saved over another whose name the Mac treats as the same.
-- Remote copies keep coming after one that failed to arrive, or after
-  the remote clipboard restarts.
-- Files copied on the Mac reach the remote even when an older remote
-  copy arrives while they are being read, and that copy no longer
-  replaces them on the Mac clipboard. A copy made on the remote during
-  the read now always wins, and the files are not sent.
-- A remote file download under way when the server redirects the
-  session, or when the remote clipboard restarts, ends at once instead
-  of failing two minutes later.
+- With sharing off too, emptying the remote clipboard, as password
+  managers do, clears the Mac clipboard while it still holds that
+  remote's copy.
+- When clipboard access for RDPeek is off in System Settings, RDPeek
+  says so instead of emptying the remote clipboard with each copy.
 - A remote copy of more than 1,000 files is refused with a notice, and
   a copy of many files shows its progress a few times instead of once
   per file.
-- When clipboard access for RDPeek is off in System Settings, RDPeek
-  says so instead of emptying the remote clipboard with each copy.
-- With sharing off too, emptying the remote clipboard, as password
-  managers do, clears the Mac clipboard while it still holds the copy
-  the session took from it, such as during Share for 30 Seconds.
-- Turning sharing off or copying something else stops reading copied
-  files, and a copied file that grew past 32 MiB is no longer read
-  whole.
-- A later launch removes remote downloads an earlier run left only once
-  they are an hour old, so a second copy of RDPeek no longer deletes
-  the files the first is downloading.
+- Copying files is more reliable: pasted files never get hidden or
+  clashing names, copies keep coming after one fails or the remote
+  clipboard restarts, the newer copy wins over files still being read,
+  and a download cut off by a redirect ends at once.
 
 ### Connection Center
 
 - Edit PC… (⌘E) and Duplicate PC (⌘D) in the File menu act on the
   selected PC.
 - Saving or deleting a PC no longer freezes RDPeek while a Keychain
-  prompt waits; the editor's buttons wait for a save, and a deletion
-  finishes in the background.
-- A PC can be saved when the editor could not read its password, and a
-  password typed while a session turned Remember on or off is the one
-  used.
-- A password a session saves just as its PC is deleted is removed too,
-  and deleting one of two PCs that share an account no longer gives the
-  other the deleted one's password saved by RDPeek 1.0.
+  prompt waits.
 - An unreadable list of saved PCs is reported as kept unchanged,
   instead of showing No PCs Yet.
-- A card's hidden play button is no longer an invisible Tab stop.
 
 ### Under the hood
 
