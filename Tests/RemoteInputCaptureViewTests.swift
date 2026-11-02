@@ -441,6 +441,34 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         ])
     }
 
+    func testAMenuOpeningReleasesTheKeysHeldAsItTakesTheirKeyUps() {
+        // A menu opened with Shift, Space and Command held gets their key-ups: the keys are
+        // released, held-back Command taps nothing as it goes up, and Shift, still held, goes
+        // down again with the next modifier or key event.
+        let harness = makeHarness()
+        let space = RDPKeyboardScancode(code: 0x39)
+        let leftArrow = RDPKeyboardScancode(code: 0x4B, isExtended: true)
+        let shiftAndCommand = NSEvent.ModifierFlags.leftShiftDown.union(.leftCommandDown)
+        harness.view.flagsChanged(with: flagsEvent(keyCode: UInt16(kVK_Shift), flags: .leftShiftDown))
+        harness.view.keyDown(with: keyEvent(.keyDown, keyCode: UInt16(kVK_Space), characters: " ", flags: .leftShiftDown))
+        harness.view.flagsChanged(with: flagsEvent(keyCode: .leftCommand, flags: shiftAndCommand))
+        harness.recorder.events.removeAll()
+
+        NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: NSMenu())
+        XCTAssertEqual(harness.recorder.events, [
+            .keyboard(scancode: .leftShift, isReleased: true),
+            .keyboard(scancode: space, isReleased: true),
+        ])
+
+        harness.recorder.events.removeAll()
+        harness.view.flagsChanged(with: flagsEvent(keyCode: .leftCommand, flags: .leftShiftDown))
+        harness.view.keyDown(with: keyEvent(.keyDown, keyCode: UInt16(kVK_LeftArrow), flags: .leftShiftDown))
+        XCTAssertEqual(harness.recorder.events, [
+            .keyboard(scancode: .leftShift, isReleased: false),
+            .keyboard(scancode: leftArrow, isReleased: false),
+        ])
+    }
+
     // MARK: - Toggle-key synchronization
 
     func testBecomingFirstResponderSynchronizesToggleKeys() {

@@ -304,6 +304,12 @@ final class RemoteInputCaptureNSView: NSView {
             name: NSWindow.didBecomeKeyNotification,
             object: window
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(menuDidBeginTracking(_:)),
+            name: NSMenu.didBeginTrackingNotification,
+            object: nil
+        )
         // AppKit never dispatches keyUp to the window while Command is held, which would leave
         // keys pressed during a Command chord stuck down on the server.
         commandKeyUpMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyUp) { [weak self] event in
@@ -319,6 +325,7 @@ final class RemoteInputCaptureNSView: NSView {
             NotificationCenter.default.removeObserver(self, name: NSWindow.didResignKeyNotification, object: window)
             NotificationCenter.default.removeObserver(self, name: NSWindow.didBecomeKeyNotification, object: window)
         }
+        NotificationCenter.default.removeObserver(self, name: NSMenu.didBeginTrackingNotification, object: nil)
         if let commandKeyUpMonitor {
             NSEvent.removeMonitor(commandKeyUpMonitor)
             self.commandKeyUpMonitor = nil
@@ -326,6 +333,17 @@ final class RemoteInputCaptureNSView: NSView {
     }
 
     @objc private func windowDidResignKey(_: Notification) {
+        releasePressedInputs()
+    }
+
+    /// A menu, such as the menu bar or the ⋯ menu, takes the keyboard while it tracks without the
+    /// window resigning key, so the key-ups of keys held as it opens go to the menu. They are
+    /// released as on focus loss, and the next key, click or modifier presses the modifiers still
+    /// held.
+    @objc private func menuDidBeginTracking(_: Notification) {
+        guard inputSession != nil else {
+            return
+        }
         releasePressedInputs()
     }
 
