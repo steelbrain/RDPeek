@@ -36,7 +36,7 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         )
 
         XCTAssertEqual(try XCTUnwrap(mappedGeometry(of: canvas)).contentRect, canvas.bounds)
-        XCTAssertEqual(displayLayer(of: canvas)?.frame, canvas.bounds)
+        XCTAssertEqual(canvas.displayView.displayLayer.frame, canvas.bounds)
     }
 
     // MARK: - One geometry for video and input
@@ -107,7 +107,7 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         // nothing.
         let canvas = makeCanvas(size: CGSize(width: 1440, height: 872), scale: 2, showing: wideFrame)
 
-        let displayLayer = try XCTUnwrap(displayLayer(of: canvas))
+        let displayLayer = canvas.displayView.displayLayer
         let root = try XCTUnwrap(canvas.displayView.layer)
         XCTAssertFalse(try XCTUnwrap(displayLayer.superlayer).masksToBounds)
         XCTAssertEqual(root.sublayers?.count, 1, "No covers")
@@ -127,7 +127,7 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         )
         let root = try XCTUnwrap(canvas.displayView.layer)
 
-        XCTAssertTrue(try XCTUnwrap(displayLayer(of: canvas)?.superlayer).masksToBounds)
+        XCTAssertTrue(try XCTUnwrap(canvas.displayView.displayLayer.superlayer).masksToBounds)
         XCTAssertEqual(canvas.displayView.sourceRect, RDPFrameRect(left: 0, top: 0, right: 7040, bottom: 1440))
         XCTAssertEqual(covers(of: canvas).count, 1, "The middle display and the gap below it are one cover")
         XCTAssertTrue(covers(of: canvas).allSatisfy { $0.backgroundColor == NSColor.black.cgColor && $0.isOpaque })
@@ -146,16 +146,16 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         // desktop never sends again; switching to chosen displays and back leaves it where it is,
         // with no clip, crop or cover behind.
         let canvas = makeCanvas(size: CGSize(width: 1440, height: 872), scale: 2, showing: wideFrame)
-        let displayLayer = try XCTUnwrap(displayLayer(of: canvas))
+        let displayLayer = canvas.displayView.displayLayer
         let container = try XCTUnwrap(displayLayer.superlayer)
 
         canvas.update(frame: wideFrame, visibleRects: outerTwoOfThree, hasPresentedFrame: true, inputSession: nil)
-        XCTAssertTrue(self.displayLayer(of: canvas) === displayLayer)
         XCTAssertTrue(displayLayer.superlayer === container)
+        XCTAssertTrue(container.superlayer === canvas.displayView.layer)
 
         canvas.update(frame: wideFrame, visibleRects: nil, hasPresentedFrame: true, inputSession: nil)
-        XCTAssertTrue(self.displayLayer(of: canvas) === displayLayer)
         XCTAssertTrue(displayLayer.superlayer === container)
+        XCTAssertTrue(container.superlayer === canvas.displayView.layer)
         XCTAssertFalse(container.masksToBounds)
         XCTAssertNil(canvas.displayView.sourceRect)
         XCTAssertEqual(covers(of: canvas), [], "The covers are gone")
@@ -188,7 +188,7 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         // layers that haven't been committed yet never animate.
         let canvas = makeCanvas(size: CGSize(width: 1440, height: 872), scale: 2, showing: wideFrame)
         let window = try XCTUnwrap(canvas.window as? TestWindow)
-        let displayLayer = try XCTUnwrap(displayLayer(of: canvas))
+        let displayLayer = canvas.displayView.displayLayer
         XCTAssertEqual(displayLayer.contentsScale, 2)
         CATransaction.flush()
 
@@ -250,21 +250,21 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) throws {
-        let displayLayer = try XCTUnwrap(displayLayer(of: canvas), file: file, line: line)
+        let displayLayer = canvas.displayView.displayLayer
         let root = try XCTUnwrap(canvas.displayView.layer, file: file, line: line)
         XCTAssertEqual(canvas.displayView.frame, canvas.bounds, file: file, line: line)
         XCTAssertEqual(inputView(of: canvas)?.frame, canvas.bounds, file: file, line: line)
         let container = try XCTUnwrap(displayLayer.superlayer, file: file, line: line)
         let videoFrame = root.convert(displayLayer.frame, from: container)
         XCTAssertTrue(container.superlayer === root, file: file, line: line)
-        XCTAssertEqual(container.masksToBounds, geometry.clipRect != nil, file: file, line: line)
-        if let clipRect = geometry.clipRect {
+        XCTAssertEqual(container.masksToBounds, geometry.videoLayout.clipRect != nil, file: file, line: line)
+        if let clipRect = geometry.videoLayout.clipRect {
             XCTAssertEqual(container.frame, clipRect, file: file, line: line)
         }
-        XCTAssertEqual(videoFrame.minX, geometry.videoLayerFrame.minX, accuracy: 1e-9, file: file, line: line)
-        XCTAssertEqual(videoFrame.minY, geometry.videoLayerFrame.minY, accuracy: 1e-9, file: file, line: line)
-        XCTAssertEqual(videoFrame.width, geometry.videoLayerFrame.width, accuracy: 1e-9, file: file, line: line)
-        XCTAssertEqual(videoFrame.height, geometry.videoLayerFrame.height, accuracy: 1e-9, file: file, line: line)
+        XCTAssertEqual(videoFrame.minX, geometry.videoLayout.videoFrame.minX, accuracy: 1e-9, file: file, line: line)
+        XCTAssertEqual(videoFrame.minY, geometry.videoLayout.videoFrame.minY, accuracy: 1e-9, file: file, line: line)
+        XCTAssertEqual(videoFrame.width, geometry.videoLayout.videoFrame.width, accuracy: 1e-9, file: file, line: line)
+        XCTAssertEqual(videoFrame.height, geometry.videoLayout.videoFrame.height, accuracy: 1e-9, file: file, line: line)
         XCTAssertEqual(canvas.displayView.sourceRect, geometry.videoSourceRect, file: file, line: line)
         let covers = (root.sublayers ?? []).filter { $0 !== container }
         XCTAssertEqual(covers.map(\.frame), geometry.coverRects, file: file, line: line)
@@ -272,7 +272,7 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
 
     /// Every layer in the video view's layer besides the video's container.
     private func covers(of canvas: RemoteDesktopCanvasNSView) -> [CALayer] {
-        let container = displayLayer(of: canvas)?.superlayer
+        let container = canvas.displayView.displayLayer.superlayer
         return (canvas.displayView.layer?.sublayers ?? []).filter { $0 !== container }
     }
 
@@ -290,18 +290,5 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
     /// The geometry the input view maps points through.
     private func mappedGeometry(of canvas: RemoteDesktopCanvasNSView) -> RemoteDesktopGeometry? {
         inputView(of: canvas)?.pointMapping as? RemoteDesktopGeometry
-    }
-
-    /// Found by type, wherever the video view put it.
-    private func displayLayer(of canvas: RemoteDesktopCanvasNSView) -> AVSampleBufferDisplayLayer? {
-        var layers = canvas.displayView.layer.map { [$0] } ?? []
-        while layers.isEmpty == false {
-            let layer = layers.removeFirst()
-            if let displayLayer = layer as? AVSampleBufferDisplayLayer {
-                return displayLayer
-            }
-            layers += layer.sublayers ?? []
-        }
-        return nil
     }
 }

@@ -110,7 +110,7 @@ final class RemoteDesktopCanvasNSView: NSView {
         self.geometry = geometry
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        displayView.videoLayout = RDPRemoteDesktopVideoLayout(videoFrame: geometry.videoLayerFrame, clipRect: geometry.clipRect)
+        displayView.videoLayout = geometry.videoLayout
         displayView.sourceRect = geometry.videoSourceRect
         showCovers(at: geometry.coverRects)
         inputView.pointMapping = geometry

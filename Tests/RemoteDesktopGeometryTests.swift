@@ -36,8 +36,8 @@ final class RemoteDesktopGeometryTests: XCTestCase {
                 let message = "\(frame) in \(canvas) at \(scale)x"
 
                 XCTAssertEqual(geometry.contentRect, baseline.drawnRect, message)
-                XCTAssertEqual(geometry.videoLayerFrame, baseline.videoLayerFrame, message)
-                XCTAssertNil(geometry.clipRect, message)
+                XCTAssertEqual(geometry.videoLayout.videoFrame, baseline.videoLayerFrame, message)
+                XCTAssertNil(geometry.videoLayout.clipRect, message)
                 XCTAssertEqual(geometry.coverRects, [], message)
             }
         }
@@ -105,8 +105,8 @@ final class RemoteDesktopGeometryTests: XCTestCase {
         XCTAssertEqual(right.contentRect, CGRect(x: 0, y: 31, width: 1440, height: 810))
         XCTAssertNil(all.videoSourceRect)
         XCTAssertEqual(right.videoSourceRect, RDPFrameRect(left: 1920, top: 0, right: 3840, bottom: 1080))
-        XCTAssertEqual(right.videoLayerFrame, right.contentRect)
-        XCTAssertEqual(right.clipRect, right.contentRect)
+        XCTAssertEqual(right.videoLayout.videoFrame, right.contentRect)
+        XCTAssertEqual(right.videoLayout.clipRect, right.contentRect)
         XCTAssertEqual(right.coverRects, [])
         XCTAssertEqual(right.remotePoint(at: CGPoint(x: 0, y: 840.75)), RDPRemotePoint(x: 1920, y: 0))
         XCTAssertEqual(right.remotePoint(at: CGPoint(x: 1439.75, y: 31.25)), RDPRemotePoint(x: 3839, y: 1079))
@@ -134,7 +134,7 @@ final class RemoteDesktopGeometryTests: XCTestCase {
         // device pixels; its cover grows to the device pixels around them, and the clip stays
         // inside the content, both on whole device pixels.
         let geometry = makeOuterTwoOfThree()
-        let clip = try XCTUnwrap(geometry.clipRect)
+        let clip = try XCTUnwrap(geometry.videoLayout.clipRect)
         let cover = try XCTUnwrap(geometry.coverRects.first)
         let scale = geometry.contentRect.width / 7040
         let hiddenMinX = geometry.contentRect.minX + 2560 * scale
@@ -185,7 +185,7 @@ final class RemoteDesktopGeometryTests: XCTestCase {
                 bounds: CGRect(origin: .zero, size: canvas),
                 backingScaleFactor: 2
             )
-            let clipRect = geometry.clipRect ?? .null
+            let clipRect = geometry.videoLayout.clipRect ?? .null
             let clip = devicePixels(of: clipRect)
             let covers = geometry.coverRects.map(devicePixels(of:))
             XCTAssertTrue(geometry.contentRect.contains(clipRect), "The clip of \(chosen) in \(canvas)")
@@ -265,7 +265,7 @@ final class RemoteDesktopGeometryTests: XCTestCase {
             XCTAssertNil(geometry.remotePoint(at: CGPoint(x: 50, y: 50)), name)
             XCTAssertNil(geometry.nearestRemotePoint(to: CGPoint(x: 50, y: 50)), name)
         }
-        XCTAssertEqual(noFrame.videoLayerFrame, CGRect(x: 0, y: 0, width: 200, height: 100))
+        XCTAssertEqual(noFrame.videoLayout.videoFrame, CGRect(x: 0, y: 0, width: 200, height: 100))
     }
 
     // MARK: - Through RDPKit's input view
@@ -438,7 +438,7 @@ final class RemoteDesktopGeometryTests: XCTestCase {
     /// geometry draws the part of the frame it crops. A millionth of a device pixel is rounding,
     /// not reach.
     private func devicePixels(reachedBy remote: CGRect, in geometry: RemoteDesktopGeometry, frame: CGSize) -> CGRect {
-        let video = geometry.videoLayerFrame
+        let video = geometry.videoLayout.videoFrame
         let source = geometry.videoSourceRect.map {
             CGRect(x: Int($0.left), y: Int($0.top), width: Int($0.width), height: Int($0.height))
         } ?? CGRect(origin: .zero, size: frame)

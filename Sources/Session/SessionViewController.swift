@@ -1,5 +1,4 @@
 import AppKit
-import QuartzCore
 import RDPKit
 import RDPKitAppKit
 import SwiftUI
@@ -110,10 +109,6 @@ final class SessionViewController: NSViewController {
     private var viewerMetricsSummary: String?
     private var isMetricsOverlayVisible = false
     private var hasPresentedFrame = false
-    /// Numbers the frames handed to the display.
-    private var presentedFrameCount = 0
-    private var framePresentationBuffer = RDPFramePresentationBuffer()
-    private var framePacing = RDPFramePacingState()
     private var renderMetricsStore = RDPRenderMetricsStore()
     private let diagnosticsModel = RemoteSessionDiagnosticsModel()
     private var certificateTrustedByApp = false
@@ -126,8 +121,10 @@ final class SessionViewController: NSViewController {
     private var didClose = false
 
     private let canvasView = RemoteDesktopCanvasNSView()
+    /// Shows the first frame of a session at once and paces the rest to the
+    /// display, keeping the newest frame that waits for it.
+    private lazy var framePresenter = RDPFramePresenter(videoView: canvasView.displayView)
     private let titlebarBackdrop = NSVisualEffectView()
-    private let frameClockView = RDPFramePresentationClock()
     private var overlayHost: PassThroughHostingView<SessionOverlayRoot>?
     private var bannerHost: NSHostingView<SessionBannerRoot>?
     private var toastHost: PassThroughHostingView<SessionToastRoot>?
@@ -231,13 +228,17 @@ final class SessionViewController: NSViewController {
         }
         view.addSubview(canvasView)
 
+        // The presenter's clock is hidden and draws nothing; it only needs
+        // the window, whose display it paces frames to.
+        let frameClockView = framePresenter.clockView
         frameClockView.translatesAutoresizingMaskIntoConstraints = false
-        frameClockView.isHidden = true
-        frameClockView.onFrame = { [weak self] displayLink in
-            self?.displayLinkFrameArrived(displayLink)
+        framePresenter.onShow = { [weak self] presentation in
+            if self?.noteShownFrame(presentation) == true {
+                self?.render()
+            }
         }
-        frameClockView.onTimingChange = { [weak self] nextState in
-            self?.updateFramePacing(nextState)
+        framePresenter.onTimingChange = { [weak self] _ in
+            self?.updateFramePacing()
         }
         view.addSubview(frameClockView)
 
@@ -405,7 +406,9 @@ final class SessionViewController: NSViewController {
         hudModel.update(\.canShareClipboardTemporarily, to: commands.canShareClipboardTemporarily)
         hudModel.update(\.displays, to: commands.displays)
 
-        frameClockView.isEnabled = framePresentationClockEnabled
+        // Frames after the first wait for the display while connected;
+        // once not, the frame still waiting shows.
+        framePresenter.isPacing = isConnecting
         publishSessionCommandStateIfKey(commands)
     }
 
@@ -601,7 +604,7 @@ final class SessionViewController: NSViewController {
             rollingFramesPerSecond: renderMetrics.rollingFramesPerSecond(at: now),
             rollingWireMegabitsPerSecond: renderMetrics.rollingWireMegabitsPerSecond(at: now),
             averageWireMegabitsPerSecond: renderMetrics.averageWireMegabitsPerSecond(at: now),
-            framePacing: framePacing,
+            framePacing: framePresenter.timing,
             sessionEndReason: sessionEndReason,
             serverCertificateInfo: liveCertificate,
             viewerPixelSize: viewerPixelSize,
@@ -866,7 +869,6 @@ final class SessionViewController: NSViewController {
         liveCertificate = nil
         previewFrame = nil
         latestPresentedFrame = nil
-        presentedFrameCount = 0
         viewerMetricsSummary = nil
         resetFramePresentationState()
         renderMetricsStore.reset()
@@ -889,7 +891,7 @@ final class SessionViewController: NSViewController {
         let keyboard = RDPMacKeyboardLayout.current()
         canvasView.keyboard = keyboard
         connectionRequestsAudio = audioPlaybackEnabled
-        return RDPConnectionConfiguration(
+        var configuration = RDPConnectionConfiguration(
             target: target,
             credentials: credentials,
             timeoutSeconds: draft.timeoutSeconds,
@@ -913,9 +915,6 @@ final class SessionViewController: NSViewController {
             // RDPeek never exposes a graphics-profile picker: automatic lets
             // RDPKit negotiate the best path per host (Windows included).
             graphicsCapabilityProfile: .automatic,
-            keyboardLayout: keyboard.layout,
-            keyboardType: keyboard.type,
-            keyboardSubType: keyboard.subType,
             // A certificate that refuses ECDHE gets a second connection
             // within the run offering only RSA key exchange, before any
             // credential is sent; never a redirection's target.
@@ -928,6 +927,8 @@ final class SessionViewController: NSViewController {
             // the Mac's name; RDPKit cuts it to 15 characters.
             clientName: SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "RDPeek"
         )
+        configuration.keyboard = keyboard
+        return configuration
     }
 
     /// Runs the attempt on `session`. Its events, and what its handlers
@@ -963,8 +964,10 @@ final class SessionViewController: NSViewController {
                         force: shouldForceMetricsSnapshot,
                         at: decodedAt
                     )
-                    let presentationChanged = controller.presentDecodedFrame(presentation)
-                    if metricsChanged || presentationChanged {
+                    // The presenter renders for a frame it shows that
+                    // changes what the window shows.
+                    let skipChangedMetrics = controller.presentDecodedFrame(presentation)
+                    if metricsChanged || skipChangedMetrics {
                         controller.render()
                     }
                 },
@@ -1150,7 +1153,7 @@ final class SessionViewController: NSViewController {
         _ finishedReport: RDPConnectionReport,
         configuration: RDPConnectionConfiguration
     ) {
-        flushPendingFramePresentation()
+        framePresenter.flush()
         publishRenderMetricsSnapshotIfNeeded(force: true)
         let outcome = attemptBudget.outcome(after: finishedReport, host: configuration.host)
         attemptBudget.record(outcome)
@@ -1243,76 +1246,38 @@ final class SessionViewController: NSViewController {
 
     // MARK: - Frame presentation
 
+    /// Shows the frame now or at the display's next refresh, the first at
+    /// once. A frame that replaces one still waiting is a skipped
+    /// presentation; returns whether that changed the metrics shown.
     @discardableResult
     private func presentDecodedFrame(_ presentation: RDPDecodedFramePresentation) -> Bool {
-        // The first frame shows at once; later ones wait for the display's
-        // next refresh, unless there is no clock to wait for: none while the
-        // clock is off or the view has no window.
-        guard hasPresentedFrame, frameClockView.requestFrame() else {
-            return applyFramePresentation(presentation)
-        }
-
-        if framePresentationBuffer.replacePendingPresentation(presentation) {
-            let skippedAt = Date()
-            renderMetricsStore.recordSkippedPresentationFrame(at: skippedAt)
-            return publishRenderMetricsSnapshotIfNeeded(at: skippedAt)
-        }
-        return false
-    }
-
-    private var framePresentationClockEnabled: Bool {
-        isConnecting && hasPresentedFrame
-    }
-
-    private func displayLinkFrameArrived(_ displayLink: CADisplayLink) {
-        let nextFramePacing = framePacing.updatingDisplayLinkDuration(displayLink.duration)
-        let pacingChanged = updateFramePacing(nextFramePacing, shouldRender: false)
-        let presentationChanged = flushPendingFramePresentation()
-        if pacingChanged || presentationChanged {
-            render()
-        }
-    }
-
-    @discardableResult
-    private func updateFramePacing(
-        _ nextState: RDPFramePacingState,
-        shouldRender: Bool = true
-    ) -> Bool {
-        guard framePacing != nextState else {
+        guard framePresenter.present(presentation) == .replaced else {
             return false
         }
+        let skippedAt = Date()
+        renderMetricsStore.recordSkippedPresentationFrame(at: skippedAt)
+        return publishRenderMetricsSnapshotIfNeeded(at: skippedAt)
+    }
 
-        framePacing = nextState
+    /// The display's timing changed: the performance overlay shows it.
+    private func updateFramePacing() {
         updateViewerMetricsSummary(renderMetricsStore.metrics)
-        if shouldRender {
-            render()
-        }
-        return true
+        render()
     }
 
-    @discardableResult
-    private func flushPendingFramePresentation() -> Bool {
-        guard let pendingFramePresentation = framePresentationBuffer.takePendingPresentation() else {
-            return false
-        }
-        return applyFramePresentation(pendingFramePresentation)
-    }
-
-    /// Returns whether the canvas needs a render: on the first frame and
-    /// when the desktop's size or monitor layout changes. Every frame is
-    /// kept for Stats for Nerds without a render; AVC444 can alternate
-    /// codecs frame by frame. A frame handed to the video view counts as
-    /// presented whatever the display layer makes of it: the view recovers
-    /// from a failure by itself, and the session must not wait for it.
-    @discardableResult
-    private func applyFramePresentation(_ presentation: RDPDecodedFramePresentation) -> Bool {
+    /// Notes a frame the presenter showed. Returns whether the canvas needs
+    /// a render: on the first frame and when the desktop's size or monitor
+    /// layout changes. Every frame is kept for Stats for Nerds without a
+    /// render; AVC444 can alternate codecs frame by frame. A frame handed
+    /// to the video view counts as presented whatever the display layer
+    /// makes of it: the view recovers from a failure by itself, and the
+    /// session must not wait for it.
+    private func noteShownFrame(_ presentation: RDPDecodedFramePresentation) -> Bool {
         let wasFirstPresentedFrame = hasPresentedFrame == false
         let frame = presentation.frame
         let layoutChanged = previewFrame?.width != frame.width
             || previewFrame?.height != frame.height
             || previewFrame?.monitors != frame.monitors
-        presentedFrameCount += 1
-        canvasView.displayView.present(presentation, id: presentedFrameCount)
         latestPresentedFrame = frame
         if layoutChanged {
             previewFrame = RDPFrameMetadata(frame)
@@ -1342,7 +1307,7 @@ final class SessionViewController: NSViewController {
     @discardableResult
     private func updateViewerMetricsSummary(_ metrics: RDPRenderMetrics) -> Bool {
         let nextSummary = isMetricsOverlayVisible
-            ? compactViewerMetricsSummary(metrics: metrics, framePacing: framePacing, at: Date())
+            ? compactViewerMetricsSummary(metrics: metrics, framePacing: framePresenter.timing, at: Date())
             : nil
         if viewerMetricsSummary != nextSummary {
             viewerMetricsSummary = nextSummary
@@ -1358,10 +1323,11 @@ final class SessionViewController: NSViewController {
         startMetricsOverlayLoopIfNeeded()
     }
 
+    /// Drops the frame waiting and the one shown, so the next session's
+    /// first frame shows at once.
     private func resetFramePresentationState() {
-        framePresentationBuffer.clear()
+        framePresenter.clear()
         hasPresentedFrame = false
-        canvasView.displayView.clear()
     }
 
     // MARK: - Remote displays

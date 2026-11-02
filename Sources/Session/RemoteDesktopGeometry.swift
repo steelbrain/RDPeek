@@ -19,17 +19,15 @@ struct RemoteDesktopGeometry: Equatable, RDPRemotePointMapping {
     /// Where the shown area is drawn. Its origin is on a device pixel, so a desktop drawn one to
     /// one stays sharp.
     let contentRect: CGRect
-    /// Where the video layer goes. For the whole frame it is the canvas, shifted as
-    /// `contentRect` is, and the layer aspect-fits the video into it; for chosen displays it is
-    /// `contentRect`, which the cropped video fills.
-    let videoLayerFrame: CGRect
+    /// Where the video goes, as RDPKit lays it out for the viewport. For the whole frame its
+    /// layer is the canvas, shifted as `contentRect` is, and aspect-fits the video into it; for
+    /// chosen displays it is `contentRect`, which the cropped video fills, clipped to the device
+    /// pixels wholly inside the shown area, so none shows part of a display past it, as scaling
+    /// at the crop's edge could. The whole frame needs no clip.
+    let videoLayout: RDPRemoteDesktopVideoLayout
     /// The part of each frame the video shows: the chosen displays' bounding box, in remote
     /// pixels. nil for the whole frame.
     let videoSourceRect: RDPFrameRect?
-    /// What the video is clipped to: the device pixels wholly inside the shown area, so none
-    /// shows part of a display past it, as scaling at the crop's edge could. nil for the whole
-    /// frame, which needs no clip.
-    let clipRect: CGRect?
     /// The hidden parts of the shown area: gaps between chosen displays and the displays left
     /// out. Each grows to every device pixel the hidden area reaches into, so no sliver of a
     /// hidden display shows beside it.
@@ -60,21 +58,16 @@ struct RemoteDesktopGeometry: Equatable, RDPRemotePointMapping {
             backingScaleFactor: deviceScale
         )
         let contentRect = viewport.contentRect
+        // RDPKit puts the video where the viewport draws it. The whole frame gets the layer the
+        // canvas used before displays could be chosen: canvas-sized, it letterboxes the video
+        // itself, so a frame of a new size never stretches while its geometry catches up.
+        var videoLayout = RDPRemoteDesktopVideoLayout(viewport: viewport)
 
         self.contentRect = contentRect
         self.viewport = viewport
         if isWholeFrame {
-            // The layer the canvas used before displays could be chosen: canvas-sized, it
-            // letterboxes the video itself, so a frame of a new size never stretches while its
-            // geometry catches up. It moves as the content did to sit on a device pixel.
-            var unaligned = viewport
-            unaligned.backingScaleFactor = nil
-            let fitted = unaligned.contentRect
-            videoLayerFrame = contentRect.isEmpty
-                ? bounds
-                : bounds.offsetBy(dx: contentRect.minX - fitted.minX, dy: contentRect.minY - fitted.minY)
+            self.videoLayout = videoLayout
             videoSourceRect = nil
-            clipRect = nil
             coverRects = []
             self.visibleRects = nil
             return
@@ -99,19 +92,19 @@ struct RemoteDesktopGeometry: Equatable, RDPRemotePointMapping {
                 maxY: up(localY(rect.minY))
             )
         }
-        videoLayerFrame = contentRect
         videoSourceRect = RDPFrameRect(
             left: UInt16(clamping: Int(sourceRect.minX)),
             top: UInt16(clamping: Int(sourceRect.minY)),
             right: UInt16(clamping: Int(sourceRect.maxX)),
             bottom: UInt16(clamping: Int(sourceRect.maxY))
         )
-        clipRect = Self.rect(
+        videoLayout.clipRect = Self.rect(
             minX: up(localX(sourceRect.minX)),
             minY: up(localY(sourceRect.maxY)),
             maxX: down(localX(sourceRect.maxX)),
             maxY: down(localY(sourceRect.minY))
         )
+        self.videoLayout = videoLayout
         coverRects = Self.hiddenRects(in: sourceRect, visibleRects: shownRects).map(coverRect)
         self.visibleRects = shownRects
     }
