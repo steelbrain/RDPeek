@@ -11,13 +11,13 @@
   with both AVC flags, and Network Level Authentication works with
   certificates signed with RSASSA-PSS and SHA-384 or SHA-512.
 - A password typed at sign-in is kept only when the server checked it
-  before showing the desktop. On servers that don't, such as xrdp or
-  Windows without Network Level Authentication, a mistyped password is
-  no longer remembered or offered to other PCs; save the password in
-  the PC's settings instead.
+  before showing the desktop. On servers that don't, such as xrdp or a
+  Windows PC set to the TLS security layer, a mistyped password is no
+  longer remembered or offered to other PCs; save the password in the
+  PC's settings instead.
 - Remember in Keychain on the sign-in sheet applies to the PC's own
-  account only, and a PC added with just a host takes the account you
-  sign in with, so its next connection doesn't ask again.
+  account only, and a PC added with just a host takes the account of a
+  sign-in the server checked, so its next connection doesn't ask again.
 - Unchecking Remember in Keychain at sign-in forgets the saved
   password even when RDPeek couldn't read it, and the sign-in sheet
   says when the Keychain refused access.
@@ -33,7 +33,9 @@
 - ⌃ and ⌘ shortcuts land on the keys they are labelled on with
   Turkish F, German – Standard, Slovenian – QWERTZ, ABC – QWERTZ,
   ABC – AZERTY, Romanian, Finnish – Extended and Latvian, whose remote
-  layouts put letters on other keys.
+  layouts put letters on other keys. Latvian sessions get US English,
+  whose letters match it. A Windows session left signed in from before
+  keeps its old layout, so sign out of it once.
 - On JIS keyboards, 英数 and かな no longer type a space on the remote,
   and the keypad comma types “,”.
 - Releasing ⌘ or right ⌥ pressed while ⇧, ⌃ or left ⌥ was down, or
@@ -44,7 +46,7 @@
 - Scrolling a session window in the background scrolls what is under
   the pointer, also on servers that scroll at their own pointer.
 - A dead key typed right after one that went as an Alt shortcut
-  composes the next key, as on German – Standard.
+  composes the next key, also on layouts such as German – Standard.
 
 ### Sessions
 
@@ -94,18 +96,20 @@
   per file.
 - When clipboard access for RDPeek is off in System Settings, RDPeek
   says so instead of emptying the remote clipboard with each copy.
-- Turning sharing off or copying something else stops reading a copied
-  file, such as one iCloud is still downloading.
-- Remote downloads left by an earlier run are removed once they are an
-  hour old, so a second copy of RDPeek no longer deletes the files the
-  first is downloading.
+- Turning sharing off or copying something else stops reading copied
+  files, and a copied file that grew past 32 MiB is no longer read
+  whole.
+- A later launch removes remote downloads an earlier run left only once
+  they are an hour old, so a second copy of RDPeek no longer deletes
+  the files the first is downloading.
 
 ### Connection Center
 
 - Edit PC… (⌘E) and Duplicate PC (⌘D) in the File menu act on the
   selected PC.
 - Saving or deleting a PC no longer freezes RDPeek while a Keychain
-  prompt waits; the editor's buttons wait for it instead.
+  prompt waits; the editor's buttons wait for a save, and a deletion
+  finishes in the background.
 - A PC can be saved when the editor could not read its password, and a
   password typed while a session turned on Remember is the one kept.
 - A password a session saves just as its PC is deleted is removed too,
