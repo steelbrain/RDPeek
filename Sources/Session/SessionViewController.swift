@@ -147,8 +147,10 @@ final class SessionViewController: NSViewController {
         clipboard = SessionClipboard.makeBridge(isSharingEnabled: draft.clipboardSharingEnabled)
         audioPlaybackEnabled = draft.audioPlaybackEnabled
         super.init(nibName: nil, bundle: nil)
+        // A toast names the limits this bridge holds the server's copies to.
+        let downloadLimits = clipboard.downloadLimits
         clipboard.onEvent = { [weak self] event in
-            if let toast = SessionClipboard.toast(for: event) {
+            if let toast = SessionClipboard.toast(for: event, limits: downloadLimits) {
                 self?.toast(toast.text, systemImage: toast.systemImage)
             }
         }

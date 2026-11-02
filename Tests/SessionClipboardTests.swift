@@ -32,8 +32,10 @@ final class SessionClipboardTests: XCTestCase {
     // MARK: - Toasts
 
     /// Each event, with each reason it carries, shows the toast RDPeek's own
-    /// bridge showed for it, word for word.
+    /// bridge showed for it, word for word, with the limits RDPeek's bridge
+    /// has: RDPKit's defaults.
     func testEachClipboardEventShowsRDPeeksToast() {
+        let limits = RDPClipboardDownloadLimits()
         let url = URL(fileURLWithPath: "/tmp/notes.txt")
         let copied = "doc.on.clipboard"
         let synced = "doc.on.clipboard.fill"
@@ -84,14 +86,30 @@ final class SessionClipboardTests: XCTestCase {
             (.temporarySharingEnded, "Clipboard sharing ended", copied),
         ]
         for (event, text, systemImage) in shown {
-            let toast = SessionClipboard.toast(for: event)
+            let toast = SessionClipboard.toast(for: event, limits: limits)
             XCTAssertEqual(toast?.text, text, "\(event)")
             XCTAssertEqual(toast?.systemImage, systemImage, "\(event)")
         }
 
         // The server's clipboard emptied while the pasteboard holds something
         // else is no news.
-        XCTAssertNil(SessionClipboard.toast(for: .remoteClipboardEmptied(clearedHere: false)))
+        XCTAssertNil(SessionClipboard.toast(for: .remoteClipboardEmptied(clearedHere: false), limits: limits))
+    }
+
+    /// The limits a remote copy went over are the bridge's own; the limit on
+    /// the pasteboard's files is the one the bridge reads them with, RDPKit's
+    /// default whatever the download limits.
+    func testTheToastsNameTheBridgesLimits() {
+        let limits = RDPClipboardDownloadLimits(maximumTotalByteCount: 8 * 1_024 * 1_024, maximumFileCount: 2_500)
+        let named: [(RDPPasteboardClipboard.Event, String)] = [
+            (.remoteFilesRefused(.totalByteLimitExceeded), "Remote files exceed 8 MiB"),
+            (.remoteFilesRefused(.fileCountLimitExceeded), "Remote copy has more than 2,500 files"),
+            (.downloadFailed(.totalByteLimitExceeded), "Remote files exceed 8 MiB"),
+            (.localFilesNotShared(.totalByteLimitExceeded), "Local clipboard files exceed 32 MiB; remote clipboard cleared"),
+        ]
+        for (event, text) in named {
+            XCTAssertEqual(SessionClipboard.toast(for: event, limits: limits)?.text, text, "\(event)")
+        }
     }
 
     // MARK: - Earlier runs' downloads

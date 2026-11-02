@@ -21,9 +21,10 @@ enum SessionClipboard {
 
     /// The bridge for a session window. A remote copy may hold what RDPKit's
     /// defaults allow, 32 MiB and 1,000 files, each request answered within
-    /// two minutes; a temporary share lasts 30 seconds. The toasts, the HUD
-    /// and the Session menu name them. The first bridge in a run clears what
-    /// earlier runs left.
+    /// two minutes, which the toasts word from the bridge's `downloadLimits`;
+    /// a temporary share lasts 30 seconds, which the toasts, the HUD and the
+    /// Session menu name. The first bridge in a run clears what earlier runs
+    /// left.
     static func makeBridge(isSharingEnabled: Bool) -> RDPPasteboardClipboard {
         removeEarlierDownloadsOnce(in: downloadRoot, pasteboard: .general, now: Date())
         return RDPPasteboardClipboard(
@@ -51,10 +52,13 @@ enum SessionClipboard {
         )
     }
 
-    /// The toast for `event`, or nil for one RDPeek shows none for. The
-    /// switch has no default, so a case RDPKit adds fails the build until it
-    /// is worded here.
-    static func toast(for event: RDPPasteboardClipboard.Event) -> SessionToast? {
+    /// The toast for `event`, of a bridge with `limits`, or nil for one
+    /// RDPeek shows none for. The switch has no default, so a case RDPKit
+    /// adds fails the build until it is worded here.
+    static func toast(
+        for event: RDPPasteboardClipboard.Event,
+        limits: RDPClipboardDownloadLimits
+    ) -> SessionToast? {
         switch event {
         case .localTextShared:
             SessionToast(text: "Clipboard synced", systemImage: "doc.on.clipboard.fill")
@@ -92,7 +96,10 @@ enum SessionClipboard {
                 )
                 : nil
         case let .remoteFilesRefused(error):
-            SessionToast(text: remoteFilesRefusedMessage(for: error), systemImage: "exclamationmark.triangle")
+            SessionToast(
+                text: remoteFilesRefusedMessage(for: error, limits: limits),
+                systemImage: "exclamationmark.triangle"
+            )
         case let .downloadProgress(progress):
             SessionToast(
                 text: progress.fileCount == 1
@@ -103,7 +110,10 @@ enum SessionClipboard {
         case let .remoteFilesCopied(download):
             SessionToast(text: remoteFilesCopiedMessage(for: download), systemImage: "doc.on.clipboard")
         case let .downloadFailed(failure):
-            SessionToast(text: downloadFailureMessage(for: failure), systemImage: "exclamationmark.triangle")
+            SessionToast(
+                text: downloadFailureMessage(for: failure, limits: limits),
+                systemImage: "exclamationmark.triangle"
+            )
         case .temporarySharingStarted:
             SessionToast(text: "Sharing clipboard for 30 seconds", systemImage: "clock")
         case .temporarySharingEnded:
@@ -111,6 +121,8 @@ enum SessionClipboard {
         }
     }
 
+    /// The bridge reads the pasteboard's files with RDPKit's default limit,
+    /// not its `downloadLimits`.
     private static func localFilesNotSharedMessage(for error: RDPClipboardLocalFileReadError) -> String {
         switch error {
         case .notARegularFile:
@@ -120,11 +132,15 @@ enum SessionClipboard {
         case .unreadable:
             "Local file clipboard could not be read; remote clipboard cleared"
         case .totalByteLimitExceeded:
-            "Local clipboard files exceed 32 MiB; remote clipboard cleared"
+            "Local clipboard files exceed \(mebibytes(RDPClipboardLocalFile.defaultMaximumTotalByteCount)) MiB; "
+                + "remote clipboard cleared"
         }
     }
 
-    private static func remoteFilesRefusedMessage(for error: RDPClipboardRemoteFileTransferPlanningError) -> String {
+    private static func remoteFilesRefusedMessage(
+        for error: RDPClipboardRemoteFileTransferPlanningError,
+        limits: RDPClipboardDownloadLimits
+    ) -> String {
         switch error {
         case .emptyFileList:
             "Remote file clipboard is empty"
@@ -133,9 +149,9 @@ enum SessionClipboard {
         case .invalidFileIndex:
             "Remote file index is not valid"
         case .totalByteLimitExceeded:
-            "Remote files exceed 32 MiB"
+            "Remote files exceed \(mebibytes(limits.maximumTotalByteCount)) MiB"
         case .fileCountLimitExceeded:
-            "Remote copy has more than 1,000 files"
+            "Remote copy has more than \(grouped(limits.maximumFileCount)) files"
         }
     }
 
@@ -152,7 +168,10 @@ enum SessionClipboard {
 
     /// Why a download failed. A download a newer copy or the session's end
     /// replaced has no failure: what replaced it says so itself.
-    private static func downloadFailureMessage(for failure: RDPPasteboardClipboard.DownloadFailure) -> String {
+    private static func downloadFailureMessage(
+        for failure: RDPPasteboardClipboard.DownloadFailure,
+        limits: RDPClipboardDownloadLimits
+    ) -> String {
         switch failure {
         case .timedOut:
             "Remote file transfer timed out"
@@ -161,7 +180,7 @@ enum SessionClipboard {
         case .incomplete:
             "Remote file transfer was incomplete"
         case .totalByteLimitExceeded:
-            "Remote files exceed 32 MiB"
+            "Remote files exceed \(mebibytes(limits.maximumTotalByteCount)) MiB"
         case .folderNotCreated:
             "Remote files could not be prepared"
         case .notSaved:
@@ -171,5 +190,16 @@ enum SessionClipboard {
         case .pasteboardRefused:
             "Remote files could not be copied"
         }
+    }
+
+    /// A limit of `byteCount` bytes, in whole MiB.
+    private static func mebibytes<Count: BinaryInteger>(_ byteCount: Count) -> String {
+        grouped(byteCount / (1_024 * 1_024))
+    }
+
+    /// `number` with its thousands grouped as in English, the toasts'
+    /// language, whatever the Mac's region: "1,000".
+    private static func grouped<Number: BinaryInteger>(_ number: Number) -> String {
+        number.formatted(IntegerFormatStyle<Number>(locale: Locale(identifier: "en_US")))
     }
 }
