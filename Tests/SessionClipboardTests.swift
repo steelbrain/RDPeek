@@ -7,7 +7,6 @@ private final class RecordedDownload: @unchecked Sendable {
     let copyNumber: Int
     let directory: URL
     let limits: RDPClipboardDownloadLimits
-    let progress: (@Sendable (RDPClipboardDownloadProgress) async -> Void)?
     /// The bridge's task that waits for it, once the test has looked it up.
     @MainActor var bridgeTask: Task<Void, Never>?
     private let lock = NSLock()
@@ -15,16 +14,10 @@ private final class RecordedDownload: @unchecked Sendable {
     private var outcome: Result<[Data], Error>?
     private var cancelled = false
 
-    init(
-        copyNumber: Int,
-        directory: URL,
-        limits: RDPClipboardDownloadLimits,
-        progress: (@Sendable (RDPClipboardDownloadProgress) async -> Void)?
-    ) {
+    init(copyNumber: Int, directory: URL, limits: RDPClipboardDownloadLimits) {
         self.copyNumber = copyNumber
         self.directory = directory
         self.limits = limits
-        self.progress = progress
     }
 
     /// Whether the bridge cancelled the download's task.
@@ -167,7 +160,10 @@ private final class RecordedClipboard: SessionClipboardSending, @unchecked Senda
 
     /// Writes the files with `writeFile` under the names the plan gives
     /// them, as RDPClipboardSession does, once the test finishes the
-    /// download with their contents.
+    /// download with their contents. Reports progress as RDPKit does: each
+    /// file as it starts, the first before anything is asked for, then
+    /// once its size is known and after its one range, awaiting each
+    /// report.
     func downloadRemoteFiles(
         _ plan: RDPClipboardDownloadPlan,
         copyNumber: Int,
@@ -175,11 +171,28 @@ private final class RecordedClipboard: SessionClipboardSending, @unchecked Senda
         progress: (@Sendable (RDPClipboardDownloadProgress) async -> Void)?,
         writeFile: @Sendable (Data, URL) throws -> Void
     ) async throws -> RDPClipboardDownload {
-        let download = RecordedDownload(copyNumber: copyNumber, directory: directory, limits: plan.limits, progress: progress)
+        func report(_ offset: Int, received: Int = 0, of byteCount: Int? = nil) async {
+            await progress?(RDPClipboardDownloadProgress(
+                fileOffset: offset,
+                fileCount: plan.files.count,
+                fileName: plan.files[offset].fileName,
+                receivedByteCount: UInt64(received),
+                fileByteCount: byteCount.map(UInt64.init)
+            ))
+        }
+        await report(0)
+        let download = RecordedDownload(copyNumber: copyNumber, directory: directory, limits: plan.limits)
         lock.withLock { recordedDownloads.append(download) }
         let contents = try await download.contents()
         var fileURLs: [URL] = []
-        for (file, data) in zip(plan.files, contents) {
+        for (offset, (file, data)) in zip(plan.files, contents).enumerated() {
+            if offset > 0 {
+                await report(offset)
+            }
+            await report(offset, of: data.count)
+            if data.isEmpty == false {
+                await report(offset, received: data.count, of: data.count)
+            }
             let fileURL = directory.appendingPathComponent(file.fileName, isDirectory: false)
             try writeFile(data, fileURL)
             fileURLs.append(fileURL)
@@ -1433,9 +1446,8 @@ final class SessionClipboardTests: XCTestCase {
     }
 
     /// VoiceOver reads each toast, so a copy of many files says how far it
-    /// is once per tenth of them. RDPKit reports a file before each of its
-    /// requests, and late on the main thread, so only a later file counts,
-    /// and only while its download is under way.
+    /// is once per tenth of them. RDPKit reports each file as it starts,
+    /// and again as it comes, which is no news.
     func testDownloadingManyRemoteFilesToastsOncePerTenth() async throws {
         let session = RecordedClipboard()
         let clipboard = makeClipboard()
@@ -1443,26 +1455,8 @@ final class SessionClipboardTests: XCTestCase {
         clipboard.onToast = { text, _ in toasts.append(text) }
         clipboard.attach(session)
 
-        let download = try await startRemoteFileDownload(makeFileList(fileCount: 30), to: clipboard, from: session)
-        let progress = try XCTUnwrap(download.progress)
-        func report(_ fileOffset: Int) async {
-            await progress(RDPClipboardDownloadProgress(
-                fileOffset: fileOffset,
-                fileCount: 30,
-                fileName: "\(fileOffset).txt",
-                receivedByteCount: 0,
-                fileByteCount: nil
-            ))
-        }
-        for fileOffset in 0 ..< 30 {
-            await report(fileOffset)
-            await report(fileOffset)
-        }
-        await report(2)
-        try await waitUntil { toasts.count == 10 }
-        try await finishRemoteFileDownload((0 ..< 30).map { _ in Data() }, from: session)
-        await report(29)
-        try await Task.sleep(nanoseconds: 50_000_000)
+        try await startRemoteFileDownload(makeFileList(fileCount: 30), to: clipboard, from: session)
+        try await finishRemoteFileDownload((0 ..< 30).map { Data(count: $0) }, from: session)
 
         XCTAssertEqual(
             toasts,

@@ -350,7 +350,7 @@ final class SessionClipboard {
             return
         }
         // Planned before the download, so a copy RDPKit would refuse gets
-        // no folder, and the first toast names its first file.
+        // no folder.
         let plan: RDPClipboardDownloadPlan
         let directory: URL
         do {
@@ -364,10 +364,10 @@ final class SessionClipboard {
             return
         }
         let id = UUID()
+        // Awaited: RDPKit waits for each report, so they arrive in order,
+        // and the last before the download returns.
         let progress: @Sendable (RDPClipboardDownloadProgress) async -> Void = { [weak self] progress in
-            Task { @MainActor [self] in
-                self?.receiveDownloadProgress(progress, of: id)
-            }
+            await self?.receiveDownloadProgress(progress, of: id)
         }
         let task = Task { [weak self] in
             let outcome: Result<RDPClipboardDownload, Error>
@@ -387,7 +387,6 @@ final class SessionClipboard {
             self?.finishFileDownload(id, with: outcome, in: directory)
         }
         fileDownload = SessionRemoteClipboardFileDownload(id: id, task: task, directory: directory)
-        toastDownloadProgress(fileOffset: 0, fileCount: plan.files.count, fileName: plan.files[0].fileName)
     }
 
     /// Whether no publish has replaced remote copy `copyNumber` on the
@@ -612,27 +611,21 @@ final class SessionClipboard {
     // MARK: - Remote file downloads
 
     /// Says which file of download `id` is coming, while it is the download
-    /// under way. RDPKit reports each file before each of its requests, on
-    /// its own thread, so only a later file is news.
+    /// under way: a newer copy can discard it while a report is on its way
+    /// here. RDPKit reports each file as it starts, then as it comes; only
+    /// its start is news.
     private func receiveDownloadProgress(_ progress: RDPClipboardDownloadProgress, of id: UUID) {
-        guard var fileDownload,
-              fileDownload.id == id,
-              progress.fileOffset > fileDownload.reportedFileOffset
-        else {
+        guard fileDownload?.id == id, progress.fileByteCount == nil else {
             return
         }
-        fileDownload.reportedFileOffset = progress.fileOffset
-        self.fileDownload = fileDownload
-        toastDownloadProgress(fileOffset: progress.fileOffset, fileCount: progress.fileCount, fileName: progress.fileName)
-    }
-
-    private func toastDownloadProgress(fileOffset offset: Int, fileCount: Int, fileName: String) {
+        let offset = progress.fileOffset
+        let fileCount = progress.fileCount
         // VoiceOver reads each toast, so a copy of many files says how far
         // it is once per tenth of them.
         guard offset == 0 || offset * 10 / fileCount != (offset - 1) * 10 / fileCount else {
             return
         }
-        let message = fileCount == 1 ? "Downloading \(fileName)" : "Downloading file \(offset + 1) of \(fileCount)"
+        let message = fileCount == 1 ? "Downloading \(progress.fileName)" : "Downloading file \(offset + 1) of \(fileCount)"
         onToast(message, "arrow.down.doc")
     }
 
@@ -831,6 +824,4 @@ private struct SessionRemoteClipboardFileDownload {
     let id: UUID
     let task: Task<Void, Never>
     let directory: URL
-    /// The file the toasts last said was coming.
-    var reportedFileOffset = 0
 }
