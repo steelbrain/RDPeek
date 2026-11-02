@@ -676,6 +676,43 @@ final class SessionModelsTests: XCTestCase {
         )
     }
 
+    func testADesktopShownBeforeARedirectionStillCounts() {
+        // GNOME Remote Login streamed its sign-in screen, then passed the
+        // session on to the user's desktop, which never showed: the run
+        // showed a desktop, so it ends there rather than starting over at
+        // the sign-in screen, and is not taken for a rejected sign-in.
+        let lastHopFailed = makeReport(
+            redirectionDepth: 2,
+            failure: .noFramePresented(framesReceived: 0, lastNotPresentedReason: nil),
+            runPresentedFrameCount: 40
+        )
+        XCTAssertNil(lastHopFailed.presentedFrameCount)
+        XCTAssertEqual(outcome(after: lastHopFailed), .end(RDPSessionEndReason(
+            kind: .ended,
+            message: "The remote computer did not show the desktop in time."
+        )))
+        let refusedOnTheTarget = makeReport(
+            stage: "credssp",
+            redirectionDepth: 1,
+            failure: .credSSP(status: .logonFailure),
+            runPresentedFrameCount: 40
+        )
+        XCTAssertEqual(outcome(after: refusedOnTheTarget), .end(RDPSessionEndReason(
+            kind: .ended,
+            message: "The user name or password is incorrect."
+        )))
+        XCTAssertEqual(endReason(lastHopFailed).title, "Disconnected")
+
+        // A run that showed nothing anywhere still gets its retry.
+        XCTAssertEqual(
+            outcome(after: makeReport(
+                redirectionDepth: 2,
+                failure: .noFramePresented(framesReceived: 0, lastNotPresentedReason: nil)
+            )),
+            .retry(.firstFrameTimeout)
+        )
+    }
+
     func testCancelledRunEndsAsCancelled() {
         XCTAssertEqual(outcome(after: makeReport(stage: "credssp", failure: .cancelled)), .end(.cancelled))
     }
@@ -956,7 +993,8 @@ final class SessionModelsTests: XCTestCase {
         errorInfo: UInt32? = nil,
         failure: RDPConnectionFailure? = nil,
         error: String? = nil,
-        presentedFrameCount: Int? = nil
+        presentedFrameCount: Int? = nil,
+        runPresentedFrameCount: Int? = nil
     ) -> RDPConnectionReport {
         let failed = failure != nil || error != nil
         var report = RDPConnectionReport(
@@ -974,6 +1012,8 @@ final class SessionModelsTests: XCTestCase {
             failure: failure
         )
         report.presentedFrameCount = presentedFrameCount
+        // The run counts this connection's frames too.
+        report.runPresentedFrameCount = runPresentedFrameCount ?? presentedFrameCount
         return report
     }
 }

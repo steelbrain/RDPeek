@@ -117,9 +117,10 @@ struct RDPSessionEndReason: Equatable {
     /// Why a session RDPKit ran ended, in plain words, from the report's
     /// typed failure and the server's termination; the report keeps RDPKit's
     /// own text for Diagnostics. Once the desktop was shown the session
-    /// ended rather than failed, however it ended: the report's
-    /// `presentedFrameCount` tells, not its first frame, which came whether
-    /// or not it was shown. `host` is the server typed in.
+    /// ended rather than failed, however it ended, also when a Server
+    /// Redirection's target failed after it: the report's
+    /// `runPresentedFrameCount` tells, not its first frame, which came
+    /// whether or not it was shown. `host` is the server typed in.
     init(report: RDPConnectionReport, host: String) {
         let showedDesktop = report.showedDesktop
         let termination = report.remoteTermination.flatMap(Self.terminationMessage)
@@ -417,9 +418,10 @@ struct RDPSessionEndReason: Equatable {
 
 extension RDPConnectionReport {
     /// Whether the session showed the desktop: the frame handler showed a
-    /// frame.
+    /// frame on any connection of the run, as on GNOME's sign-in screen
+    /// before it passes the session on to the user's desktop.
     var showedDesktop: Bool {
-        (presentedFrameCount ?? 0) > 0
+        (runPresentedFrameCount ?? 0) > 0
     }
 }
 
