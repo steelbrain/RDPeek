@@ -1157,7 +1157,6 @@ final class SessionClipboardTests: XCTestCase {
             (RDPClipboardDownloadError.refused, "Remote file transfer failed"),
             (RDPClipboardDownloadError.incomplete, "Remote file transfer was incomplete"),
             (RDPClipboardDownloadError.totalByteLimitExceeded, "Remote files exceed 32 MiB"),
-            (RDPClipboardRemoteFileTransferPlanningError.fileCountLimitExceeded, "Remote copy has more than 1,000 files"),
             (DiskFull(), "Remote file could not be saved"),
             (RDPClipboardDownloadError.replaced, nil),
             (RDPClipboardDownloadError.sessionEnded, nil),

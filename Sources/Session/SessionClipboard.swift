@@ -386,17 +386,7 @@ final class SessionClipboard {
             }
             self?.finishFileDownload(id, with: outcome, in: directory)
         }
-        fileDownload = SessionRemoteClipboardFileDownload(
-            id: id,
-            task: task,
-            directory: directory,
-            // RDPKit keeps only the last part of a name, so a name with a
-            // path leaves out its folders too, which RDPKit's
-            // `leavesOutFolders` does not count.
-            namesFolders: descriptorList.descriptors.contains { descriptor in
-                descriptor.fileName.contains { $0 == "\\" || $0 == "/" }
-            }
-        )
+        fileDownload = SessionRemoteClipboardFileDownload(id: id, task: task, directory: directory)
         toastDownloadProgress(fileOffset: 0, fileCount: plan.files.count, fileName: plan.files[0].fileName)
     }
 
@@ -683,13 +673,14 @@ final class SessionClipboard {
         pasteboardChangeCount = pasteboard.changeCount
         remoteCopyChangeCount = pasteboardChangeCount
         copiedDownload = (directory, pasteboardChangeCount)
-        let leavesOutFolders = download.leavesOutFolders || fileDownload.namesFolders
+        // RDPKit leaves out folders: entries for them, and those a name
+        // carries.
         let fileCount = download.fileURLs.count
         if fileCount == 1, let fileName = download.fileURLs.first?.lastPathComponent {
-            let copied = leavesOutFolders ? "Remote file copied without its folder" : "Remote file copied"
+            let copied = download.leavesOutFolders ? "Remote file copied without its folder" : "Remote file copied"
             onToast("\(copied): \(fileName)", "doc.on.clipboard")
         } else {
-            let folders = leavesOutFolders ? " without their folders" : ""
+            let folders = download.leavesOutFolders ? " without their folders" : ""
             onToast("\(fileCount) remote files copied\(folders)", "doc.on.clipboard")
         }
     }
@@ -720,8 +711,6 @@ final class SessionClipboard {
             case .totalByteLimitExceeded:
                 "Remote files exceed 32 MiB"
             }
-        case let error as RDPClipboardRemoteFileTransferPlanningError:
-            planningMessage(for: error)
         case is CancellationError:
             nil
         default:
@@ -842,8 +831,6 @@ private struct SessionRemoteClipboardFileDownload {
     let id: UUID
     let task: Task<Void, Never>
     let directory: URL
-    /// Whether a file's name has folders, which are left out.
-    let namesFolders: Bool
     /// The file the toasts last said was coming.
     var reportedFileOffset = 0
 }
