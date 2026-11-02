@@ -642,9 +642,9 @@ final class SessionClipboard {
 
     /// Puts the files of download `id` on the pasteboard, unless a newer
     /// copy discarded them, or says why it failed. Discarding a download
-    /// cancelled it and removed its folder, but a file RDPKit was writing
-    /// then still lands in `directory`, so a discarded download's folder is
-    /// removed again once its task ends.
+    /// cancelled it and removed its folder, but RDPKit finishes a file it
+    /// was writing then, into `directory`, before the download returns, so
+    /// a discarded download's folder is removed again here, once it has.
     private func finishFileDownload(
         _ id: UUID,
         with outcome: Result<RDPClipboardDownload, Error>,

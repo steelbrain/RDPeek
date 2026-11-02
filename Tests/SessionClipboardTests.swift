@@ -69,7 +69,9 @@ private final class PacedSession: SessionClipboardSending, @unchecked Sendable {
     }
 
     /// RDPKit's download, which, when told to, ends only once its task is
-    /// cancelled, however RDPKit ended it, and then writes one more file.
+    /// cancelled, however RDPKit ended it, and then writes one more file,
+    /// as RDPKit finishes a write under way at the cancel before it
+    /// returns.
     func downloadRemoteFiles(
         _ plan: RDPClipboardDownloadPlan,
         copyNumber: Int,
@@ -1523,8 +1525,8 @@ final class SessionClipboardTests: XCTestCase {
     }
 
     /// A file RDPKit was still writing as a newer copy dropped its download
-    /// lands after the bridge removed the download's folder; the folder
-    /// goes again once the download ends.
+    /// lands after the bridge removed the download's folder, before the
+    /// download returns; the folder goes again once it has.
     func testAFileWrittenAsItsDownloadIsDroppedGoesWithItsFolder() async throws {
         let clipboard = makeClipboard()
         let server = try await connectServer(to: clipboard, attachesOnReady: false)
