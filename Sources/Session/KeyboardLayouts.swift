@@ -43,6 +43,12 @@ enum MacRDPKeyboardLayout {
     /// FreeRDP's mapping (libfreerdp/locale/keyboard_apple.c), except where it names a
     /// language ID Windows 11 has no layout for: Australian and the Arabic PC layouts get the
     /// Windows layouts they mirror, and Afghan Uzbek, Inuktitut and Myanmar fall back to US.
+    /// It also departs where that Windows layout puts the Mac layout's letters on other keys, so
+    /// that ⌃ and ⌘ chords, which go as scancodes, land on the keys they are labelled on:
+    /// Romanian, Finnish Extended and Latvian get a Windows layout with their letters on the
+    /// same keys, and so do ABC AZERTY, ABC QWERTZ, German DIN 2137, Slovenian QWERTZ and
+    /// Turkish Standard, which would otherwise fall back to US. The installed-layouts test in
+    /// RemoteInputMappingTests checks the letters.
     /// A layout added here needs its table in WindowsKeyboardLayoutTables.swift, which RDPKit's
     /// Examples/RDPClient/Scripts/generate-windows-keyboard-layout-tables.py generates.
     static let windowsLayouts: [String: UInt32] = [
