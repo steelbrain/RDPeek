@@ -140,6 +140,9 @@ struct DeviceCardView: View {
                         }
                 }
                 .buttonStyle(.plain)
+                // Hidden until hovered, so no Tab stop: Return connects the
+                // selected card.
+                .focusable(false)
                 .help("Connect")
                 .padding(10)
                 .opacity(isHovering ? 1 : 0)
