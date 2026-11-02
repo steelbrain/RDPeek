@@ -180,25 +180,6 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         XCTAssertTrue(zip(firstCovers, covers(of: canvas)).allSatisfy { $0 === $1 })
     }
 
-    // MARK: - RDPKit's video view
-
-    /// RDPKit's suite has no test of this yet, so it stays here.
-    func testAScaleChangeDoesNotAnimateTheVideo() throws {
-        // The window moving to a display of another scale, once the layers are on screen:
-        // layers that haven't been committed yet never animate.
-        let canvas = makeCanvas(size: CGSize(width: 1440, height: 872), scale: 2, showing: wideFrame)
-        let window = try XCTUnwrap(canvas.window as? TestWindow)
-        let displayLayer = canvas.displayView.displayLayer
-        XCTAssertEqual(displayLayer.contentsScale, 2)
-        CATransaction.flush()
-
-        window.scale = 1
-        canvas.displayView.viewDidChangeBackingProperties()
-
-        XCTAssertEqual(displayLayer.contentsScale, 1)
-        XCTAssertNil(displayLayer.animationKeys())
-    }
-
     // MARK: - Helpers
 
     /// Three displays side by side, 2560 x 1440 | 1920 x 1080 | 2560 x 1440.
