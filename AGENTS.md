@@ -15,7 +15,8 @@ Layer boundaries:
 - `Sources/ConnectionCenter` — the Connection Center window: device grid,
   cards, editor.
 - `Sources/Session` — one remote session: window controller, view
-  controller, canvas, input capture, SwiftUI HUD overlays.
+  controller, the canvas that hosts RDPKitAppKit's video and input
+  views, SwiftUI HUD overlays.
 - `Sources/Diagnostics` — the Stats for Nerds window.
 - `Sources/Storage` — device profiles (UserDefaults), credentials and
   client licenses (Keychain), the in-memory cache of passwords signed
@@ -23,17 +24,19 @@ Layer boundaries:
 
 The session core (`SessionViewController`) is adapted from RDPKit's
 example client; it runs each connection attempt on RDPKit's
-`RDPLiveSession`, and the input view, video view and frame clock come
-from RDPKitAppKit. When changing connection, clipboard, display-control,
-or credential behavior, compare against `Examples/RDPClient` in the
-RDPKit repository first — it is the reference implementation.
+`RDPLiveSession`, and the input view, video view and frame presenter
+come from RDPKitAppKit. When changing connection, clipboard,
+display-control, or credential behavior, compare against
+`Examples/RDPClient` in the RDPKit repository first — it is the
+reference implementation.
 
 ## UI Conventions
 
-- The session window is an AppKit `NSViewController` owning the video
-  canvas and input capture; all chrome (overlays, banners, toasts, the
+- The session window is an AppKit `NSViewController` owning the
+  canvas, which hosts RDPKitAppKit's video view and input view
+  (`RDPRemoteInputView`); all chrome (overlays, banners, toasts, the
   titlebar accessory) is SwiftUI hosted in `NSHostingView`s.
-- Layers above the input-capture view must never steal events while a
+- Layers above the input view must never steal events while a
   session is active: use `PassThroughHostingView` for informational
   layers, and hide interactive overlays when the phase is `.active`.
 - Do not hide the host macOS cursor over the remote desktop.
