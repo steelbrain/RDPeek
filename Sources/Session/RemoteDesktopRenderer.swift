@@ -221,8 +221,13 @@ final class RemoteDesktopSampleBufferNSView: NSView {
         }
     }
 
+    /// `contentsScale` animates, and the display layer has no view to turn its implicit
+    /// actions off, so a move to a display of another scale would animate the video.
     private func updateContentsScale() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         displayLayer.contentsScale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
+        CATransaction.commit()
     }
 
     // macOS 15 deprecates the layer's own queue for its `sampleBufferRenderer`, which these use

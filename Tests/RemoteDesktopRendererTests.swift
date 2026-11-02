@@ -101,6 +101,24 @@ final class RemoteDesktopSampleBufferViewTests: XCTestCase {
         XCTAssertNil(renderer.error)
     }
 
+    // MARK: - Display scale
+
+    func testAScaleChangeDoesNotAnimateTheVideo() throws {
+        // The window moving to a display of another scale, once the layers are on screen:
+        // layers that haven't been committed yet never animate.
+        let view = makeView()
+        let window = try XCTUnwrap(view.window as? TestWindow)
+        let displayLayer = try XCTUnwrap(displayLayer(of: view))
+        XCTAssertEqual(displayLayer.contentsScale, 2)
+        CATransaction.flush()
+
+        window.scale = 1
+        view.viewDidChangeBackingProperties()
+
+        XCTAssertEqual(displayLayer.contentsScale, 1)
+        XCTAssertNil(displayLayer.animationKeys())
+    }
+
     // MARK: - Layout
 
     func testTheWholeFrameDrawsWithNoClipCoverOrMask() throws {
