@@ -20,12 +20,12 @@ struct RemoteDesktopGeometry: Equatable {
     /// as `contentRect` is, and the layer aspect-fits the video into it; for chosen displays it
     /// is the frame at the content's scale, placed so the shown area lands on `contentRect`.
     let videoLayerFrame: CGRect
-    /// What the video is clipped to, on device pixels; nil for the whole frame, which needs no
-    /// clip.
+    /// What the video is clipped to: the device pixels wholly inside the shown area, so none
+    /// shows part of a display past it. nil for the whole frame, which needs no clip.
     let clipRect: CGRect?
     /// The hidden parts of the shown area: gaps between chosen displays and the displays left
-    /// out. Every edge is on a device pixel, so covers and video tile with no sliver of a hidden
-    /// display showing through.
+    /// out. Each grows to every device pixel the hidden area reaches into, so no sliver of a
+    /// hidden display shows beside it.
     let coverRects: [CGRect]
 
     /// The area of the frame `contentRect` shows, in remote pixels.
@@ -77,14 +77,21 @@ struct RemoteDesktopGeometry: Equatable {
         let scale = fitted.isEmpty ? 0 : min(bounds.width / sourceRect.width, bounds.height / sourceRect.height)
         let localX = { (x: CGFloat) in contentRect.minX + (x - sourceRect.minX) * scale }
         let localY = { (y: CGFloat) in contentRect.maxY - (y - sourceRect.minY) * scale }
-        // Each edge is snapped from its own remote coordinate, so neighbours that share an edge
-        // snap it to the same device pixel.
-        let snappedLocalRect = { (rect: CGRect) in
-            let minX = snap(localX(rect.minX))
-            let maxX = snap(localX(rect.maxX))
-            let minY = snap(localY(rect.maxY))
-            let maxY = snap(localY(rect.minY))
-            return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+        // A device pixel a hidden area reaches into at all would show a blend of it, so covers
+        // grow outward to whole device pixels and the clip shrinks inward to them; a boundary
+        // loses at most one device column of a shown display instead. The tolerance keeps an
+        // edge already on a device pixel there despite rounding in the scale.
+        let tolerance: CGFloat = 1e-6
+        let down = { (value: CGFloat) in (value * deviceScale + tolerance).rounded(.down) / deviceScale }
+        let up = { (value: CGFloat) in (value * deviceScale - tolerance).rounded(.up) / deviceScale }
+        // Each edge is snapped from its own remote coordinate, so neighbours agree on it.
+        let coverRect = { (rect: CGRect) in
+            Self.rect(
+                minX: down(localX(rect.minX)),
+                minY: down(localY(rect.maxY)),
+                maxX: up(localX(rect.maxX)),
+                maxY: up(localY(rect.minY))
+            )
         }
         videoLayerFrame = CGRect(
             x: localX(0),
@@ -92,8 +99,13 @@ struct RemoteDesktopGeometry: Equatable {
             width: frameSize.width * scale,
             height: frameSize.height * scale
         )
-        clipRect = snappedLocalRect(sourceRect)
-        coverRects = Self.hiddenRects(in: sourceRect, visibleRects: shownRects).map(snappedLocalRect)
+        clipRect = Self.rect(
+            minX: up(localX(sourceRect.minX)),
+            minY: up(localY(sourceRect.maxY)),
+            maxX: down(localX(sourceRect.maxX)),
+            maxY: down(localY(sourceRect.minY))
+        )
+        coverRects = Self.hiddenRects(in: sourceRect, visibleRects: shownRects).map(coverRect)
         self.visibleRects = shownRects
     }
 
@@ -163,6 +175,11 @@ struct RemoteDesktopGeometry: Equatable {
         let dx = Int(first.x) - Int(second.x)
         let dy = Int(first.y) - Int(second.y)
         return dx * dx + dy * dy
+    }
+
+    /// A rect from its edges; empty, rather than inverted, when snapping crossed them.
+    private static func rect(minX: CGFloat, minY: CGFloat, maxX: CGFloat, maxY: CGFloat) -> CGRect {
+        CGRect(x: minX, y: minY, width: max(0, maxX - minX), height: max(0, maxY - minY))
     }
 
     /// The parts of `sourceRect` no visible rect covers, from a grid on every visible edge, with
