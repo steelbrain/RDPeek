@@ -15,7 +15,7 @@ const features = [
   },
   {
     title: "No resolution knobs",
-    body: "The remote desktop starts at your screen's size and re-fits when you resize the window. HiDPI aware, nothing to configure.",
+    body: "The remote desktop starts at your screen's size and re-fits when you resize the window. HiDPI aware, nothing to configure. A remote with several displays keeps its own layout; pick which of them to show from the ⋯ menu.",
   },
   {
     title: "Glass titlebar, full-bleed video",

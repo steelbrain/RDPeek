@@ -8,7 +8,7 @@ const clipboardModes = [
   },
   {
     name: "Sync Clipboard Now",
-    detail: "Sends what you copied again, while sharing is on.",
+    detail: "While sharing is on, sends your latest copy now if the remote doesn't have it yet.",
   },
   {
     name: "Share for 30 Seconds",
