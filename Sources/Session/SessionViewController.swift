@@ -948,7 +948,6 @@ final class SessionViewController: NSViewController {
     ) {
         let clientLicenseStore = clientLicenseStore
         let clientLicense = clientLicense
-        let presentsStoredClientLicense = attemptBudget.omitsStoredClientLicense == false
         let saveIssuedClientLicense: @Sendable (RDPStoredClientLicense) -> Void = { license in
             try? clientLicenseStore.saveLicense(license, for: clientLicense.key)
         }
@@ -971,11 +970,10 @@ final class SessionViewController: NSViewController {
             var configuration = baseConfiguration
             // Read here, not on the main thread: the Keychain can block on
             // its access-approval dialog. No connection deadline runs yet.
-            // Automatic retries present what the first attempt read.
-            if presentsStoredClientLicense {
-                configuration.storedClientLicense = clientLicense.license {
-                    try? clientLicenseStore.license(for: clientLicense.key)
-                }
+            // Automatic retries present what the first attempt read. A
+            // license the server refuses, RDPKit connects again without.
+            configuration.storedClientLicense = clientLicense.license {
+                try? clientLicenseStore.license(for: clientLicense.key)
             }
             var keyframeRequests = RDPKeyframeRequestThrottle()
             // The monitors and graphics output size the server reported
@@ -1222,7 +1220,7 @@ final class SessionViewController: NSViewController {
 
     /// The session ended without the user ending it: record why, then
     /// connect again, ask to sign in, or show the end. `configuration` is
-    /// the one the session ran with, stored client license included.
+    /// the one the session ran with.
     private func finishConnection(
         _ finishedReport: RDPConnectionReport,
         configuration: RDPConnectionConfiguration
@@ -1233,8 +1231,7 @@ final class SessionViewController: NSViewController {
             after: finishedReport,
             host: configuration.host,
             presentedFrames: hasPresentedFrame,
-            usedLegacyRSAKeyExchange: configuration.legacyRSAKeyExchange != .never,
-            presentedStoredClientLicense: configuration.storedClientLicense != nil
+            usedLegacyRSAKeyExchange: configuration.legacyRSAKeyExchange != .never
         )
         attemptBudget.record(outcome)
         report = finishedReport
@@ -1255,7 +1252,7 @@ final class SessionViewController: NSViewController {
         resetFramePresentationState()
 
         switch outcome {
-        case .retryWithLegacyRSAKeyExchange, .retryWithoutStoredClientLicense:
+        case .retryWithLegacyRSAKeyExchange:
             startConnectionAttempt()
         case let .retry(reason):
             scheduleAutoRetry(reason)

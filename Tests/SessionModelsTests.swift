@@ -546,28 +546,25 @@ final class SessionModelsTests: XCTestCase {
         )
     }
 
-    func testLicensingFailureRetriesOnceWithoutTheStoredLicense() {
-        let licensing = makeReport(stage: "rdp-licensing", failure: .licensing(errorCode: 0x0000_0008))
-        let badLicense = makeReport(
+    func testLicensingFailureEndsAsRDPKitRetriedWithoutTheStoredLicense() {
+        // RDPKit connects again within the run without a stored license the
+        // server's licensing refused, so a licensing failure is the last.
+        var licensing = makeReport(stage: "rdp-licensing", failure: .licensing(errorCode: 0x0000_0008))
+        var badLicense = makeReport(
             stage: "rdp-licensing",
             failure: .serverTermination(termination: RDPRemoteTermination(errorInfo: 0x0000_0105))
         )
-
-        XCTAssertEqual(outcome(after: licensing, presentedStoredClientLicense: true), .retryWithoutStoredClientLicense)
-        XCTAssertEqual(outcome(after: badLicense, presentedStoredClientLicense: true), .retryWithoutStoredClientLicense)
-        // The retry presents none, so it ends there.
-        XCTAssertEqual(outcome(after: licensing), .end(RDPSessionEndReason(
+        let licensingFailed = SessionAttemptOutcome.end(RDPSessionEndReason(
             kind: .failed,
             message: "The remote computer could not license this connection."
-        )))
-        // Another termination is not the license's doing.
-        let denied = makeReport(
-            stage: "rdp-licensing",
-            failure: .serverTermination(termination: RDPRemoteTermination(errorInfo: 0x0000_0009))
-        )
-        guard case .end = outcome(after: denied, presentedStoredClientLicense: true) else {
-            return XCTFail("A denied connection was retried")
-        }
+        ))
+
+        XCTAssertEqual(outcome(after: licensing), licensingFailed)
+        XCTAssertEqual(outcome(after: badLicense), licensingFailed)
+        licensing.rdpStoredClientLicenseRejected = true
+        badLicense.rdpStoredClientLicenseRejected = true
+        XCTAssertEqual(outcome(after: licensing), licensingFailed)
+        XCTAssertEqual(outcome(after: badLicense), licensingFailed)
     }
 
     func testNothingIsRetriedOnceTheDesktopShowed() {
@@ -599,20 +596,15 @@ final class SessionModelsTests: XCTestCase {
     }
 
     func testEachAutomaticRetryHappensOnce() {
-        let cases: [(RDPConnectionReport, Bool)] = [
-            (makeReport(stage: "rdp-graphics-dynamic-channel", failure: .timedOut), false),
-            (makeReport(stage: "tls-handshake", failure: .tlsKeyUsageIncorrect), false),
-            (makeReport(stage: "rdp-licensing", failure: .licensing(errorCode: 0x0000_0008)), true),
+        let reports = [
+            makeReport(stage: "rdp-graphics-dynamic-channel", failure: .timedOut),
+            makeReport(stage: "tls-handshake", failure: .tlsKeyUsageIncorrect),
         ]
-        for (report, hasStoredClientLicense) in cases {
+        for report in reports {
             var budget = SessionAttemptBudget()
             budget.userStarted()
 
-            XCTAssertEqual(
-                retriesUntilTheEnd(of: &budget, feeding: report, hasStoredClientLicense: hasStoredClientLicense),
-                1,
-                "\(String(describing: report.failure))"
-            )
+            XCTAssertEqual(retriesUntilTheEnd(of: &budget, feeding: report), 1, "\(String(describing: report.failure))")
         }
     }
 
@@ -620,7 +612,6 @@ final class SessionModelsTests: XCTestCase {
         let reports = [
             makeReport(stage: "x224-rdp-negotiation", failure: .connect(error: RDPSocketError(errno: ETIMEDOUT))),
             makeReport(stage: "tls-handshake", failure: .tlsKeyUsageIncorrect),
-            makeReport(stage: "rdp-licensing", failure: .licensing(errorCode: 0x0000_0008)),
             makeReport(stage: "rdp-graphics-dynamic-channel", failure: .timedOut),
         ]
         var budget = SessionAttemptBudget()
@@ -632,8 +623,7 @@ final class SessionModelsTests: XCTestCase {
                 after: reports[attempts % reports.count],
                 host: "winbox",
                 presentedFrames: false,
-                usedLegacyRSAKeyExchange: budget.usesLegacyRSAKeyExchange,
-                presentedStoredClientLicense: budget.omitsStoredClientLicense == false
+                usedLegacyRSAKeyExchange: budget.usesLegacyRSAKeyExchange
             )
             budget.record(outcome)
             attempts += 1
@@ -642,7 +632,7 @@ final class SessionModelsTests: XCTestCase {
             }
         }
 
-        XCTAssertLessThanOrEqual(attempts, SessionAttemptOutcome.maximumUnreachableRetries + 4)
+        XCTAssertLessThanOrEqual(attempts, SessionAttemptOutcome.maximumUnreachableRetries + 3)
     }
 
     func testAShownDesktopRestoresTheUnreachableRetries() {
@@ -911,8 +901,7 @@ final class SessionModelsTests: XCTestCase {
     /// session would, and returns the retries it made.
     private func retriesUntilTheEnd(
         of budget: inout SessionAttemptBudget,
-        feeding report: RDPConnectionReport,
-        hasStoredClientLicense: Bool = false
+        feeding report: RDPConnectionReport
     ) -> Int {
         var retries = 0
         while retries < 100 {
@@ -920,12 +909,11 @@ final class SessionModelsTests: XCTestCase {
                 after: report,
                 host: "winbox",
                 presentedFrames: false,
-                usedLegacyRSAKeyExchange: budget.usesLegacyRSAKeyExchange,
-                presentedStoredClientLicense: hasStoredClientLicense && budget.omitsStoredClientLicense == false
+                usedLegacyRSAKeyExchange: budget.usesLegacyRSAKeyExchange
             )
             budget.record(outcome)
             switch outcome {
-            case .retry, .retryWithLegacyRSAKeyExchange, .retryWithoutStoredClientLicense:
+            case .retry, .retryWithLegacyRSAKeyExchange:
                 retries += 1
             case .promptForCredentials, .end:
                 return retries
@@ -966,7 +954,6 @@ final class SessionModelsTests: XCTestCase {
         after report: RDPConnectionReport,
         host: String = "winbox",
         usedLegacyRSAKeyExchange: Bool = false,
-        presentedStoredClientLicense: Bool = false,
         unreachableRetriesSpent: Int = 0,
         retriedFirstFrameTimeout: Bool = false
     ) -> SessionAttemptOutcome {
@@ -975,7 +962,6 @@ final class SessionModelsTests: XCTestCase {
             host: host,
             presentedFrames: false,
             usedLegacyRSAKeyExchange: usedLegacyRSAKeyExchange,
-            presentedStoredClientLicense: presentedStoredClientLicense,
             unreachableRetriesSpent: unreachableRetriesSpent,
             retriedFirstFrameTimeout: retriedFirstFrameTimeout
         )
