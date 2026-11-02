@@ -49,20 +49,24 @@ jobs:
   build:
     name: Build
     runs-on: macos-26
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v6
 
       - name: Show Xcode version
         run: xcodebuild -version
 
-      - name: Install XcodeGen
+      - name: Install XcodeGen and SwiftLint
         run: |
-          brew install xcodegen
-          version=$(xcodegen --version | sed 's/^Version: //')
-          echo "XcodeGen $version"
-          if [ "$version" != "$XCODEGEN_VERSION" ]; then
-            echo "::warning::CI has XcodeGen $version, not $XCODEGEN_VERSION."
+          brew install xcodegen swiftlint
+          xcodegen_version=$(xcodegen --version | sed 's/^Version: //')
+          swiftlint_version=$(swiftlint version)
+          echo "XcodeGen $xcodegen_version, SwiftLint $swiftlint_version"
+          if [ "$xcodegen_version" != "$XCODEGEN_VERSION" ]; then
+            echo "::warning::CI has XcodeGen $xcodegen_version, not $XCODEGEN_VERSION."
+          fi
+          if [ "$swiftlint_version" != "$SWIFTLINT_VERSION" ]; then
+            echo "::warning::CI has SwiftLint $swiftlint_version, not $SWIFTLINT_VERSION."
           fi
 
       - name: Cache Swift packages
@@ -79,6 +83,7 @@ jobs:
       # such as Sendable checks that a @preconcurrency API downgrades, so
       # each step that compiles fails on any Swift warning in its log.
       - name: Build
+        id: build
         run: |
           set -o pipefail
           xcodebuild \
@@ -111,3 +116,11 @@ jobs:
             echo "::error::The test build has Swift warnings (listed above)."
             exit 1
           fi
+
+      # The unused-code gate reads the compiler log of a clean app build.
+      # build.log is one: DerivedData starts empty apart from the cached
+      # package checkouts, and the scheme's build action builds only the
+      # app. It runs whenever the build passed, even if a test failed.
+      - name: Analyze
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: swiftlint analyze --strict --compiler-log-path build.log --reporter github-actions-logging

@@ -79,10 +79,10 @@ implementation.
   (the only tracked file in the generated project); commit the file Xcode
   updates when you bump or resolve packages.
 - CI (`.github/workflows/ci.yml`) runs the lint gate, an unsigned build,
-  and the tests on pushes to `main` and on pull requests, using only the
-  package versions in `Package.resolved`. Releases are produced through
-  Xcode's Archive and notarization flow — signing and notarization are
-  intentionally not done in CI or scripts.
+  the tests and the unused-code gate on pushes to `main` and on pull
+  requests, using only the package versions in `Package.resolved`.
+  Releases are produced through Xcode's Archive and notarization flow —
+  signing and notarization are intentionally not done in CI or scripts.
 
 ## Git Conventions
 
