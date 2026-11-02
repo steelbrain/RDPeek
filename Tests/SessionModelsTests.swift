@@ -415,9 +415,11 @@ final class SessionModelsTests: XCTestCase {
         XCTAssertEqual(SessionConnectRetry.statusDetail(connectAttempt: 3), "Network hiccup — retrying (3 of 3)…")
     }
 
-    func testRedirectTargetFailuresBlameThePassingServerAndAreNotRetried() {
+    func testRedirectTargetFailuresBlameThePassingServerAndTheAppDoesNotRetryThem() {
         // After a Server Redirection the server typed in took the sign-in,
-        // so it is neither blamed nor retried, whatever the target did.
+        // so it is not blamed, whatever the target did, and the session
+        // does not start over, which would sign in to it again. RDPKit
+        // tries the target's TCP connect again itself.
         func outcome(_ failure: RDPConnectionFailure, target: String = "host2:3389") -> SessionAttemptOutcome {
             SessionAttemptOutcome.after(
                 makeReport(stage: "x224-rdp-negotiation", target: target, redirectionDepth: 1, failure: failure),
