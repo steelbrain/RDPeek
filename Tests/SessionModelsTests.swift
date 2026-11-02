@@ -409,10 +409,20 @@ final class SessionModelsTests: XCTestCase {
     func testRDPKitTriesTheConnectAgainAndTheOverlaySaysWhichTry() {
         XCTAssertEqual(SessionConnectRetry.attempts, 3)
         XCTAssertEqual(SessionConnectRetry.delay, 1.3)
-        XCTAssertNil(SessionConnectRetry.statusDetail(connectAttempt: nil))
-        XCTAssertNil(SessionConnectRetry.statusDetail(connectAttempt: 1))
-        XCTAssertEqual(SessionConnectRetry.statusDetail(connectAttempt: 2), "Network hiccup — retrying (2 of 3)…")
-        XCTAssertEqual(SessionConnectRetry.statusDetail(connectAttempt: 3), "Network hiccup — retrying (3 of 3)…")
+        func detail(_ connectAttempt: Int?, waits: Bool = false) -> String? {
+            SessionConnectRetry.statusDetail(
+                connectAttempt: connectAttempt,
+                nextConnectAttemptDate: waits ? Date(timeIntervalSinceReferenceDate: 1.3) : nil
+            )
+        }
+        XCTAssertNil(detail(nil))
+        XCTAssertNil(detail(1))
+        // While RDPKit waits after a try failed, the overlay names the try
+        // to come, as it will once that try is under way.
+        XCTAssertEqual(detail(1, waits: true), "Network hiccup — retrying (2 of 3)…")
+        XCTAssertEqual(detail(2), "Network hiccup — retrying (2 of 3)…")
+        XCTAssertEqual(detail(2, waits: true), "Network hiccup — retrying (3 of 3)…")
+        XCTAssertEqual(detail(3), "Network hiccup — retrying (3 of 3)…")
     }
 
     func testRedirectTargetFailuresBlameThePassingServerAndTheAppDoesNotRetryThem() {

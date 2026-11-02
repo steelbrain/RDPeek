@@ -441,13 +441,18 @@ enum SessionConnectRetry {
     static let delay: TimeInterval = 1.3
 
     /// What the connecting overlay says while RDPKit tries the connect
-    /// again, from the live report's `connectAttempt`; nothing on the first
-    /// try.
-    static func statusDetail(connectAttempt: Int?) -> String? {
-        guard let connectAttempt, connectAttempt > 1 else {
+    /// again, from the live report: the try under way, `connectAttempt`,
+    /// or the next one once RDPKit waits for it (`nextConnectAttemptDate`),
+    /// rather than the one that failed; nothing on the first try.
+    static func statusDetail(connectAttempt: Int?, nextConnectAttemptDate: Date?) -> String? {
+        guard let connectAttempt else {
             return nil
         }
-        return "Network hiccup — retrying (\(connectAttempt) of \(attempts))…"
+        let attempt = nextConnectAttemptDate == nil ? connectAttempt : connectAttempt + 1
+        guard attempt > 1 else {
+            return nil
+        }
+        return "Network hiccup — retrying (\(attempt) of \(attempts))…"
     }
 }
 

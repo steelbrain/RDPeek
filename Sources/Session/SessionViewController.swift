@@ -445,13 +445,16 @@ final class SessionViewController: NSViewController {
         )
     }
 
-    /// Why the session is not yet connected on its first try: RDPKit tries
-    /// the connect again, or the session connects again on its own. Read
-    /// from the live report while an attempt runs, which the clipboard
-    /// poll's render picks up within a second.
+    /// Why the session is not yet connected on its first try: RDPKit waits
+    /// to try the connect again or tries it, or the session connects again
+    /// on its own. Read from the live report while an attempt runs, which
+    /// the clipboard poll's render picks up within a second.
     private var connectingStatusDetail: String? {
-        let connectAttempt = isConnecting ? liveReport?.snapshot?.connectAttempt : nil
-        return SessionConnectRetry.statusDetail(connectAttempt: connectAttempt) ?? autoRetryReason?.statusDetail
+        let connection = isConnecting ? liveReport?.snapshot : nil
+        return SessionConnectRetry.statusDetail(
+            connectAttempt: connection?.connectAttempt,
+            nextConnectAttemptDate: connection?.nextConnectAttemptDate
+        ) ?? autoRetryReason?.statusDetail
     }
 
     private var currentPhase: SessionPhase {
