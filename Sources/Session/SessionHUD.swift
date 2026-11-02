@@ -35,6 +35,9 @@ final class SessionHUDModel: ObservableObject {
     @Published var phase = SessionPhase.connecting
     @Published var connectingStatusDetail: String?
     @Published var certificateNotice: SessionCertificateNotice?
+    /// The ended session offers to connect anyway with the outdated
+    /// CredSSP the server was refused for.
+    @Published var offersLegacyCredSSP = false
     @Published var toast: SessionToast?
     @Published var metricsSummary: String?
     @Published var isMetricsOverlayVisible = false
@@ -72,6 +75,7 @@ final class SessionHUDModel: ObservableObject {
     var onEditCredentials: () -> Void = {}
     var onSubmitCredentials: (_ username: String, _ domain: String, _ password: String, _ remember: Bool) -> Void = { _, _, _, _ in }
     var onTrustCertificate: () -> Void = {}
+    var onConnectWithLegacyCredSSP: () -> Void = {}
     var onSyncClipboard: () -> Void = {}
     var onShareClipboardTemporarily: () -> Void = {}
     var onSetClipboardSharing: (Bool) -> Void = { _ in }
@@ -482,10 +486,44 @@ private struct SessionEndedOverlay: View {
                         .font(.callout)
                         .foregroundStyle(.white.opacity(0.55))
                     }
+
+                    if model.offersLegacyCredSSP {
+                        SessionLegacyCredSSPOffer(model: model)
+                            .transition(.opacity)
+                    }
                 }
+                .animation(.easeInOut(duration: 0.3), value: model.offersLegacyCredSSP)
             }
             .padding(40)
         }
+    }
+}
+
+/// Connect Anyway, for a server refused for its outdated CredSSP: a plain
+/// link under the ended session's own actions, as it trades the sign-in's
+/// safety for the connection.
+private struct SessionLegacyCredSSPOffer: View {
+    @ObservedObject var model: SessionHUDModel
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Button {
+                model.onConnectWithLegacyCredSSP()
+            } label: {
+                Label("Connect Anyway", systemImage: "exclamationmark.shield")
+            }
+            .buttonStyle(.plain)
+            .font(.callout)
+            .foregroundStyle(.orange.opacity(0.85))
+            .disabled(model.canReconnect == false)
+            .help("Signs in with the outdated version for this one connection.")
+            .accessibilityHint("Signs in with the outdated version for this one connection.")
+
+            Text("Only on a network you trust. RDPeek asks again next time.")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.4))
+        }
+        .padding(.top, 4)
     }
 }
 

@@ -209,6 +209,10 @@ struct RDPSessionEndReason: Equatable {
                 return passedOn("this Mac could not reach")
             case .tls, .tlsKeyUsageIncorrect:
                 return passedOn("this Mac could not set up a secure connection with")
+            case let .legacyCredSSPVersion(version):
+                // The user did not choose that server, so nothing is offered.
+                return passedOn("signs in with CredSSP \(version), an outdated version of Network Level "
+                    + "Authentication that RDPeek refuses before sending it any password")
             default:
                 if didNotAnswer {
                     return passedOn("did not answer as a Remote Desktop server")
@@ -231,10 +235,11 @@ struct RDPSessionEndReason: Equatable {
         case .tls, .tlsKeyUsageIncorrect:
             return "A secure connection to the remote computer could not be set up."
         case let .legacyCredSSPVersion(version):
-            // RDPKit 0.7 prep: a plain message until the bump adds the
-            // consent to connect again with `legacyCredSSP` on.
-            return "The remote computer signs in with CredSSP \(version), an outdated version of "
-                + "Network Level Authentication, which RDPeek refuses. No password was sent."
+            // RDPKit refused it before sending any credential; the ended
+            // session offers to connect anyway.
+            return "The remote computer signs in with CredSSP \(version), an outdated version of Network Level "
+                + "Authentication that someone intercepting the connection could misuse to learn your sign-in. "
+                + "No password was sent."
         case .credentialsRequired:
             return credentialsRequiredMessage
         case let .credSSP(status):
@@ -579,6 +584,68 @@ struct SessionAttemptBudget {
         }
         hasDecidedSignIn = true
         return true
+    }
+}
+
+/// The user's consent to sign in with an outdated CredSSP, version 2, 3 or
+/// 4, which RDPKit refuses before sending any credential unless
+/// `legacyCredSSP` is set: those versions prove the TLS key by sealing the
+/// certificate's raw public key, which lets whoever intercepts the
+/// connection learn the sign-in (CVE-2018-0886). It is offered once the
+/// server an attempt connected to answers with one, until the user starts
+/// another connection, and allowed only for the first attempt of the
+/// connection the user's agreement starts: any other, an automatic retry
+/// or a later connection to the same server included, refuses it again.
+struct SessionLegacyCredSSPConsent {
+    /// The server the attempt that ended last was refused for, until the
+    /// user starts a connection.
+    private var offeredTarget: RDPConnectionTarget?
+    /// The server the attempt under way connects to.
+    private var attemptTarget: RDPConnectionTarget?
+    /// The server the user agreed to, for the next attempt only.
+    private var allowedTarget: RDPConnectionTarget?
+
+    /// Whether the ended attempt offers to connect anyway.
+    var isOffered: Bool {
+        offeredTarget != nil
+    }
+
+    /// The user starts a connection: the one Connect Anyway starts
+    /// (`agreed`) may accept the outdated version, once, for the server
+    /// offered; any other start forgets an agreement whose attempt never
+    /// started. The offer goes either way.
+    mutating func userStartsConnection(agreed: Bool) {
+        allowedTarget = agreed ? offeredTarget : nil
+        offeredTarget = nil
+    }
+
+    /// An attempt starts, to `target`, or to none for one that fails before
+    /// it connects: forgets the offer and the agreement, and returns
+    /// whether the attempt accepts an outdated CredSSP, which only one to
+    /// the server the user just agreed to does.
+    @discardableResult
+    mutating func attemptStarts(to target: RDPConnectionTarget?) -> Bool {
+        defer {
+            attemptTarget = target
+            offeredTarget = nil
+            allowedTarget = nil
+        }
+        return target != nil && target == allowedTarget
+    }
+
+    /// The attempt under way ended with `report`: offers to connect anyway
+    /// when RDPKit refused the server it connected to for its CredSSP
+    /// version. After a Server Redirection (`redirectionDepth` above 0)
+    /// another server answered, which the user did not choose, so nothing
+    /// is offered.
+    mutating func attemptEnded(with report: RDPConnectionReport) {
+        guard case .legacyCredSSPVersion = report.failure,
+              report.redirectionDepth == 0,
+              let attemptTarget
+        else {
+            return
+        }
+        offeredTarget = attemptTarget
     }
 }
 

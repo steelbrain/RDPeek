@@ -596,6 +596,104 @@ final class SessionModelsTests: XCTestCase {
         XCTAssertEqual(outcome(after: makeReport(stage: "credssp", failure: .cancelled)), .end(.cancelled))
     }
 
+    func testOutdatedCredSSPEndsSayingWhatItRisks() {
+        let refused = makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 3))
+
+        XCTAssertEqual(outcome(after: refused), .end(RDPSessionEndReason(
+            kind: .failed,
+            message: "The remote computer signs in with CredSSP 3, an outdated version of Network Level "
+                + "Authentication that someone intercepting the connection could misuse to learn your sign-in. "
+                + "No password was sent."
+        )))
+        let redirected = makeReport(
+            stage: "credssp",
+            target: "host2:3389",
+            redirectionDepth: 1,
+            failure: .legacyCredSSPVersion(version: 4)
+        )
+        XCTAssertEqual(outcome(after: redirected), .end(RDPSessionEndReason(
+            kind: .failed,
+            message: "“winbox” passed the session on to “host2”, which signs in with CredSSP 4, an outdated "
+                + "version of Network Level Authentication that RDPeek refuses before sending it any password."
+        )))
+    }
+
+    // MARK: - Outdated CredSSP consent
+
+    func testConnectAnywayAcceptsTheOutdatedCredSSPForItsOneAttempt() throws {
+        let winbox = try RDPConnectionTarget(host: "winbox")
+        var consent = SessionLegacyCredSSPConsent()
+        consent.userStartsConnection(agreed: false)
+        XCTAssertFalse(consent.attemptStarts(to: winbox))
+        XCTAssertFalse(consent.isOffered)
+
+        consent.attemptEnded(with: makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 3)))
+        XCTAssertTrue(consent.isOffered)
+        consent.userStartsConnection(agreed: true)
+        XCTAssertFalse(consent.isOffered)
+        XCTAssertTrue(consent.attemptStarts(to: winbox))
+
+        // An automatic retry, and a later connection to the same server,
+        // refuse it again.
+        consent.attemptEnded(with: makeReport(failure: .noFramePresented(framesReceived: 0, lastNotPresentedReason: nil)))
+        XCTAssertFalse(consent.isOffered)
+        XCTAssertFalse(consent.attemptStarts(to: winbox))
+        consent.userStartsConnection(agreed: false)
+        XCTAssertFalse(consent.attemptStarts(to: winbox))
+    }
+
+    func testOnlyConnectAnywayAcceptsTheOutdatedCredSSP() throws {
+        let winbox = try RDPConnectionTarget(host: "winbox")
+        let refused = makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 2))
+        var consent = SessionLegacyCredSSPConsent()
+
+        // Nothing offered, nothing to agree to.
+        consent.userStartsConnection(agreed: true)
+        XCTAssertFalse(consent.attemptStarts(to: winbox))
+
+        // Reconnect forgets the offer.
+        consent.attemptEnded(with: refused)
+        consent.userStartsConnection(agreed: false)
+        XCTAssertFalse(consent.isOffered)
+        XCTAssertFalse(consent.attemptStarts(to: winbox))
+
+        // An agreement whose attempt never started, as when the user
+        // cancelled while the Keychain was read, goes with the next start.
+        consent.attemptEnded(with: refused)
+        consent.userStartsConnection(agreed: true)
+        consent.userStartsConnection(agreed: false)
+        XCTAssertFalse(consent.attemptStarts(to: winbox))
+
+        // An attempt that fails before it connects forgets the agreement.
+        consent.attemptEnded(with: refused)
+        consent.userStartsConnection(agreed: true)
+        XCTAssertFalse(consent.attemptStarts(to: nil))
+        XCTAssertFalse(consent.attemptStarts(to: winbox))
+    }
+
+    func testTheOutdatedCredSSPIsAcceptedOnlyForTheServerOffered() throws {
+        let winbox = try RDPConnectionTarget(host: "winbox")
+        var consent = SessionLegacyCredSSPConsent()
+        consent.attemptStarts(to: winbox)
+        consent.attemptEnded(with: makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 3)))
+
+        // The PC was edited to another server or port since.
+        consent.userStartsConnection(agreed: true)
+        XCTAssertFalse(try consent.attemptStarts(to: RDPConnectionTarget(host: "winbox", port: 3390)))
+
+        // A server a redirection led to was not the user's choice, and
+        // other failures offer nothing.
+        for report in [
+            makeReport(stage: "credssp", target: "host2:3389", redirectionDepth: 1, failure: .legacyCredSSPVersion(version: 3)),
+            makeReport(stage: "credssp", failure: .credSSP(status: .logonFailure)),
+            makeReport(stage: "credssp", failure: .cancelled),
+        ] {
+            consent.attemptStarts(to: winbox)
+            consent.attemptEnded(with: report)
+            XCTAssertFalse(consent.isOffered, "\(String(describing: report.failure))")
+        }
+    }
+
     // MARK: - Attempt budget
 
     func testUnreachableRetriesEnd() {

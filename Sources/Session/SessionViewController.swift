@@ -53,6 +53,9 @@ final class SessionViewController: NSViewController {
     /// The automatic retries left to the connection the user started, and
     /// whether its sign-in was dealt with.
     private var attemptBudget = SessionAttemptBudget()
+    /// Whether the ended attempt offers to sign in with an outdated
+    /// CredSSP, and whether the user agreed to it for the next attempt.
+    private var legacyCredSSPConsent = SessionLegacyCredSSPConsent()
     private var isConnecting = false
     private var hasEverPresentedFrame = false
     private var isAutoRetryPending = false
@@ -322,6 +325,7 @@ final class SessionViewController: NSViewController {
             self?.applyCredentials(username: username, domain: domain, password: password, remember: remember)
         }
         hudModel.onTrustCertificate = { [weak self] in self?.trustCurrentCertificate() }
+        hudModel.onConnectWithLegacyCredSSP = { [weak self] in self?.connectWithLegacyCredSSP() }
         hudModel.onSyncClipboard = { [weak self] in self?.syncClipboardNow() }
         hudModel.onShareClipboardTemporarily = { [weak self] in self?.startTemporaryClipboardSharing() }
         hudModel.onSetClipboardSharing = { [weak self] enabled in
@@ -393,6 +397,7 @@ final class SessionViewController: NSViewController {
             to: nextPhase == .connecting ? autoRetryReason?.statusDetail : nil
         )
         hudModel.update(\.certificateNotice, to: certificateNoticeState())
+        hudModel.update(\.offersLegacyCredSSP, to: legacyCredSSPConsent.isOffered)
         // One command state feeds the HUD and the Session menu, so they
         // agree on what can be done and on which toggles are on.
         let commands = sessionCommandState
@@ -777,10 +782,12 @@ final class SessionViewController: NSViewController {
     // MARK: - Connection lifecycle
 
     /// The one way a connection starts: the window opening, Reconnect, ⌘R,
-    /// Connect on the PC, signing in, and trusting a certificate. Takes the
-    /// PC's saved changes, resets the automatic retries, and finds the
-    /// password first when the session has none.
-    func startConnection() {
+    /// Connect on the PC, signing in, trusting a certificate, and Connect
+    /// Anyway, which alone `acceptsLegacyCredSSP`. Takes the PC's saved
+    /// changes, resets the automatic retries, and finds the password first
+    /// when the session has none.
+    func startConnection(acceptsLegacyCredSSP: Bool = false) {
+        legacyCredSSPConsent.userStartsConnection(agreed: acceptsLegacyCredSSP)
         followSavedDraft()
         if savedPasswordChanges.takeChange(for: draft.identity) {
             draft.password = ""
@@ -830,15 +837,20 @@ final class SessionViewController: NSViewController {
                 password: draft.password
             )
         } catch {
+            legacyCredSSPConsent.attemptStarts(to: nil)
             sessionEndReason = RDPSessionEndReason(kind: .failed, message: String(describing: error))
             render()
             return
         }
+        // Only the attempt Connect Anyway starts accepts an outdated
+        // CredSSP; starting forgets that agreement.
+        let acceptsLegacyCredSSP = legacyCredSSPConsent.attemptStarts(to: target)
         let desktopSize = initialDesktopSize()
         let configuration = makeConnectionConfiguration(
             target: target,
             credentials: credentials,
-            desktopSize: desktopSize
+            desktopSize: desktopSize,
+            legacyCredSSP: acceptsLegacyCredSSP
         )
         recordSentSettings(configuration)
 
@@ -887,10 +899,13 @@ final class SessionViewController: NSViewController {
         certificateRefusal = nil
     }
 
+    /// `legacyCredSSP` accepts an outdated CredSSP, for the attempt the
+    /// user agreed to only.
     private func makeConnectionConfiguration(
         target: RDPConnectionTarget,
         credentials: RDPCredentials?,
-        desktopSize: RDPDesktopSize
+        desktopSize: RDPDesktopSize,
+        legacyCredSSP: Bool
     ) -> RDPConnectionConfiguration {
         // Announce the Mac's keyboard layout so the server maps scancodes to
         // the characters the keys are labelled with; the input layer sends
@@ -927,6 +942,10 @@ final class SessionViewController: NSViewController {
             // within the run offering only RSA key exchange, before any
             // credential is sent; never a redirection's target.
             legacyRSAKeyExchange: .fallback,
+            // Off but for the attempt Connect Anyway starts: RDPKit refuses
+            // a server answering with CredSSP below 5 before sending any
+            // credential, and the ended session asks the user.
+            legacyCredSSP: legacyCredSSP,
             // Servers list the session, and count per-device licenses, under
             // the Mac's name; RDPKit cuts it to 15 characters.
             clientName: SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "RDPeek"
@@ -1214,6 +1233,7 @@ final class SessionViewController: NSViewController {
         publishRenderMetricsSnapshotIfNeeded(force: true)
         let outcome = attemptBudget.outcome(after: finishedReport, host: configuration.host)
         attemptBudget.record(outcome)
+        legacyCredSSPConsent.attemptEnded(with: finishedReport)
         report = finishedReport
         certificateTrustedByApp = trustedCertificateStore.isTrusted(
             host: liveCertificate?.host ?? configuration.host,
@@ -1707,6 +1727,18 @@ final class SessionViewController: NSViewController {
             toast("Audio starts on the next connection", systemImage: "speaker.wave.2")
         }
         render()
+    }
+
+    // MARK: - Outdated CredSSP
+
+    /// The user agreed, on the ended session, to sign in with the outdated
+    /// CredSSP the server was refused for: the connection this starts
+    /// accepts it, and no later one.
+    private func connectWithLegacyCredSSP() {
+        guard sessionCommandState.canStart, legacyCredSSPConsent.isOffered else {
+            return
+        }
+        startConnection(acceptsLegacyCredSSP: true)
     }
 
     // MARK: - Certificate trust
