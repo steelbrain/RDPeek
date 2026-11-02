@@ -19,14 +19,13 @@ final class RDPRemoteDesktopRenderer {
         }
     }
 
-    @discardableResult
-    func present(_ presentation: RDPDecodedFramePresentation, id: Int) -> Bool {
+    func present(_ presentation: RDPDecodedFramePresentation, id: Int) {
         guard let view else {
             latestPresentation = (presentation, id)
-            return false
+            return
         }
         latestPresentation = nil
-        return view.present(presentation, id: id)
+        view.present(presentation, id: id)
     }
 
     func clear() {
@@ -109,16 +108,15 @@ final class RemoteDesktopSampleBufferNSView: NSView {
         updateContentsScale()
     }
 
-    @discardableResult
-    func present(_ presentation: RDPDecodedFramePresentation, id: Int) -> Bool {
+    func present(_ presentation: RDPDecodedFramePresentation, id: Int) {
         guard lastPresentationID != id else {
-            return true
+            return
         }
-        guard enqueue(presentation) else { return false }
-        lastPresentationID = id
-        lastPresentation = presentation
-        didResendLastPresentation = false
-        return true
+        if enqueue(presentation) {
+            lastPresentationID = id
+            lastPresentation = presentation
+            didResendLastPresentation = false
+        }
     }
 
     /// Also removes the shown image, so a later session never flashes the

@@ -1309,17 +1309,18 @@ final class SessionViewController: NSViewController {
     }
 
     /// Returns whether the canvas needs a render: on the first frame and
-    /// when the desktop size or monitor layout changes. Every frame is kept
-    /// for Stats for Nerds without a render; AVC444 can alternate codecs frame by frame.
+    /// when the desktop's size or monitor layout changes. Every frame is
+    /// kept for Stats for Nerds without a render; AVC444 can alternate
+    /// codecs frame by frame. A frame handed to the renderer counts as
+    /// presented whatever the display layer makes of it: the layer recovers
+    /// from a failure by itself, and the session must not wait for it.
     @discardableResult
     private func applyFramePresentation(_ presentation: RDPDecodedFramePresentation) -> Bool {
         let wasFirstPresentedFrame = hasPresentedFrame == false
         let frame = presentation.frame
         let shouldUpdateFrameMetadata = shouldPublishFrameMetadata(frame)
         presentedFrameCount += 1
-        guard remoteDesktopRenderer.present(presentation, id: presentedFrameCount) else {
-            return false
-        }
+        remoteDesktopRenderer.present(presentation, id: presentedFrameCount)
         latestPresentedFrame = frame
         if shouldUpdateFrameMetadata {
             let metadata = RDPFrameMetadata(frame)
