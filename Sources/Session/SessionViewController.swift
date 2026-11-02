@@ -1,6 +1,7 @@
 import AppKit
 import QuartzCore
 import RDPKit
+import RDPKitAppKit
 import SwiftUI
 import SystemConfiguration
 
@@ -907,11 +908,12 @@ final class SessionViewController: NSViewController {
         desktopSize: RDPDesktopSize,
         legacyCredSSP: Bool
     ) -> RDPConnectionConfiguration {
-        // Announce the Mac's keyboard layout so the server maps scancodes to
-        // the characters the keys are labelled with; the input layer sends
-        // keys by the layout this session announced.
-        let keyboardLayout = MacRDPKeyboardLayout.current()
-        canvasView.keyboardLayout = keyboardLayout
+        // Announce the Mac's keyboard layout, and a Japanese keyboard's type
+        // for a Japanese input source, so the server maps scancodes to the
+        // characters the keys are labelled with; the input layer sends keys
+        // by the keyboard this session announced.
+        let keyboard = RDPMacKeyboardLayout.current()
+        canvasView.keyboard = keyboard
         connectionRequestsAudio = audioPlaybackEnabled
         return RDPConnectionConfiguration(
             target: target,
@@ -937,7 +939,9 @@ final class SessionViewController: NSViewController {
             // RDPeek never exposes a graphics-profile picker: automatic lets
             // RDPKit negotiate the best path per host (Windows included).
             graphicsCapabilityProfile: .automatic,
-            keyboardLayout: keyboardLayout,
+            keyboardLayout: keyboard.layout,
+            keyboardType: keyboard.type,
+            keyboardSubType: keyboard.subType,
             // A certificate that refuses ECDHE gets a second connection
             // within the run offering only RSA key exchange, before any
             // credential is sent; never a redirection's target.

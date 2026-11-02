@@ -1,6 +1,7 @@
 import AppKit
 import AVFoundation
 import RDPKit
+import RDPKitAppKit
 import XCTest
 
 @MainActor
@@ -19,7 +20,7 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
             CGSize(width: 801, height: 1001),
         ] {
             let canvas = makeCanvas(size: canvasSize, scale: 1, showing: desktop)
-            let origin = try XCTUnwrap(inputView(of: canvas)?.geometry).contentRect.origin
+            let origin = try XCTUnwrap(mappedGeometry(of: canvas)).contentRect.origin
 
             XCTAssertEqual(origin.x, origin.x.rounded(), accuracy: 1e-9, "\(canvasSize)")
             XCTAssertEqual(origin.y, origin.y.rounded(), accuracy: 1e-9, "\(canvasSize)")
@@ -34,7 +35,7 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
             showing: makeFrameMetadata(width: 1280, height: 800)
         )
 
-        XCTAssertEqual(try XCTUnwrap(inputView(of: canvas)?.geometry).contentRect, canvas.bounds)
+        XCTAssertEqual(try XCTUnwrap(mappedGeometry(of: canvas)).contentRect, canvas.bounds)
         XCTAssertEqual(displayLayer(of: canvas)?.frame, canvas.bounds)
     }
 
@@ -48,7 +49,7 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
 
         canvas.update(frame: frame, visibleRects: outerTwoOfThree, hasPresentedFrame: true, inputSession: nil)
 
-        let geometry = try XCTUnwrap(inputView(of: canvas)?.geometry)
+        let geometry = try XCTUnwrap(mappedGeometry(of: canvas))
         XCTAssertEqual(geometry, makeGeometry(for: canvas, frame: frame, visibleRects: outerTwoOfThree))
         try assertVideo(of: canvas, follows: geometry)
     }
@@ -66,7 +67,7 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         canvas.setFrameSize(CGSize(width: 1003, height: 677))
         canvas.layoutSubtreeIfNeeded()
 
-        let geometry = try XCTUnwrap(inputView(of: canvas)?.geometry)
+        let geometry = try XCTUnwrap(mappedGeometry(of: canvas))
         XCTAssertEqual(geometry, makeGeometry(for: canvas, frame: frame, visibleRects: outerTwoOfThree))
         try assertVideo(of: canvas, follows: geometry)
     }
@@ -77,12 +78,12 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         let frame = makeFrameMetadata(width: 1280, height: 800)
         let canvas = makeCanvas(size: CGSize(width: 1283, height: 805), scale: 1, showing: frame)
         let window = try XCTUnwrap(canvas.window as? TestWindow)
-        XCTAssertEqual(try XCTUnwrap(inputView(of: canvas)?.geometry).contentRect.minY, 2)
+        XCTAssertEqual(try XCTUnwrap(mappedGeometry(of: canvas)).contentRect.minY, 2)
 
         window.scale = 2
         canvas.viewDidChangeBackingProperties()
 
-        let geometry = try XCTUnwrap(inputView(of: canvas)?.geometry)
+        let geometry = try XCTUnwrap(mappedGeometry(of: canvas))
         XCTAssertEqual(geometry.contentRect.minY, 1.5)
         XCTAssertEqual(geometry, makeGeometry(for: canvas, frame: frame, visibleRects: nil))
         try assertVideo(of: canvas, follows: geometry)
@@ -93,7 +94,7 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         let frame = makeFrameMetadata(width: 7040, height: 1440)
         let canvas = makeCanvas(size: CGSize(width: 1440, height: 872), scale: 2, showing: frame)
 
-        let geometry = try XCTUnwrap(inputView(of: canvas)?.geometry)
+        let geometry = try XCTUnwrap(mappedGeometry(of: canvas))
         XCTAssertEqual(geometry, makeGeometry(for: canvas, frame: frame, visibleRects: nil))
         try assertVideo(of: canvas, follows: geometry)
     }
@@ -164,8 +165,13 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         XCTAssertEqual(covers.map(\.frame), geometry.coverRects, file: file, line: line)
     }
 
-    private func inputView(of canvas: RemoteDesktopCanvasNSView) -> RemoteInputCaptureNSView? {
-        canvas.subviews.lazy.compactMap { $0 as? RemoteInputCaptureNSView }.first
+    private func inputView(of canvas: RemoteDesktopCanvasNSView) -> RDPRemoteInputView? {
+        canvas.subviews.lazy.compactMap { $0 as? RDPRemoteInputView }.first
+    }
+
+    /// The geometry the input view maps points through.
+    private func mappedGeometry(of canvas: RemoteDesktopCanvasNSView) -> RemoteDesktopGeometry? {
+        inputView(of: canvas)?.pointMapping as? RemoteDesktopGeometry
     }
 
     /// Found by type, wherever the video view put it.

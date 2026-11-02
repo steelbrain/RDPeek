@@ -1,10 +1,11 @@
 import AppKit
 import RDPKit
+import RDPKitAppKit
 
 /// Hosts the video surface and the input capture layer, edge to edge.
 final class RemoteDesktopCanvasNSView: NSView {
     let displayView = RemoteDesktopSampleBufferNSView()
-    private let inputView = RemoteInputCaptureNSView()
+    private let inputView = RDPRemoteInputView()
     private var lastReportedSurface: Surface?
     /// The frame size in remote pixels and the displays to show, as `update` last set them; the
     /// geometry is computed again from them whenever the canvas's size or backing changes.
@@ -17,11 +18,11 @@ final class RemoteDesktopCanvasNSView: NSView {
     /// either changes.
     var onSurfaceChange: ((_ pointSize: CGSize, _ backingScaleFactor: CGFloat) -> Void)?
 
-    /// The keyboard layout the session announced; it decides which keys
-    /// the input layer can send as scancodes.
-    var keyboardLayout: RDPKeyboardLayout {
-        get { inputView.keyboardLayout }
-        set { inputView.keyboardLayout = newValue }
+    /// The keyboard the session announced; it decides which keys the
+    /// input layer can send as scancodes.
+    var keyboard: RDPKeyboard {
+        get { inputView.keyboard }
+        set { inputView.keyboard = newValue }
     }
 
     override init(frame frameRect: NSRect) {
@@ -80,6 +81,9 @@ final class RemoteDesktopCanvasNSView: NSView {
 
         displayView.autoresizingMask = [.width, .height]
         inputView.autoresizingMask = [.width, .height]
+        // While the user controls the desktop, ⌘ and ⌃ chords belong to the
+        // remote session ahead of the menu bar, as Help says.
+        inputView.claimsCommandShortcuts = true
         addSubview(displayView)
         addSubview(inputView)
     }
@@ -102,7 +106,7 @@ final class RemoteDesktopCanvasNSView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         displayView.apply(geometry)
-        inputView.geometry = geometry
+        inputView.pointMapping = geometry
         CATransaction.commit()
     }
 

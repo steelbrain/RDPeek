@@ -1,5 +1,6 @@
 import CoreGraphics
 import RDPKit
+import RDPKitAppKit
 
 /// Where the remote desktop is drawn in the canvas, and which remote pixel a point of the canvas
 /// falls on. The canvas computes one value and hands it to the video and the input views alike,
@@ -12,7 +13,7 @@ import RDPKit
 /// All Displays and a single-monitor desktop behave as they did before displays could be chosen.
 /// Chosen displays are drawn as their bounding box, aspect-fit like the whole frame, with the
 /// parts of it nobody chose covered in black.
-struct RemoteDesktopGeometry: Equatable {
+struct RemoteDesktopGeometry: Equatable, RDPRemotePointMapping {
     /// Where the shown source area, the whole frame or the chosen displays' bounding box, is
     /// drawn. Its origin is on a device pixel, so a desktop drawn one to one stays sharp.
     let contentRect: CGRect

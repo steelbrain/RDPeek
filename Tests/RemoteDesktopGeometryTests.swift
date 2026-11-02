@@ -1,5 +1,6 @@
 import AppKit
 import RDPKit
+import RDPKitAppKit
 import XCTest
 
 @MainActor
@@ -265,7 +266,89 @@ final class RemoteDesktopGeometryTests: XCTestCase {
         XCTAssertEqual(noFrame.videoLayerFrame, CGRect(x: 0, y: 0, width: 200, height: 100))
     }
 
+    // MARK: - Through RDPKit's input view
+
+    func testAChosenDisplayMapsThroughARetinaScale() {
+        // Two 400 x 200 displays in the 200 x 100 view at 2x, the right one chosen: each point is
+        // two remote pixels, and a quarter point still lands on the right one.
+        let (view, recorder) = makeInputView()
+        view.pointMapping = RemoteDesktopGeometry(
+            frameSize: CGSize(width: 800, height: 200),
+            visibleRects: [CGRect(x: 400, y: 0, width: 400, height: 200)],
+            bounds: view.bounds,
+            backingScaleFactor: 2
+        )
+
+        view.mouseMoved(with: mouseEvent(.mouseMoved, location: NSPoint(x: 0.25, y: 99.75)))
+        view.mouseMoved(with: mouseEvent(.mouseMoved, location: NSPoint(x: 150.25, y: 25.75)))
+        view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: -30, y: 50)))
+
+        XCTAssertEqual(recorder.events, [
+            .pointerMove(x: 400, y: 0),
+            .pointerMove(x: 700, y: 148),
+            .pointerMove(x: 400, y: 100),
+        ])
+    }
+
+    func testADragOutOfTheWindowStopsOnTheShownLShape() {
+        // A tall display on the left and a shorter one on the right, with the display above the
+        // shorter one hidden: past each edge the drag lands on the nearest shown pixel.
+        let (view, recorder) = makeInputView()
+        view.pointMapping = RemoteDesktopGeometry(
+            frameSize: CGSize(width: 200, height: 100),
+            visibleRects: [
+                CGRect(x: 0, y: 0, width: 120, height: 100),
+                CGRect(x: 120, y: 40, width: 80, height: 60),
+            ],
+            bounds: view.bounds,
+            backingScaleFactor: 1
+        )
+        view.mouseDown(with: mouseEvent(.leftMouseDown, location: NSPoint(x: 150, y: 20)))
+        recorder.events.removeAll()
+
+        view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: 180, y: 130)))
+        view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: 250, y: 20)))
+        view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: -30, y: -30)))
+
+        XCTAssertEqual(recorder.events, [
+            .pointerMove(x: 180, y: 40),
+            .pointerMove(x: 199, y: 80),
+            .pointerMove(x: 0, y: 99),
+        ])
+    }
+
     // MARK: - Helpers
+
+    /// RDPKit's input view filling a 200 x 100 key window, as the canvas lays it out, sending
+    /// to a recorder.
+    private func makeInputView() -> (RDPRemoteInputView, InputEventRecorder) {
+        let recorder = InputEventRecorder()
+        let view = RDPRemoteInputView(frame: NSRect(x: 0, y: 0, width: 200, height: 100))
+        let window = TestWindow(isKey: true)
+        window.contentView = view
+        view.inputSession = recorder
+        addTeardownBlock { @MainActor in
+            window.contentView = nil
+        }
+        return (view, recorder)
+    }
+
+    private func mouseEvent(_ type: NSEvent.EventType, location: NSPoint) -> NSEvent {
+        guard let event = NSEvent.mouseEvent(
+            with: type,
+            location: location,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1
+        ) else {
+            preconditionFailure("Failed to synthesize mouse event")
+        }
+        return event
+    }
 
     /// What the canvas did before this geometry: RDPKit's viewport over the canvas, with the
     /// video and input views shifted so the content starts on a device pixel.
@@ -388,5 +471,17 @@ final class RemoteDesktopGeometryTests: XCTestCase {
             bounds: CGRect(x: 0, y: 0, width: 1440, height: 872),
             backingScaleFactor: 2
         )
+    }
+}
+
+@MainActor
+private final class InputEventRecorder: RDPInputEventSending {
+    nonisolated let supportsUnicodeInput = true
+    var events: [RDPSlowPathInputEvent] = []
+
+    nonisolated func send(_ events: [RDPSlowPathInputEvent]) {
+        MainActor.assumeIsolated {
+            self.events += events
+        }
     }
 }
