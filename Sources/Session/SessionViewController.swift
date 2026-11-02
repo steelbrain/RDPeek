@@ -39,29 +39,16 @@ final class SessionViewController: NSViewController {
     private var isResolvingStoredCredentials = false
     private var credentialResolutionTask: Task<Void, Never>?
     private var didPromptForCredentials = false
-    /// The attempt sent the draft's password, which is kept once the server
-    /// accepts it.
-    private var isAwaitingCredentialAcceptance = false
-    /// The password was kept for the connection the user started.
-    private var hasKeptCredentials = false
+    /// The automatic retries left to the connection the user started, and
+    /// whether its sign-in was dealt with.
+    private var attemptBudget = SessionAttemptBudget()
     private var isConnecting = false
     private var hasEverPresentedFrame = false
-    private var autoRetryCount = 0
-    private var didRetryFirstFrameTimeout = false
     private var isAutoRetryPending = false
     /// Why the session is connecting again on its own, for the connecting
     /// overlay; nil for a connection the user started.
     private var autoRetryReason: SessionAutoRetryReason?
     private var autoRetryTask: Task<Void, Never>?
-    /// This connection offers only RSA key exchange, after the server's
-    /// certificate turned down ECDHE. Not saved: every connection tries
-    /// ECDHE first.
-    private var usesLegacyRSAKeyExchange = false
-    /// This connection presents no stored client license, after the
-    /// server's licensing failed with it. A license the server issues
-    /// replaces the stored one; every connection the user starts presents
-    /// the stored license first.
-    private var omitsStoredClientLicense = false
     private var connectionRequestsAudio = false
     private var didReportAudioFailure = false
     private var activeConnectionID: UUID?
@@ -613,7 +600,7 @@ final class SessionViewController: NSViewController {
             clipboardSharingEnabled: clipboard.isSharingEnabled,
             connectionRequestsAudio: connectionRequestsAudio,
             certificateTrustedByApp: certificateTrustedByApp,
-            usesLegacyRSAKeyExchange: usesLegacyRSAKeyExchange,
+            usesLegacyRSAKeyExchange: attemptBudget.usesLegacyRSAKeyExchange,
             isConnecting: isConnecting
         )
         diagnosticsModel.updateSnapshot(nextSnapshot)
@@ -759,14 +746,10 @@ final class SessionViewController: NSViewController {
     /// password first when the session has none.
     func startConnection() {
         followSavedDraft()
-        hasKeptCredentials = false
         autoRetryTask?.cancel()
         autoRetryTask = nil
-        autoRetryCount = 0
-        didRetryFirstFrameTimeout = false
+        attemptBudget.userStarted()
         isAutoRetryPending = false
-        usesLegacyRSAKeyExchange = false
-        omitsStoredClientLicense = false
         autoRetryReason = nil
         connect(using: credentialSource(remembersPassword: draft.rememberPassword))
     }
@@ -825,7 +808,7 @@ final class SessionViewController: NSViewController {
         activeConnectionID = connectionID
         activeCancellation = cancellation
         self.liveReport = liveReport
-        isAwaitingCredentialAcceptance = credentials != nil
+        attemptBudget.attemptStarted(sendsCredentials: credentials != nil)
         renderMetricsStore.reset(connectionStartedAt: Date())
         updateViewerMetricsSummary(renderMetricsStore.metrics)
         isConnecting = true
@@ -894,7 +877,7 @@ final class SessionViewController: NSViewController {
             // RDPKit negotiate the best path per host (Windows included).
             graphicsCapabilityProfile: .automatic,
             keyboardLayout: keyboardLayout,
-            legacyRSAKeyExchange: usesLegacyRSAKeyExchange,
+            legacyRSAKeyExchange: attemptBudget.usesLegacyRSAKeyExchange,
             // Servers list the session, and count per-device licenses, under
             // the Mac's name; RDPKit cuts it to 15 characters.
             clientName: SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "RDPeek"
@@ -909,7 +892,7 @@ final class SessionViewController: NSViewController {
     ) {
         let clientLicenseStore = clientLicenseStore
         let clientLicenseKey = ClientLicenseStoreKey(identity: draft.identity)
-        let presentsStoredClientLicense = omitsStoredClientLicense == false
+        let presentsStoredClientLicense = attemptBudget.omitsStoredClientLicense == false
         let trustedCertificateStore = trustedCertificateStore
         let acceptsUntrustedCertificates = draft.hideCertificateWarnings
         let remoteAudioPlayer = remoteAudioPlayer
@@ -1154,16 +1137,8 @@ final class SessionViewController: NSViewController {
             displayControlSession = nil
             cancelPendingDisplayResize()
         }
-        // Activation repeats after a reactivation or server redirection;
-        // the sign-in is kept only the first time.
-        if isAwaitingCredentialAcceptance {
-            isAwaitingCredentialAcceptance = false
-            // An automatic retry signs in again with the same password,
-            // which was kept already.
-            if hasKeptCredentials == false {
-                hasKeptCredentials = true
-                keepAcceptedCredentials()
-            }
+        if attemptBudget.sessionActivated() {
+            keepAcceptedCredentials()
         }
         render()
     }
@@ -1196,15 +1171,14 @@ final class SessionViewController: NSViewController {
     ) {
         flushPendingFramePresentation()
         publishRenderMetricsSnapshotIfNeeded(force: true)
-        let outcome = SessionAttemptOutcome.after(
-            finishedReport,
+        let outcome = attemptBudget.outcome(
+            after: finishedReport,
             host: configuration.host,
             presentedFrames: hasPresentedFrame,
             usedLegacyRSAKeyExchange: configuration.legacyRSAKeyExchange,
-            presentedStoredClientLicense: configuration.storedClientLicense != nil,
-            unreachableRetriesSpent: autoRetryCount,
-            retriedFirstFrameTimeout: didRetryFirstFrameTimeout
+            presentedStoredClientLicense: configuration.storedClientLicense != nil
         )
+        attemptBudget.record(outcome)
         report = finishedReport
         certificateTrustedByApp = trustedCertificateStore.isTrusted(
             host: liveCertificate?.host ?? configuration.host,
@@ -1223,19 +1197,9 @@ final class SessionViewController: NSViewController {
         resetFramePresentationState()
 
         switch outcome {
-        case .retryWithLegacyRSAKeyExchange:
-            usesLegacyRSAKeyExchange = true
-            startConnectionAttempt()
-        case .retryWithoutStoredClientLicense:
-            omitsStoredClientLicense = true
+        case .retryWithLegacyRSAKeyExchange, .retryWithoutStoredClientLicense:
             startConnectionAttempt()
         case let .retry(reason):
-            switch reason {
-            case .networkHiccup:
-                autoRetryCount += 1
-            case .firstFrameTimeout:
-                didRetryFirstFrameTimeout = true
-            }
             scheduleAutoRetry(reason)
         case let .promptForCredentials(message):
             forgetRejectedPassword()
@@ -1394,7 +1358,7 @@ final class SessionViewController: NSViewController {
         if wasFirstPresentedFrame {
             hasPresentedFrame = true
             hasEverPresentedFrame = true
-            autoRetryCount = 0
+            attemptBudget.presentedFirstFrame()
         }
         return wasFirstPresentedFrame || layoutChanged
     }

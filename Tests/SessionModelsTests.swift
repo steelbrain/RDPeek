@@ -509,6 +509,110 @@ final class SessionModelsTests: XCTestCase {
         XCTAssertEqual(outcome(after: makeReport(stage: "credssp", failure: .cancelled)), .end(.cancelled))
     }
 
+    // MARK: - Attempt budget
+
+    func testUnreachableRetriesEnd() {
+        let unreachable = makeReport(stage: "x224-rdp-negotiation", failure: .connect(error: RDPSocketError(errno: EHOSTUNREACH)))
+        var budget = SessionAttemptBudget()
+        budget.userStarted()
+
+        let retries = retriesUntilTheEnd(of: &budget, feeding: unreachable)
+
+        XCTAssertEqual(retries, SessionAttemptOutcome.maximumUnreachableRetries)
+        // A connection the user starts may retry as often again.
+        budget.userStarted()
+        XCTAssertEqual(retriesUntilTheEnd(of: &budget, feeding: unreachable), retries)
+    }
+
+    func testEachAutomaticRetryHappensOnce() {
+        let cases: [(RDPConnectionReport, Bool)] = [
+            (makeReport(stage: "rdp-graphics-dynamic-channel", failure: .timedOut), false),
+            (makeReport(stage: "tls-handshake", failure: .tlsKeyUsageIncorrect), false),
+            (makeReport(stage: "rdp-licensing", failure: .licensing(errorCode: 0x0000_0008)), true),
+        ]
+        for (report, hasStoredClientLicense) in cases {
+            var budget = SessionAttemptBudget()
+            budget.userStarted()
+
+            XCTAssertEqual(
+                retriesUntilTheEnd(of: &budget, feeding: report, hasStoredClientLicense: hasStoredClientLicense),
+                1,
+                "\(String(describing: report.failure))"
+            )
+        }
+    }
+
+    func testMixedFailuresStillEnd() {
+        let reports = [
+            makeReport(stage: "x224-rdp-negotiation", failure: .connect(error: RDPSocketError(errno: ETIMEDOUT))),
+            makeReport(stage: "tls-handshake", failure: .tlsKeyUsageIncorrect),
+            makeReport(stage: "rdp-licensing", failure: .licensing(errorCode: 0x0000_0008)),
+            makeReport(stage: "rdp-graphics-dynamic-channel", failure: .timedOut),
+        ]
+        var budget = SessionAttemptBudget()
+        budget.userStarted()
+        var attempts = 0
+
+        while attempts < 100 {
+            let outcome = budget.outcome(
+                after: reports[attempts % reports.count],
+                host: "winbox",
+                presentedFrames: false,
+                usedLegacyRSAKeyExchange: budget.usesLegacyRSAKeyExchange,
+                presentedStoredClientLicense: budget.omitsStoredClientLicense == false
+            )
+            budget.record(outcome)
+            attempts += 1
+            if case .end = outcome {
+                break
+            }
+        }
+
+        XCTAssertLessThanOrEqual(attempts, SessionAttemptOutcome.maximumUnreachableRetries + 4)
+    }
+
+    func testAShownDesktopRestoresTheUnreachableRetries() {
+        let unreachable = makeReport(stage: "x224-rdp-negotiation", failure: .connect(error: RDPSocketError(errno: EHOSTUNREACH)))
+        var budget = SessionAttemptBudget()
+        budget.userStarted()
+        _ = retriesUntilTheEnd(of: &budget, feeding: unreachable)
+
+        budget.presentedFirstFrame()
+
+        XCTAssertEqual(
+            retriesUntilTheEnd(of: &budget, feeding: unreachable),
+            SessionAttemptOutcome.maximumUnreachableRetries
+        )
+    }
+
+    func testTheSignInIsDecidedOnOncePerConnectionTheUserStarts() {
+        var budget = SessionAttemptBudget()
+        budget.userStarted()
+        budget.attemptStarted(sendsCredentials: true)
+
+        XCTAssertTrue(budget.sessionActivated())
+        // A reactivation, or a server redirection's target.
+        XCTAssertFalse(budget.sessionActivated())
+        // An automatic retry signs in with the same password.
+        budget.attemptStarted(sendsCredentials: true)
+        XCTAssertFalse(budget.sessionActivated())
+
+        budget.userStarted()
+        budget.attemptStarted(sendsCredentials: true)
+        XCTAssertTrue(budget.sessionActivated())
+    }
+
+    func testASessionWithoutCredentialsHasNoSignInToDecideOn() {
+        var budget = SessionAttemptBudget()
+        budget.userStarted()
+        budget.attemptStarted(sendsCredentials: false)
+
+        XCTAssertFalse(budget.sessionActivated())
+        // A retry that sends credentials still decides on them.
+        budget.attemptStarted(sendsCredentials: true)
+        XCTAssertTrue(budget.sessionActivated())
+    }
+
     // MARK: - Logon names
 
     func testDomainQualifiedUserNameSignsInSplitAndKeepsItsKeychainAccount() throws {
@@ -635,6 +739,34 @@ final class SessionModelsTests: XCTestCase {
             updatedAt: Date(timeIntervalSinceReferenceDate: 0),
             lastConnectedAt: nil
         ))
+    }
+
+    /// Feeds the budget the same failure until an attempt ends, as the
+    /// session would, and returns the retries it made.
+    private func retriesUntilTheEnd(
+        of budget: inout SessionAttemptBudget,
+        feeding report: RDPConnectionReport,
+        hasStoredClientLicense: Bool = false
+    ) -> Int {
+        var retries = 0
+        while retries < 100 {
+            let outcome = budget.outcome(
+                after: report,
+                host: "winbox",
+                presentedFrames: false,
+                usedLegacyRSAKeyExchange: budget.usesLegacyRSAKeyExchange,
+                presentedStoredClientLicense: hasStoredClientLicense && budget.omitsStoredClientLicense == false
+            )
+            budget.record(outcome)
+            switch outcome {
+            case .retry, .retryWithLegacyRSAKeyExchange, .retryWithoutStoredClientLicense:
+                retries += 1
+            case .promptForCredentials, .end:
+                return retries
+            }
+        }
+        XCTFail("The retries never ended")
+        return retries
     }
 
     private func endReason(_ report: RDPConnectionReport, presentedFrames: Bool = false) -> RDPSessionEndReason {

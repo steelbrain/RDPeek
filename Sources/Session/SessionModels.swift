@@ -502,6 +502,101 @@ enum SessionAttemptOutcome: Equatable {
     }
 }
 
+/// The automatic attempts a connection the user started may still make,
+/// and whether its sign-in was dealt with. Each automatic retry is
+/// bounded, so a session never connects again on its own forever, and
+/// the password is kept at most once however often the session activates.
+struct SessionAttemptBudget {
+    /// Retries spent on a server that could not be reached, since the user
+    /// started the connection or the desktop last showed.
+    private(set) var unreachableRetriesSpent = 0
+    private(set) var retriedFirstFrameTimeout = false
+    /// This connection offers only RSA key exchange, after the server's
+    /// certificate turned down ECDHE. Not saved: every connection tries
+    /// ECDHE first.
+    private(set) var usesLegacyRSAKeyExchange = false
+    /// This connection presents no stored client license, after the
+    /// server's licensing failed with it. A license the server issues
+    /// replaces the stored one; every connection the user starts presents
+    /// the stored license first.
+    private(set) var omitsStoredClientLicense = false
+    /// The attempt under way sent credentials, which its first activation
+    /// decides on.
+    private var isAwaitingSignIn = false
+    /// The sign-in was decided on for the connection the user started.
+    private var hasDecidedSignIn = false
+
+    /// The user started a connection: every retry is there again.
+    mutating func userStarted() {
+        self = SessionAttemptBudget()
+    }
+
+    /// An attempt starts, with credentials or without.
+    mutating func attemptStarted(sendsCredentials: Bool) {
+        isAwaitingSignIn = sendsCredentials
+    }
+
+    /// The attempt showed the desktop: a server lost later may be retried
+    /// as often again.
+    mutating func presentedFirstFrame() {
+        unreachableRetriesSpent = 0
+    }
+
+    /// What follows an attempt that ended without the user ending it, with
+    /// the retries spent so far. Pass the outcome to `record` before acting
+    /// on it.
+    func outcome(
+        after report: RDPConnectionReport,
+        host: String,
+        presentedFrames: Bool,
+        usedLegacyRSAKeyExchange: Bool,
+        presentedStoredClientLicense: Bool
+    ) -> SessionAttemptOutcome {
+        SessionAttemptOutcome.after(
+            report,
+            host: host,
+            presentedFrames: presentedFrames,
+            usedLegacyRSAKeyExchange: usedLegacyRSAKeyExchange,
+            presentedStoredClientLicense: presentedStoredClientLicense,
+            unreachableRetriesSpent: unreachableRetriesSpent,
+            retriedFirstFrameTimeout: retriedFirstFrameTimeout
+        )
+    }
+
+    /// Spends the retry `outcome` makes, if any.
+    mutating func record(_ outcome: SessionAttemptOutcome) {
+        switch outcome {
+        case .retryWithLegacyRSAKeyExchange:
+            usesLegacyRSAKeyExchange = true
+        case .retryWithoutStoredClientLicense:
+            omitsStoredClientLicense = true
+        case .retry(.networkHiccup):
+            unreachableRetriesSpent += 1
+        case .retry(.firstFrameTimeout):
+            retriedFirstFrameTimeout = true
+        case .promptForCredentials, .end:
+            break
+        }
+    }
+
+    /// The server activated the session. Returns true when this activation
+    /// decides on the sign-in: the first of an attempt that sent
+    /// credentials, once for the connection the user started. A
+    /// reactivation or a server redirection activates again, and an
+    /// automatic retry signs in again with the same password.
+    mutating func sessionActivated() -> Bool {
+        guard isAwaitingSignIn else {
+            return false
+        }
+        isAwaitingSignIn = false
+        guard hasDecidedSignIn == false else {
+            return false
+        }
+        hasDecidedSignIn = true
+        return true
+    }
+}
+
 extension RDPDesktopSize {
     /// The desktop a connection asks for on a canvas of `pointSize`: the
     /// canvas in points, at 100% scale. It is rounded as Display Control
