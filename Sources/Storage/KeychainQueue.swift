@@ -1,4 +1,4 @@
-import Foundation
+import Dispatch
 
 /// Runs Keychain calls off the main thread and off Swift's cooperative
 /// pool: a call can block on the access-approval dialog for as long as the
