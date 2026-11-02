@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import SwiftUI
 
 /// The remote desktop window: full-bleed canvas under a transparent titlebar,
 /// with a status pill and session menu as a titlebar accessory.
@@ -50,7 +51,8 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
         window.tabbingMode = .disallowed
 
         let accessory = NSTitlebarAccessoryViewController()
-        let accessoryView = SessionTitlebarAccessory.makeHostingView(model: sessionController.hudModel)
+        let accessoryView = NSHostingView(rootView: SessionTitlebarAccessory(model: sessionController.hudModel))
+        accessoryView.sizingOptions = .intrinsicContentSize
         accessory.view = accessoryView
         accessory.layoutAttribute = .trailing
         window.addTitlebarAccessoryViewController(accessory)

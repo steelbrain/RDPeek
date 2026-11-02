@@ -581,44 +581,9 @@ struct SessionMetricsRoot: View {
 struct SessionTitlebarAccessory: View {
     @ObservedObject var model: SessionHUDModel
 
-    static func makeHostingView(model: SessionHUDModel) -> NSHostingView<SessionTitlebarAccessory> {
-        let view = NSHostingView(rootView: SessionTitlebarAccessory(model: model))
-        view.sizingOptions = .intrinsicContentSize
-        // AppKit reserves the accessory’s frame, not its SwiftUI intrinsic size.
-        // A zero initial frame leaves controls beyond the window’s trailing edge.
-        view.setFrameSize(view.fittingSize)
-        return view
-    }
-
     var body: some View {
         HStack(spacing: 10) {
             SessionStatusPill(phase: model.phase)
-
-            Menu {
-                Toggle("All Displays", isOn: Binding(
-                    get: { model.areAllDisplaysSelected },
-                    set: { _ in model.onSelectAllDisplays() }
-                ))
-                .disabled(model.displays.isEmpty)
-                ForEach(model.displays) { display in
-                    Toggle(display.label, isOn: Binding(
-                        get: { display.isSelected },
-                        set: { _ in model.onToggleDisplay(display.monitor) }
-                    ))
-                    .disabled(!display.canToggle)
-                }
-                Divider()
-                if model.displays.isEmpty {
-                    Text("The server did not supply individual display information.")
-                } else {
-                    Text("Numbered in the order reported by the server.")
-                }
-            } label: {
-                Label("Displays", systemImage: "display.2")
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help("Choose which remote displays to view")
 
             Menu {
                 Button {
@@ -689,7 +654,6 @@ struct SessionTitlebarAccessory: View {
             .help("Session options")
         }
         .padding(.trailing, 12)
-        .fixedSize()
     }
 
     private var clipboardBinding: Binding<Bool> {
@@ -730,15 +694,9 @@ private struct SessionStatusPill: View {
                 .fill(color)
                 .frame(width: 7, height: 7)
                 .shadow(color: color.opacity(0.8), radius: 3)
-            ZStack {
-                // Reserve the widest status before AppKit sizes the accessory.
-                Text("Disconnected")
-                    .hidden()
-                    .accessibilityHidden(true)
-                Text(verbatim: text)
-            }
-            .font(.caption.weight(.medium))
-            .foregroundStyle(.secondary)
+            Text(verbatim: text)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 4)

@@ -72,7 +72,6 @@ targets:
       - path: Sources/Session/RemoteInputCaptureView.swift
       - path: Sources/Session/SessionClipboard.swift
       - path: Sources/Session/SessionCommandState.swift
-      - path: Sources/Session/SessionHUD.swift
       - path: Sources/Session/SessionCredentialPolicy.swift
       - path: Sources/Session/SessionDisplayControlPolicy.swift
       - path: Sources/Session/SessionModels.swift
