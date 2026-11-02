@@ -112,7 +112,7 @@ final class SessionViewController: NSViewController {
     private var renderMetricsStore = RDPRenderMetricsStore()
     private let diagnosticsModel = RemoteSessionDiagnosticsModel()
     private var certificateTrustedByApp = false
-    private var certificateRefusal: CertificateRefusal?
+    private var certificateRefusal: RDPServerCertificateRefusal?
     private var shouldAutoConnect = true
     private var diagnosticsTask: Task<Void, Never>?
     private var metricsOverlayTask: Task<Void, Never>?
@@ -1070,7 +1070,7 @@ final class SessionViewController: NSViewController {
                     // here refuses the server without signing in to it.
                     // Cancelled through its cancellation, rather than by
                     // the window, the session still delivers the refusal.
-                    let refusal = trustedCertificateStore.refusal(
+                    let refusal = trustedCertificateStore.trusted.refusal(
                         of: info,
                         port: port,
                         acceptsUntrusted: acceptsUntrustedCertificates
@@ -1132,12 +1132,12 @@ final class SessionViewController: NSViewController {
     private func receiveCertificate(
         _ info: RDPServerCertificateInfo,
         port: UInt16,
-        refusal: CertificateRefusal?
+        refusal: RDPServerCertificateRefusal?
     ) {
         liveCertificate = info
         // After a server redirection, the certificate belongs to the
         // redirection target.
-        certificateTrustedByApp = trustedCertificateStore.isTrusted(
+        certificateTrustedByApp = trustedCertificateStore.trusted.isTrusted(
             host: info.host,
             port: port,
             sha256: info.sha256
@@ -1161,7 +1161,7 @@ final class SessionViewController: NSViewController {
         attemptBudget.record(outcome)
         legacyCredSSPConsent.attemptEnded(with: finishedReport)
         report = finishedReport
-        certificateTrustedByApp = trustedCertificateStore.isTrusted(
+        certificateTrustedByApp = trustedCertificateStore.trusted.isTrusted(
             host: liveCertificate?.host ?? configuration.host,
             port: configuration.port,
             sha256: finishedReport.certificateSHA256
@@ -1220,7 +1220,7 @@ final class SessionViewController: NSViewController {
 
     /// Ends a connection whose certificate must not receive credentials;
     /// the certificate notice offers to trust it and connect again.
-    private func refuseCertificate(_ refusal: CertificateRefusal) {
+    private func refuseCertificate(_ refusal: RDPServerCertificateRefusal) {
         certificateRefusal = refusal
         let reason = switch refusal {
         case .changed: "The server's certificate is not the one trusted for this host."
