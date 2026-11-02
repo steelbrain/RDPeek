@@ -169,7 +169,6 @@ final class RemoteInputCaptureNSView: NSView {
         guard let point = remotePoint(from: event) else {
             return
         }
-        inputState.updatePointerLocation(point)
         let units = MacRDPScrollWheel.rotationUnits(
             deltaX: event.scrollingDeltaX,
             deltaY: event.scrollingDeltaY,
@@ -179,10 +178,14 @@ final class RemoteInputCaptureNSView: NSView {
         guard events.isEmpty == false else {
             return
         }
+        // A window that is not key gets no mouse moves, but macOS still scrolls it, and some
+        // servers scroll at their own pointer rather than at the wheel event's position, so the
+        // pointer moves there first.
+        let moveEvents = inputState.lastPointerPoint == point ? [] : [inputState.pointerMove(to: point)]
         // A held-back right Alt goes down first, as it does ahead of a click, so Alt-scroll
         // reaches the server. Command held to scroll was used, so releasing it is no tap.
         let deferredKeyEvents = deferredModifierKeys.flushRightAlt(&inputState)
-        sendInput(deferredKeyEvents + events)
+        sendInput(moveEvents + deferredKeyEvents + events)
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {

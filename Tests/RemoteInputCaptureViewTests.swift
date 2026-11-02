@@ -234,6 +234,26 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         XCTAssertEqual(harness.recorder.events, [])
     }
 
+    func testAScrollMovesThePointerToItsPositionFirst() {
+        // A window that is not key gets no mouse moves, and some servers scroll at their own
+        // pointer rather than at the wheel event's position.
+        let harness = makeHarness()
+        harness.window.isKey = false
+        harness.view.mouseMoved(with: mouseEvent(.mouseMoved, location: NSPoint(x: 40, y: 50)))
+        harness.recorder.events.removeAll()
+
+        harness.view.scrollWheel(with: scrollEvent())
+        XCTAssertEqual(harness.recorder.events.count, 2)
+        XCTAssertEqual(harness.recorder.events.first, .pointerMove(x: 100, y: 50))
+        XCTAssertTrue(isVerticalWheel(harness.recorder.events.last), "Got \(harness.recorder.events)")
+
+        // Already there: the wheel alone.
+        harness.recorder.events.removeAll()
+        harness.view.scrollWheel(with: scrollEvent())
+        XCTAssertEqual(harness.recorder.events.count, 1)
+        XCTAssertTrue(isVerticalWheel(harness.recorder.events.first), "Got \(harness.recorder.events)")
+    }
+
     func testAChosenDisplayMapsThroughARetinaScale() {
         // Two 400 x 200 displays in the 200 x 100 view at 2x, the right one chosen: each point is
         // two remote pixels, and a quarter point still lands on the right one.
@@ -347,10 +367,9 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         harness.view.scrollWheel(with: scrollEvent(flags: .leftCommandDown))
         harness.view.flagsChanged(with: flagsEvent(keyCode: .leftCommand, flags: []))
 
-        XCTAssertEqual(harness.recorder.events.count, 1)
-        guard case .verticalWheel = harness.recorder.events.first else {
-            return XCTFail("Expected only the wheel event, got \(harness.recorder.events)")
-        }
+        XCTAssertEqual(harness.recorder.events.count, 2)
+        XCTAssertEqual(harness.recorder.events.first, .pointerMove(x: 100, y: 50))
+        XCTAssertTrue(isVerticalWheel(harness.recorder.events.last), "Expected only the move and the wheel event, got \(harness.recorder.events)")
     }
 
     func testCommandChordTheRemoteNeverSeesSendsNoTap() {
@@ -854,9 +873,10 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         harness.view.flagsChanged(with: flagsEvent(keyCode: .rightOption, flags: []))
 
         let events = harness.recorder.events
-        XCTAssertEqual(events.count, 4)
-        XCTAssertEqual(events.first, .keyboard(scancode: .rightAlt, isReleased: false))
-        XCTAssertTrue(events.dropFirst().prefix(2).allSatisfy { isVerticalWheel($0) }, "Got \(events)")
+        XCTAssertEqual(events.count, 5)
+        XCTAssertEqual(events.first, .pointerMove(x: 100, y: 50))
+        XCTAssertEqual(events.dropFirst().first, .keyboard(scancode: .rightAlt, isReleased: false))
+        XCTAssertTrue(events.dropFirst(2).prefix(2).allSatisfy { isVerticalWheel($0) }, "Got \(events)")
         XCTAssertEqual(events.last, .keyboard(scancode: .rightAlt, isReleased: true))
     }
 
