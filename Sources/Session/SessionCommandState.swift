@@ -1,3 +1,4 @@
+import Foundation
 import RDPKit
 
 /// Command state of a session: the Session menu and the HUD both enable,
@@ -10,6 +11,8 @@ struct SessionCommandState: Equatable {
     var isClipboardSharingEnabled: Bool
     var canSyncClipboard: Bool
     var canShareClipboardTemporarily: Bool
+    /// The menus' item for a temporary share, which names how long it lasts.
+    var shareClipboardTemporarilyTitle: String
     var isAudioPlaybackEnabled: Bool
     /// Match Window Size as it is in effect, which is not the preference
     /// while several monitors pause it.
@@ -24,6 +27,8 @@ struct SessionCommandState: Equatable {
     /// Derives the command state from the session's primitive phase inputs.
     /// `hasFrame` is whether a remote frame is available to show; it titles
     /// the Connecting/Connected distinction while a connection is live.
+    /// `temporaryClipboardSharingDuration` is how long the session's
+    /// clipboard bridge shares for at a time.
     /// A connection that ended — with a report, or with an end reason such
     /// as the user disconnecting — is started again with Reconnect. The
     /// clipboard items and the toggles come from the session as they are,
@@ -44,6 +49,7 @@ struct SessionCommandState: Equatable {
         isClipboardSharingEnabled: Bool,
         canSyncClipboard: Bool,
         canShareClipboardTemporarily: Bool,
+        temporaryClipboardSharingDuration: TimeInterval,
         isAudioPlaybackEnabled: Bool,
         followsWindowSize: Bool,
         reportedMonitors: [RDPRemoteMonitor],
@@ -70,6 +76,9 @@ struct SessionCommandState: Equatable {
             isClipboardSharingEnabled: isClipboardSharingEnabled,
             canSyncClipboard: canSyncClipboard,
             canShareClipboardTemporarily: canShareClipboardTemporarily,
+            shareClipboardTemporarilyTitle: SessionClipboard.temporarySharingTitle(
+                for: temporaryClipboardSharingDuration
+            ),
             isAudioPlaybackEnabled: isAudioPlaybackEnabled,
             isFollowWindowSizeEnabled: followsWindowSize && reportsSeveralMonitors == false,
             canFollowWindowSize: reportsSeveralMonitors == false,

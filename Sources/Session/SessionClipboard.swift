@@ -16,6 +16,11 @@ enum SessionClipboard {
     /// one may belong to another copy of the app that is still downloading.
     static let staleDownloadDirectoryAge: TimeInterval = 60 * 60
 
+    /// How long a temporary share lasts. Each bridge shares for this long;
+    /// the toast and the menus name the bridge's own `temporarySharingDuration`,
+    /// and Help, which has no bridge, names this.
+    nonisolated static let temporarySharingDuration: TimeInterval = 30
+
     /// Download roots this process has cleared of earlier runs' downloads.
     private static var clearedDownloadRoots: Set<URL> = []
 
@@ -24,9 +29,9 @@ enum SessionClipboard {
     /// limits: a remote copy may hold 32 MiB and 1,000 files, each request
     /// answered within two minutes, and the Mac's files sent to the server
     /// 32 MiB. The toasts word them from the bridge's `downloadLimits` and
-    /// `maximumLocalFileByteCount`. A temporary share lasts 30 seconds, which
-    /// the toasts, the HUD and the Session menu name. The first bridge in a
-    /// run clears what earlier runs left.
+    /// `maximumLocalFileByteCount`. A temporary share lasts
+    /// `temporarySharingDuration`. The first bridge in a run clears what
+    /// earlier runs left.
     static func makeBridge(
         isSharingEnabled: Bool,
         pasteboard: NSPasteboard = .general,
@@ -38,7 +43,7 @@ enum SessionClipboard {
             pasteboard: pasteboard,
             downloadRoot: root,
             quarantineAgentName: "RDPeek",
-            temporarySharingDuration: 30
+            temporarySharingDuration: temporarySharingDuration
         )
     }
 
@@ -60,9 +65,9 @@ enum SessionClipboard {
     }
 
     /// The toast for `event` of `bridge`, or nil for one RDPeek shows none
-    /// for. A limit a copy went over is the one the bridge holds it to. The
-    /// switch has no default, so a case RDPKit adds fails the build until it
-    /// is worded here.
+    /// for. A limit a copy went over is the one the bridge holds it to, and a
+    /// temporary share lasts as long as the bridge's. The switch has no
+    /// default, so a case RDPKit adds fails the build until it is worded here.
     static func toast(
         for event: RDPPasteboardClipboard.Event,
         of bridge: RDPPasteboardClipboard
@@ -126,10 +131,18 @@ enum SessionClipboard {
                 systemImage: "exclamationmark.triangle"
             )
         case .temporarySharingStarted:
-            SessionToast(text: "Sharing clipboard for 30 seconds", systemImage: "clock")
+            SessionToast(
+                text: "Sharing clipboard for \(Int(bridge.temporarySharingDuration)) seconds",
+                systemImage: "clock"
+            )
         case .temporarySharingEnded:
             SessionToast(text: "Clipboard sharing ended", systemImage: "doc.on.clipboard")
         }
+    }
+
+    /// The ⋯ and Session menus' item for a temporary share of `duration`.
+    nonisolated static func temporarySharingTitle(for duration: TimeInterval) -> String {
+        "Share Clipboard for \(Int(duration)) Seconds"
     }
 
     /// Why the pasteboard's files did not go, for a bridge that sends at most

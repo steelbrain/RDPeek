@@ -405,6 +405,7 @@ final class SessionViewController: NSViewController {
         hudModel.update(\.canCancel, to: commands.canCancel)
         hudModel.update(\.canSyncClipboard, to: commands.canSyncClipboard)
         hudModel.update(\.canShareClipboardTemporarily, to: commands.canShareClipboardTemporarily)
+        hudModel.update(\.shareClipboardTemporarilyTitle, to: commands.shareClipboardTemporarilyTitle)
         hudModel.update(\.displays, to: commands.displays)
 
         // Frames after the first wait for the display while connected;
@@ -440,6 +441,7 @@ final class SessionViewController: NSViewController {
             isClipboardSharingEnabled: clipboard.isSharingEnabled,
             canSyncClipboard: clipboard.canSync,
             canShareClipboardTemporarily: clipboard.canStartTemporarySharing,
+            temporaryClipboardSharingDuration: clipboard.temporarySharingDuration,
             isAudioPlaybackEnabled: audioPlaybackEnabled,
             followsWindowSize: followsWindowSize,
             reportedMonitors: displayControl.serverMonitors,

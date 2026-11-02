@@ -2,6 +2,12 @@ import SwiftUI
 
 /// The in-app help window, opened from Help > RDPeek Help (⌘?).
 struct HelpView: View {
+    /// How long a temporary clipboard share lasts, as each session's
+    /// clipboard bridge shares.
+    private var temporarySharingSeconds: Int {
+        Int(SessionClipboard.temporarySharingDuration)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
@@ -48,12 +54,12 @@ struct HelpView: View {
                     )
                     HelpBody(
                         "The ⋯ menu in the titlebar holds Disconnect, clipboard sharing " +
-                            "(for the session or for 30 seconds, and Sync Now to send a " +
-                            "copy the remote doesn't have yet), remote audio, window size " +
-                            "matching, the performance overlay, and Stats for Nerds. While " +
-                            "the remote desktop has your keyboard, RDPeek's own ⌘ shortcuts " +
-                            "go to it too, so use this menu or the Session menu in the menu " +
-                            "bar instead."
+                            "(for the session or for \(temporarySharingSeconds) seconds, " +
+                            "and Sync Now to send a copy the remote doesn't have yet), " +
+                            "remote audio, window size matching, the performance overlay, " +
+                            "and Stats for Nerds. While the remote desktop has your " +
+                            "keyboard, RDPeek's own ⌘ shortcuts go to it too, so use this " +
+                            "menu or the Session menu in the menu bar instead."
                     )
                     HelpBody(
                         "A remote desktop with more than one display keeps its own " +
@@ -65,11 +71,11 @@ struct HelpView: View {
                             "remote's own."
                     )
                     HelpBody(
-                        "Clipboard sharing can be turned on, or shared for 30 seconds, " +
-                            "at any time in a session. To allow that, RDPeek always joins " +
-                            "the remote clipboard, so a Windows PC empties its clipboard " +
-                            "when you connect, even with sharing off. Nothing is copied " +
-                            "either way until you share."
+                        "Clipboard sharing can be turned on, or shared for " +
+                            "\(temporarySharingSeconds) seconds, at any time in a session. " +
+                            "To allow that, RDPeek always joins the remote clipboard, so a " +
+                            "Windows PC empties its clipboard when you connect, even with " +
+                            "sharing off. Nothing is copied either way until you share."
                     )
                     HelpBody(
                         "A certificate this Mac does not trust stops the connection " +

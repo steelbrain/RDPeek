@@ -221,7 +221,7 @@ private struct SessionCommands: Commands {
             }
             .disabled(commands.canSyncClipboard == false)
 
-            Button("Share Clipboard for 30 Seconds") {
+            Button(commands.shareClipboardTemporarilyTitle) {
                 sessionController?.startTemporaryClipboardSharing()
             }
             .disabled(commands.canShareClipboardTemporarily == false)

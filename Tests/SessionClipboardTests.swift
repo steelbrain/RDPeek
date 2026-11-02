@@ -98,24 +98,45 @@ final class SessionClipboardTests: XCTestCase {
 
     /// A limit a copy went over is the one the bridge holds it to: its
     /// download limits for the server's files, and its own limit for the
-    /// Mac's.
-    func testTheToastsNameTheBridgesLimits() {
+    /// Mac's. A temporary share lasts as long as the bridge's.
+    func testTheToastsNameTheBridgesLimitsAndShareTime() {
         let bridge = RDPPasteboardClipboard(
             isSharingEnabled: false,
             pasteboard: pasteboard,
             downloadRoot: downloadRoot,
             downloadLimits: RDPClipboardDownloadLimits(maximumTotalByteCount: 8 * 1_024 * 1_024, maximumFileCount: 2_500),
-            maximumLocalFileByteCount: 4 * 1_024 * 1_024
+            maximumLocalFileByteCount: 4 * 1_024 * 1_024,
+            temporarySharingDuration: 45
         )
         let named: [(RDPPasteboardClipboard.Event, String)] = [
             (.remoteFilesRefused(.totalByteLimitExceeded), "Remote files exceed 8 MiB"),
             (.remoteFilesRefused(.fileCountLimitExceeded), "Remote copy has more than 2,500 files"),
             (.downloadFailed(.totalByteLimitExceeded), "Remote files exceed 8 MiB"),
             (.localFilesNotShared(.totalByteLimitExceeded), "Local clipboard files exceed 4 MiB; remote clipboard cleared"),
+            (.temporarySharingStarted, "Sharing clipboard for 45 seconds"),
         ]
         for (event, text) in named {
             XCTAssertEqual(SessionClipboard.toast(for: event, of: bridge)?.text, text, "\(event)")
         }
+        XCTAssertEqual(SessionClipboard.temporarySharingTitle(for: 45), "Share Clipboard for 45 Seconds")
+    }
+
+    /// A window's bridge shares for as long as Help says, which reads
+    /// RDPeek's duration rather than a bridge; the toast and the menus name
+    /// the bridge's. The README and the CHANGELOG say 30 seconds too.
+    func testAWindowsShareLastsAsLongAsEveryCopySays() {
+        let bridge = makeRDPeeksBridge()
+
+        XCTAssertEqual(bridge.temporarySharingDuration, SessionClipboard.temporarySharingDuration)
+        XCTAssertEqual(SessionClipboard.temporarySharingDuration, 30)
+        XCTAssertEqual(
+            SessionClipboard.toast(for: .temporarySharingStarted, of: bridge)?.text,
+            "Sharing clipboard for 30 seconds"
+        )
+        XCTAssertEqual(
+            SessionClipboard.temporarySharingTitle(for: bridge.temporarySharingDuration),
+            "Share Clipboard for 30 Seconds"
+        )
     }
 
     // MARK: - Earlier runs' downloads

@@ -96,6 +96,7 @@ final class SessionCommandStateTests: XCTestCase {
                 isClipboardSharingEnabled: false,
                 canSyncClipboard: false,
                 canShareClipboardTemporarily: false,
+                temporaryClipboardSharingDuration: SessionClipboard.temporarySharingDuration,
                 isAudioPlaybackEnabled: false,
                 followsWindowSize: false,
                 reportedMonitors: [],
@@ -120,6 +121,16 @@ final class SessionCommandStateTests: XCTestCase {
             let state = makeState(isClipboardSharingEnabled: isOn)
             XCTAssertEqual(state.isClipboardSharingEnabled, isOn, "sharing \(isOn)")
         }
+    }
+
+    func testShareClipboardTemporarilyNamesHowLongTheBridgeShares() {
+        // The ⋯ menu takes the Session menu's title, so both name the time
+        // the session's clipboard bridge shares for.
+        XCTAssertEqual(makeState().shareClipboardTemporarilyTitle, "Share Clipboard for 30 Seconds")
+        XCTAssertEqual(
+            makeState(temporaryClipboardSharingDuration: 45).shareClipboardTemporarilyTitle,
+            "Share Clipboard for 45 Seconds"
+        )
     }
 
     func testRemoteAudioShowsTheSessionsSetting() {
@@ -272,6 +283,7 @@ final class SessionCommandStateTests: XCTestCase {
         hasEndReason: Bool = false,
         hostIsEmpty: Bool = false,
         isClipboardSharingEnabled: Bool = true,
+        temporaryClipboardSharingDuration: TimeInterval = SessionClipboard.temporarySharingDuration,
         isAudioPlaybackEnabled: Bool = false,
         followsWindowSize: Bool = SessionDisplayControlPolicy.followsWindowSizeByDefault,
         reportedMonitors: [RDPRemoteMonitor] = [],
@@ -290,6 +302,7 @@ final class SessionCommandStateTests: XCTestCase {
             isClipboardSharingEnabled: isClipboardSharingEnabled,
             canSyncClipboard: false,
             canShareClipboardTemporarily: false,
+            temporaryClipboardSharingDuration: temporaryClipboardSharingDuration,
             isAudioPlaybackEnabled: isAudioPlaybackEnabled,
             followsWindowSize: followsWindowSize,
             reportedMonitors: reportedMonitors,

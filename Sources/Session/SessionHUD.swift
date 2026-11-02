@@ -51,6 +51,11 @@ final class SessionHUDModel: ObservableObject {
     @Published var displays: [SessionDisplayChoice] = []
     @Published var canSyncClipboard = false
     @Published var canShareClipboardTemporarily = false
+    /// The Session menu's item for a temporary share, so the ⋯ menu names
+    /// the same time.
+    @Published var shareClipboardTemporarilyTitle = SessionClipboard.temporarySharingTitle(
+        for: SessionClipboard.temporarySharingDuration
+    )
     @Published var temporaryClipboardSecondsRemaining: Int?
     /// The Session menu's title for starting a connection, so the HUD's
     /// Reconnect controls say the same.
@@ -689,7 +694,7 @@ struct SessionTitlebarAccessory: View {
                     if let remaining = model.temporaryClipboardSecondsRemaining {
                         Label("Sharing for \(remaining)s", systemImage: "clock")
                     } else {
-                        Label("Share Clipboard for 30 Seconds", systemImage: "clock")
+                        Label(model.shareClipboardTemporarilyTitle, systemImage: "clock")
                     }
                 }
                 .disabled(model.canShareClipboardTemporarily == false)
