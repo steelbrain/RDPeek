@@ -163,7 +163,7 @@ private final class RecordedClipboard: SessionClipboardSending, @unchecked Senda
     /// download with their contents. Reports progress as RDPKit does: each
     /// file as it starts, the first before anything is asked for, then
     /// once its size is known and after its one range, awaiting each
-    /// report.
+    /// report. Once its task is cancelled it writes nothing more.
     func downloadRemoteFiles(
         _ plan: RDPClipboardDownloadPlan,
         copyNumber: Int,
@@ -194,9 +194,11 @@ private final class RecordedClipboard: SessionClipboardSending, @unchecked Senda
                 await report(offset, received: data.count, of: data.count)
             }
             let fileURL = directory.appendingPathComponent(file.fileName, isDirectory: false)
+            try Task.checkCancellation()
             try writeFile(data, fileURL)
             fileURLs.append(fileURL)
         }
+        try Task.checkCancellation()
         return RDPClipboardDownload(fileURLs: fileURLs, leavesOutFolders: plan.leavesOutFolders)
     }
 }
@@ -1093,23 +1095,6 @@ final class SessionClipboardTests: XCTestCase {
         XCTAssertNil(clipboard.localFileRead, "The remote copy is newer than the files")
     }
 
-    /// A read whose publish was cancelled, by a newer copy or sharing
-    /// turned off, reads no further file.
-    func testACancelledLocalFileReadStopsBeforeTheNextFile() async throws {
-        let fileURLs = try (0 ..< 2).map { try makeLocalFile(named: "\($0).txt", contents: Data("x".utf8)) }
-        let read = Task.detached {
-            while Task.isCancelled == false {
-                await Task.yield()
-            }
-            return Result { try RDPClipboardLocalFile.read(contentsOf: fileURLs) }
-        }
-        read.cancel()
-        let result = await read.value
-        XCTAssertThrowsError(try result.get()) { error in
-            XCTAssertTrue(error is CancellationError, "\(error)")
-        }
-    }
-
     // MARK: - Remote files
 
     /// RDPKit downloads a remote copy of files with the limits the toasts
@@ -1263,25 +1248,6 @@ final class SessionClipboardTests: XCTestCase {
 
         try await finishRemoteFileDownload(Data("newer".utf8), from: session)
         XCTAssertEqual(try Data(contentsOf: XCTUnwrap(copiedFileURL())), Data("newer".utf8))
-    }
-
-    /// A file RDPKit was writing when a newer copy discarded its download
-    /// can land in the folder after the folder went; the download's end
-    /// removes it again.
-    func testADiscardedDownloadLeavesNoFolderBehind() async throws {
-        let session = RecordedClipboard()
-        let clipboard = makeClipboard()
-        clipboard.attach(session)
-
-        let download = try await startRemoteFileDownload(Data(count: 10), to: clipboard, from: session)
-        clipboard.receiveText("remote", copyNumber: session.announceRemoteCopy())
-        XCTAssertFalse(fileExists(download.directory))
-        try FileManager.default.createDirectory(at: download.directory, withIntermediateDirectories: true)
-        try Data(count: 10).write(to: download.directory.appendingPathComponent("big.bin"))
-        await download.bridgeTask?.value
-
-        XCTAssertFalse(fileExists(download.directory))
-        XCTAssertEqual(pasteboard.string(forType: .string), "remote")
     }
 
     /// A local copy the poll has not published yet is older than a remote

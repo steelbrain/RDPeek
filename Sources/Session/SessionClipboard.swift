@@ -384,7 +384,7 @@ final class SessionClipboard {
             } catch {
                 outcome = .failure(error)
             }
-            self?.finishFileDownload(id, with: outcome, in: directory)
+            self?.finishFileDownload(id, with: outcome)
         }
         fileDownload = SessionRemoteClipboardFileDownload(id: id, task: task, directory: directory)
     }
@@ -454,9 +454,9 @@ final class SessionClipboard {
             // Reading up to 32 MiB, or a file iCloud has to download first,
             // on the main thread would stall the window and its input. A
             // newer local copy, remote clipboard, or sharing turned off
-            // cancels the publish at once; RDPKit's read stops before its
-            // next file, and a file iCloud still has to download blocks it
-            // until the file is available.
+            // cancels the publish at once; RDPKit's read stops before the
+            // next MiB it reads, and a file iCloud still has to download
+            // blocks it until the file is available.
             localFileReadAnnounces = announce
             localFileRead = Task { [weak self] in
                 let read = Task.detached(priority: .userInitiated) {
@@ -630,13 +630,11 @@ final class SessionClipboard {
     }
 
     /// Puts the files of download `id` on the pasteboard, unless a newer
-    /// copy replaced them, or says why it failed. One a newer copy
-    /// discarded leaves nothing behind.
-    private func finishFileDownload(_ id: UUID, with outcome: Result<RDPClipboardDownload, Error>, in directory: URL) {
+    /// copy discarded them, or says why it failed. Discarding a download
+    /// cancelled it and removed its folder, and RDPKit writes no file once
+    /// its task is cancelled.
+    private func finishFileDownload(_ id: UUID, with outcome: Result<RDPClipboardDownload, Error>) {
         guard let fileDownload, fileDownload.id == id else {
-            // Discarding it removed its folder, but a file RDPKit was
-            // writing then can have landed since.
-            removeDownloadDirectory(directory)
             return
         }
         let download: RDPClipboardDownload
@@ -665,7 +663,7 @@ final class SessionClipboard {
         self.fileDownload = nil
         pasteboardChangeCount = pasteboard.changeCount
         remoteCopyChangeCount = pasteboardChangeCount
-        copiedDownload = (directory, pasteboardChangeCount)
+        copiedDownload = (fileDownload.directory, pasteboardChangeCount)
         // RDPKit leaves out folders: entries for them, and those a name
         // carries.
         let fileCount = download.fileURLs.count
