@@ -5,11 +5,22 @@ import XCTest
 extension XCTestCase {
     /// A user-defaults suite of the test's own, removed when the test ends,
     /// so tests never read or write the app's real preferences.
+    ///
+    /// The suite is named by a path in a temporary folder, which keeps its
+    /// plist there rather than in ~/Library/Preferences. cfprefsd writes a
+    /// removed suite's empty plist again later, as late as when the test
+    /// process exits, so a deleted plist there comes back. Once the folder
+    /// is gone, that write fails.
     func makeIsolatedDefaults() throws -> UserDefaults {
-        let suiteName = "rdpeek-tests.\(UUID().uuidString)"
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("rdpeek-tests.\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let suiteName = folder.appendingPathComponent("defaults").path
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         addTeardownBlock {
             UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
+            CFPreferencesAppSynchronize(suiteName as CFString)
+            try? FileManager.default.removeItem(at: folder)
         }
         return defaults
     }
