@@ -87,10 +87,9 @@ final class SessionViewController: NSViewController {
     /// Control the session has; nil while it has none.
     private var displayControlRedirectionDepth: Int?
     private var viewerPixelSize: RDPViewerPixelSize?
-    /// The monitors the server's latest delivered frame reports, which
-    /// window matching goes by; a frame that could not be shown counts too.
-    /// Empty before the server's first layout, and outside RDPGFX.
-    private var reportedMonitors: [RDPRemoteMonitor] = []
+    /// The monitors the server laid out last, which window matching goes
+    /// by.
+    private var serverLayout = SessionServerLayout()
     private let clipboard: SessionClipboard
     private var audioPlaybackEnabled: Bool
     private var remoteAudioPlayer = RDPAudioPlayer()
@@ -442,7 +441,7 @@ final class SessionViewController: NSViewController {
             canShareClipboardTemporarily: clipboard.canStartTemporarySharing,
             isAudioPlaybackEnabled: audioPlaybackEnabled,
             followsWindowSize: followsWindowSize,
-            reportedMonitors: reportedMonitors,
+            reportedMonitors: serverLayout.monitors,
             displayLayout: displayLayout,
             displaySelection: displaySelection,
             isMetricsOverlayVisible: isMetricsOverlayVisible
@@ -955,6 +954,7 @@ final class SessionViewController: NSViewController {
                     guard let controller = self else {
                         return
                     }
+                    controller.followServerLayout(decodedFrame: presentation.frame)
                     let shouldForceMetricsSnapshot = !controller.hasPresentedFrame
                     controller.renderMetricsStore.recordDecodedFrame(
                         presentation.frame,
@@ -975,6 +975,7 @@ final class SessionViewController: NSViewController {
                     guard let controller = self else {
                         return
                     }
+                    controller.followServerLayout(decodedFrame: nil)
                     controller.renderMetricsStore.recordDecodeFailure(
                         receivedAt: receivedAt,
                         errorDescription: errorDescription
@@ -1002,36 +1003,15 @@ final class SessionViewController: NSViewController {
                 }
             )
         ) { run in
-            // The monitors and graphics output size the server reported
-            // last, so the main thread hears of a new layout once, not with
-            // every frame.
-            var reportedMonitors: [RDPRemoteMonitor] = []
-            var reportedOutputRect: RDPFrameRect?
             // `run` reports a failure to connect in the report, as it does
             // every other failure.
             return RDPSessionClient().run(
                 configuration: configuration,
-                onGraphicsFrame: { frame in
-                    // Posted ahead of the frame, so ahead of the Display
-                    // Control RDPKit hands out after the first frame: the
-                    // first resize already knows the server's layout. A new
-                    // output size counts too: a server that lists no
-                    // monitors answers a resize with that alone.
-                    let outputRect = frame.graphicsOutputRect ?? reportedOutputRect
-                    if frame.monitors != reportedMonitors || outputRect != reportedOutputRect {
-                        reportedMonitors = frame.monitors
-                        reportedOutputRect = outputRect
-                        let monitors = frame.monitors
-                        sink.apply { controller in
-                            controller.updateReportedMonitors(monitors)
-                        }
-                    }
-                    // The session decodes the frame. One that failed to
-                    // decode is not shown, and for video the session asks
-                    // the server for a keyframe itself, with a layout that
-                    // keeps its desktop as it is.
-                    try run.onGraphicsFrame(frame)
-                },
+                // The session decodes each frame. One that failed to decode
+                // is not shown, and for video the session asks the server
+                // for a keyframe itself, with a layout that keeps its
+                // desktop as it is.
+                onGraphicsFrame: run.onGraphicsFrame,
                 // Each session carries its connection's context, which a
                 // redirection the main thread hears of first does not move
                 // on, as it does the live report.
@@ -1140,6 +1120,8 @@ final class SessionViewController: NSViewController {
             displayControlSession = nil
             cancelPendingDisplayResize()
         }
+        // A redirection's target counts its ResetGraphics from the start.
+        serverLayout.countsAfresh()
         if attemptBudget.sessionActivated() {
             keepSignIn(isVerified: context.credentialsVerifiedBeforeActivation)
         }
@@ -1256,7 +1238,7 @@ final class SessionViewController: NSViewController {
     private func detachSessionChannels() {
         cancelPendingDisplayResize(resetLastRequestedSize: true)
         displayControlRedirectionDepth = nil
-        reportedMonitors = []
+        serverLayout = SessionServerLayout()
         inputSession = nil
         displayControlSession = nil
         clipboard.detach()
@@ -1448,18 +1430,34 @@ final class SessionViewController: NSViewController {
             isConnecting: isConnecting,
             hasDisplayControl: displayControlSession != nil,
             hasViewerPixelSize: viewerPixelSize != nil,
-            reportedMonitors: reportedMonitors
+            reportedMonitors: serverLayout.monitors
         )
     }
 
-    /// The server laid its desktop out anew: new monitors, or a new size
-    /// with none listed. Several monitors pause window matching; back at
-    /// one, it resumes without the user doing anything.
-    private func updateReportedMonitors(_ monitors: [RDPRemoteMonitor]) {
-        if SessionDisplayControlPolicy.reportsSeveralMonitors(monitors) {
+    /// A frame came, `decodedFrame` when it decoded. With Display Control,
+    /// its monitors are the latest, also for a frame that failed to decode;
+    /// without, a decoded frame carries its own. Several monitors pause
+    /// window matching; back at one, it resumes without the user doing
+    /// anything.
+    private func followServerLayout(decodedFrame frame: RDPGraphicsFrameSnapshot?) {
+        let monitorsChanged: Bool
+        if let displayControlSession {
+            monitorsChanged = serverLayout.follow(graphicsResetCount: displayControlSession.graphicsResetCount) {
+                displayControlSession.serverMonitors
+            }
+        } else if let frame {
+            monitorsChanged = serverLayout.follow(graphicsResetCount: frame.graphicsResetCount) {
+                frame.monitors
+            }
+        } else {
+            return
+        }
+        guard monitorsChanged else {
+            return
+        }
+        if SessionDisplayControlPolicy.reportsSeveralMonitors(serverLayout.monitors) {
             resendsWindowSize = true
         }
-        reportedMonitors = monitors
         scheduleAutoDisplaySizeUpdate()
         render()
     }
