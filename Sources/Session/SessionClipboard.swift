@@ -19,17 +19,24 @@ enum SessionClipboard {
     /// Download roots this process has cleared of earlier runs' downloads.
     private static var clearedDownloadRoots: Set<URL> = []
 
-    /// The bridge for a session window. A remote copy may hold what RDPKit's
-    /// defaults allow, 32 MiB and 1,000 files, each request answered within
-    /// two minutes, which the toasts word from the bridge's `downloadLimits`;
-    /// a temporary share lasts 30 seconds, which the toasts, the HUD and the
-    /// Session menu name. The first bridge in a run clears what earlier runs
-    /// left.
-    static func makeBridge(isSharingEnabled: Bool) -> RDPPasteboardClipboard {
-        removeEarlierDownloadsOnce(in: downloadRoot, pasteboard: .general, now: Date())
+    /// The bridge for a session window, on the user's clipboard and
+    /// `downloadRoot` unless a test passes its own. It has RDPKit's default
+    /// limits: a remote copy may hold 32 MiB and 1,000 files, each request
+    /// answered within two minutes, and the Mac's files sent to the server
+    /// 32 MiB. The toasts word them from the bridge's `downloadLimits` and
+    /// `maximumLocalFileByteCount`. A temporary share lasts 30 seconds, which
+    /// the toasts, the HUD and the Session menu name. The first bridge in a
+    /// run clears what earlier runs left.
+    static func makeBridge(
+        isSharingEnabled: Bool,
+        pasteboard: NSPasteboard = .general,
+        downloadRoot root: URL = SessionClipboard.downloadRoot
+    ) -> RDPPasteboardClipboard {
+        removeEarlierDownloadsOnce(in: root, pasteboard: pasteboard, now: Date())
         return RDPPasteboardClipboard(
             isSharingEnabled: isSharingEnabled,
-            downloadRoot: downloadRoot,
+            pasteboard: pasteboard,
+            downloadRoot: root,
             quarantineAgentName: "RDPeek",
             temporarySharingDuration: 30
         )
@@ -52,12 +59,13 @@ enum SessionClipboard {
         )
     }
 
-    /// The toast for `event`, of a bridge with `limits`, or nil for one
-    /// RDPeek shows none for. The switch has no default, so a case RDPKit
-    /// adds fails the build until it is worded here.
+    /// The toast for `event` of `bridge`, or nil for one RDPeek shows none
+    /// for. A limit a copy went over is the one the bridge holds it to. The
+    /// switch has no default, so a case RDPKit adds fails the build until it
+    /// is worded here.
     static func toast(
         for event: RDPPasteboardClipboard.Event,
-        limits: RDPClipboardDownloadLimits
+        of bridge: RDPPasteboardClipboard
     ) -> SessionToast? {
         switch event {
         case .localTextShared:
@@ -78,7 +86,10 @@ enum SessionClipboard {
                 systemImage: "doc.on.clipboard.fill"
             )
         case let .localFilesNotShared(error):
-            SessionToast(text: localFilesNotSharedMessage(for: error), systemImage: "exclamationmark.triangle")
+            SessionToast(
+                text: localFilesNotSharedMessage(for: error, maximumByteCount: bridge.maximumLocalFileByteCount),
+                systemImage: "exclamationmark.triangle"
+            )
         case .pasteboardAccessDenied:
             SessionToast(text: "Clipboard access is off for RDPeek in System Settings", systemImage: "hand.raised")
         case .upToDate:
@@ -97,7 +108,7 @@ enum SessionClipboard {
                 : nil
         case let .remoteFilesRefused(error):
             SessionToast(
-                text: remoteFilesRefusedMessage(for: error, limits: limits),
+                text: remoteFilesRefusedMessage(for: error, limits: bridge.downloadLimits),
                 systemImage: "exclamationmark.triangle"
             )
         case let .downloadProgress(progress):
@@ -111,7 +122,7 @@ enum SessionClipboard {
             SessionToast(text: remoteFilesCopiedMessage(for: download), systemImage: "doc.on.clipboard")
         case let .downloadFailed(failure):
             SessionToast(
-                text: downloadFailureMessage(for: failure, limits: limits),
+                text: downloadFailureMessage(for: failure, limits: bridge.downloadLimits),
                 systemImage: "exclamationmark.triangle"
             )
         case .temporarySharingStarted:
@@ -121,9 +132,12 @@ enum SessionClipboard {
         }
     }
 
-    /// The bridge reads the pasteboard's files with RDPKit's default limit,
-    /// not its `downloadLimits`.
-    private static func localFilesNotSharedMessage(for error: RDPClipboardLocalFileReadError) -> String {
+    /// Why the pasteboard's files did not go, for a bridge that sends at most
+    /// `maximumByteCount` bytes of files.
+    private static func localFilesNotSharedMessage(
+        for error: RDPClipboardLocalFileReadError,
+        maximumByteCount: Int
+    ) -> String {
         switch error {
         case .notARegularFile:
             "Local clipboard has non-file items; remote clipboard cleared"
@@ -132,8 +146,7 @@ enum SessionClipboard {
         case .unreadable:
             "Local file clipboard could not be read; remote clipboard cleared"
         case .totalByteLimitExceeded:
-            "Local clipboard files exceed \(mebibytes(RDPClipboardLocalFile.defaultMaximumTotalByteCount)) MiB; "
-                + "remote clipboard cleared"
+            "Local clipboard files exceed \(mebibytes(maximumByteCount)) MiB; remote clipboard cleared"
         }
     }
 

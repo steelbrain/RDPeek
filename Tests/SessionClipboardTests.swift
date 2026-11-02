@@ -32,10 +32,10 @@ final class SessionClipboardTests: XCTestCase {
     // MARK: - Toasts
 
     /// Each event, with each reason it carries, shows the toast RDPeek's own
-    /// bridge showed for it, word for word, with the limits RDPeek's bridge
-    /// has: RDPKit's defaults.
+    /// bridge showed for it, word for word, with the limits of the bridge a
+    /// session window gets: RDPKit's defaults.
     func testEachClipboardEventShowsRDPeeksToast() {
-        let limits = RDPClipboardDownloadLimits()
+        let bridge = makeRDPeeksBridge()
         let url = URL(fileURLWithPath: "/tmp/notes.txt")
         let copied = "doc.on.clipboard"
         let synced = "doc.on.clipboard.fill"
@@ -86,29 +86,35 @@ final class SessionClipboardTests: XCTestCase {
             (.temporarySharingEnded, "Clipboard sharing ended", copied),
         ]
         for (event, text, systemImage) in shown {
-            let toast = SessionClipboard.toast(for: event, limits: limits)
+            let toast = SessionClipboard.toast(for: event, of: bridge)
             XCTAssertEqual(toast?.text, text, "\(event)")
             XCTAssertEqual(toast?.systemImage, systemImage, "\(event)")
         }
 
         // The server's clipboard emptied while the pasteboard holds something
         // else is no news.
-        XCTAssertNil(SessionClipboard.toast(for: .remoteClipboardEmptied(clearedHere: false), limits: limits))
+        XCTAssertNil(SessionClipboard.toast(for: .remoteClipboardEmptied(clearedHere: false), of: bridge))
     }
 
-    /// The limits a remote copy went over are the bridge's own; the limit on
-    /// the pasteboard's files is the one the bridge reads them with, RDPKit's
-    /// default whatever the download limits.
+    /// A limit a copy went over is the one the bridge holds it to: its
+    /// download limits for the server's files, and its own limit for the
+    /// Mac's.
     func testTheToastsNameTheBridgesLimits() {
-        let limits = RDPClipboardDownloadLimits(maximumTotalByteCount: 8 * 1_024 * 1_024, maximumFileCount: 2_500)
+        let bridge = RDPPasteboardClipboard(
+            isSharingEnabled: false,
+            pasteboard: pasteboard,
+            downloadRoot: downloadRoot,
+            downloadLimits: RDPClipboardDownloadLimits(maximumTotalByteCount: 8 * 1_024 * 1_024, maximumFileCount: 2_500),
+            maximumLocalFileByteCount: 4 * 1_024 * 1_024
+        )
         let named: [(RDPPasteboardClipboard.Event, String)] = [
             (.remoteFilesRefused(.totalByteLimitExceeded), "Remote files exceed 8 MiB"),
             (.remoteFilesRefused(.fileCountLimitExceeded), "Remote copy has more than 2,500 files"),
             (.downloadFailed(.totalByteLimitExceeded), "Remote files exceed 8 MiB"),
-            (.localFilesNotShared(.totalByteLimitExceeded), "Local clipboard files exceed 32 MiB; remote clipboard cleared"),
+            (.localFilesNotShared(.totalByteLimitExceeded), "Local clipboard files exceed 4 MiB; remote clipboard cleared"),
         ]
         for (event, text) in named {
-            XCTAssertEqual(SessionClipboard.toast(for: event, limits: limits)?.text, text, "\(event)")
+            XCTAssertEqual(SessionClipboard.toast(for: event, of: bridge)?.text, text, "\(event)")
         }
     }
 
@@ -156,6 +162,12 @@ final class SessionClipboardTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    /// The bridge a session window gets, on the test's pasteboard and
+    /// download root.
+    private func makeRDPeeksBridge() -> RDPPasteboardClipboard {
+        SessionClipboard.makeBridge(isSharingEnabled: false, pasteboard: pasteboard, downloadRoot: downloadRoot)
+    }
 
     private func progress(file offset: Int, of count: Int, named fileName: String) -> RDPClipboardDownloadProgress {
         RDPClipboardDownloadProgress(
