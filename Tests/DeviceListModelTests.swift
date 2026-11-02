@@ -742,6 +742,33 @@ final class DeviceListModelTests: XCTestCase {
         XCTAssertEqual(harness.credentials.deletedAccounts, [])
     }
 
+    func testSaveKeepsAPasswordTypedAfterASessionTurnedRememberOffForThisRun() async throws {
+        let device = makeDevice(rememberPassword: true)
+        let harness = try makeHarness(devices: [device])
+        let editor = DeviceEditorState(device: device, isNew: false)
+        var reported: [RDPConnectionIdentity] = []
+        harness.model.onPasswordSaved = { reported.append($0) }
+        // After the sheet loaded the saved password, a session's sign-in
+        // deleted it.
+        harness.model.recordCredentialPersistence(deviceID: device.id, identity: device.identity, remembered: false)
+        let account = try account(for: device)
+        harness.cache.setPassword("from-session", for: account)
+
+        let saved = try await harness.model.save(
+            editor: editor,
+            editedDevice: device,
+            password: "typed",
+            loadedPassword: "old",
+            hadRememberedPassword: true
+        )
+
+        XCTAssertFalse(saved.rememberPassword)
+        XCTAssertEqual(harness.cache.password(for: account), "typed")
+        XCTAssertEqual(reported, [device.identity])
+        XCTAssertEqual(harness.credentials.savedAccounts, [], "The PC no longer remembers its password")
+        XCTAssertEqual(harness.credentials.deletedAccounts, [])
+    }
+
     func testSaveKeepsEditorRememberWhenIdentityChangedToo() async throws {
         let device = makeDevice()
         let harness = try makeHarness(devices: [device])

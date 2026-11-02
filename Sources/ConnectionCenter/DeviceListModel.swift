@@ -233,7 +233,9 @@ final class DeviceListModel: ObservableObject {
             && snapshot.identity.hasSameConnectionIdentity(as: device.identity)
         if let current, keepsSessionRemember {
             device.rememberPassword = current.rememberPassword
-            // A password the user typed is newer than the session's.
+            // A password the user typed is newer than the session's: saved
+            // when the PC now remembers it, and kept for this app run below
+            // either way.
             if current.rememberPassword,
                password.isEmpty == false,
                password != loadedPassword,
@@ -262,12 +264,10 @@ final class DeviceListModel: ObservableObject {
         // without asking when it does not remember it, and so do others
         // with the same sign-in that do not. Not one the sheet loaded and
         // the user left as it was, which may be older than one a session
-        // accepted since, nor any once a session changed Remember after the
-        // sheet loaded a password: that session has kept a newer one.
+        // accepted since.
         var keepsTypedPassword = false
         if password.isEmpty == false,
            keepsSavedPassword == false,
-           keepsSessionRemember == false || hadRememberedPassword == false,
            let account = device.identity.credentialAccountName
         {
             credentialCache.setPassword(password, for: account)
