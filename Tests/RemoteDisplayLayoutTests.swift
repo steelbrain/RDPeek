@@ -41,6 +41,70 @@ final class RemoteDisplayLayoutTests: XCTestCase {
         ])
     }
 
+    func testKRdpExclusiveEdgesBesideEmptyOutputAreTrimmedToo() {
+        // Mixed sizes leave output no monitor covers: an edge beside it overlaps no neighbour,
+        // but the one overlap elsewhere shows the server's convention, so it is trimmed as well.
+        // Without that a 1920 x 1200 laptop read "1920 x 1201".
+        let cases: [(name: String, frame: CGSize, monitors: [RDPRemoteMonitor], expected: [CGRect])] = [
+            (
+                "A 1920 x 1200 laptop left of a 2560 x 1440 display, tops aligned",
+                CGSize(width: 4480, height: 1440),
+                [
+                    monitor(left: 0, top: 0, right: 1921, bottom: 1201, isPrimary: true),
+                    monitor(left: 1920, top: 0, right: 4480, bottom: 1440),
+                ],
+                [CGRect(x: 0, y: 0, width: 1920, height: 1200), CGRect(x: 1920, y: 0, width: 2560, height: 1440)]
+            ),
+            (
+                "A 2560 x 1440 display left of a 1920 x 1080 one, tops aligned",
+                CGSize(width: 4480, height: 1440),
+                [
+                    monitor(left: 0, top: 0, right: 2561, bottom: 1440, isPrimary: true),
+                    monitor(left: 2560, top: 0, right: 4480, bottom: 1081),
+                ],
+                [CGRect(x: 0, y: 0, width: 2560, height: 1440), CGRect(x: 2560, y: 0, width: 1920, height: 1080)]
+            ),
+            (
+                "1920 x 1080 over another moved 960 to the right",
+                CGSize(width: 2880, height: 2160),
+                [
+                    monitor(left: 0, top: 0, right: 1921, bottom: 1081, isPrimary: true),
+                    monitor(left: 960, top: 1080, right: 2880, bottom: 2160),
+                ],
+                [CGRect(x: 0, y: 0, width: 1920, height: 1080), CGRect(x: 960, y: 1080, width: 1920, height: 1080)]
+            ),
+        ]
+        for (name, frame, monitors, expected) in cases {
+            let layout = RemoteDisplayLayout(frameSize: frame, monitors: monitors)
+
+            XCTAssertEqual(layout.displays.map(\.rect), expected, name)
+        }
+    }
+
+    func testInclusiveEdgesAreLeftAlone() {
+        // A server that sends edges as the protocol says gives no overlap, so nothing is trimmed,
+        // whatever empty output its mixed sizes leave.
+        let cases: [(name: String, frame: CGSize, rects: [CGRect])] = [
+            (
+                "A 1920 x 1200 laptop left of a 2560 x 1440 display",
+                CGSize(width: 4480, height: 1440),
+                [CGRect(x: 0, y: 0, width: 1920, height: 1200), CGRect(x: 1920, y: 0, width: 2560, height: 1440)]
+            ),
+            (
+                "1920 x 1080 over another moved 960 to the right",
+                CGSize(width: 2880, height: 2160),
+                [CGRect(x: 0, y: 0, width: 1920, height: 1080), CGRect(x: 960, y: 1080, width: 1920, height: 1080)]
+            ),
+        ]
+        for (name, frame, rects) in cases {
+            let monitors = rects.map {
+                monitor(left: Int($0.minX), top: Int($0.minY), right: Int($0.maxX), bottom: Int($0.maxY))
+            }
+
+            XCTAssertEqual(RemoteDisplayLayout(frameSize: frame, monitors: monitors).displays.map(\.rect), rects, name)
+        }
+    }
+
     func testDisplaysThatReallyOverlapOfferNoSelection() {
         // Mirrored or overlapping monitors leave no single display for some pixels, so the layout
         // can't be shown display by display; the whole frame still shows.

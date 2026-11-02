@@ -43,14 +43,27 @@ struct RemoteDisplayLayout: Equatable {
             }
             return (rect, monitor.isPrimary)
         }
-        for first in candidates.indices {
-            for second in candidates.indices where second > first {
-                let trimmed = Self.trimmingExclusiveEdges(candidates[first].rect, candidates[second].rect)
-                candidates[first].rect = trimmed.first
-                candidates[second].rect = trimmed.second
+        // RDPKit reads a monitor's right and bottom edges as inclusive, as the protocol says, so
+        // a server that sends them exclusive (KRdp) gets every monitor one pixel too wide and too
+        // tall. Clipping corrects the edges on the output's edge. One neighbour overlapping
+        // another by that pixel shows the server's convention, so every other right and bottom
+        // edge gives its pixel back, those beside empty output too, where no neighbour shows it.
+        let sendsExclusiveEdges = candidates.indices.contains { first in
+            candidates.indices.contains { second in
+                second > first && Self.overlapByAnExclusiveEdge(candidates[first].rect, candidates[second].rect)
             }
         }
-        candidates.removeAll { $0.rect.isEmpty }
+        if sendsExclusiveEdges {
+            for index in candidates.indices {
+                if candidates[index].rect.maxX < frameRect.maxX {
+                    candidates[index].rect.size.width -= 1
+                }
+                if candidates[index].rect.maxY < frameRect.maxY {
+                    candidates[index].rect.size.height -= 1
+                }
+            }
+            candidates.removeAll { $0.rect.isEmpty }
+        }
         let overlaps = candidates.indices.contains { first in
             candidates.indices.contains { second in
                 second > first && candidates[first].rect.intersects(candidates[second].rect)
@@ -81,36 +94,19 @@ struct RemoteDisplayLayout: Equatable {
         )
     }
 
-    /// RDPKit reads a monitor's right and bottom edges as inclusive, as the protocol says, so a
-    /// server that sends them exclusive (KRdp) gets every monitor one pixel too wide and too
-    /// tall. Clipping hides that at the output's edge; between neighbours it shows as a
-    /// one-pixel overlap, and the monitor that overshoots its neighbour's edge gives that
-    /// column or row back.
-    private static func trimmingExclusiveEdges(
-        _ first: CGRect,
-        _ second: CGRect
-    ) -> (first: CGRect, second: CGRect) {
-        let overlap = first.intersection(second)
-        guard overlap.isEmpty == false else {
-            return (first, second)
+    /// Whether one monitor ends exactly one pixel past the start of another it overlaps, the
+    /// overlap a monitor read one pixel too wide or tall makes with its neighbour.
+    private static func overlapByAnExclusiveEdge(_ first: CGRect, _ second: CGRect) -> Bool {
+        guard first.intersects(second) else {
+            return false
         }
-        var first = first
-        var second = second
-        if overlap.width == 1 {
-            if first.minX < second.minX, first.maxX == second.minX + 1 {
-                first.size.width -= 1
-            } else if second.minX < first.minX, second.maxX == first.minX + 1 {
-                second.size.width -= 1
-            }
-        }
-        if overlap.height == 1 {
-            if first.minY < second.minY, first.maxY == second.minY + 1 {
-                first.size.height -= 1
-            } else if second.minY < first.minY, second.maxY == first.minY + 1 {
-                second.size.height -= 1
-            }
-        }
-        return (first, second)
+        return endsOnePixelInto(first, second) || endsOnePixelInto(second, first)
+    }
+
+    private static func endsOnePixelInto(_ near: CGRect, _ far: CGRect) -> Bool {
+        let overshootsRight = near.minX < far.minX && near.maxX == far.minX + 1
+        let overshootsBottom = near.minY < far.minY && near.maxY == far.minY + 1
+        return overshootsRight || overshootsBottom
     }
 }
 
