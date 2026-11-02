@@ -292,27 +292,42 @@ final class SessionClipboard {
     /// what came from the server, as [MS-RDPECLIP] 3.1.5.2.2 has a Format
     /// List replace the receiver's clipboard: a password a password manager
     /// cleared there does not stay on the Mac. A local copy made since is
-    /// kept.
+    /// kept. That holds while sharing is off too: RDPKit then fetches
+    /// nothing, but still reports the server's clipboard emptied, which
+    /// brings nothing of it.
     func receiveRemoteCopyUnavailable(isEmpty: Bool, copyNumber: Int) {
         // A copy a publish here replaced on the server is no news.
         guard isUnreplaced(copyNumber) else {
             return
         }
         guard isSharingEnabled else {
+            if isEmpty {
+                clearRemoteCopyFromPasteboard()
+            }
             return
         }
         cancelLocalFileRead()
         discardFileTransfer()
-        if isEmpty, pasteboard.changeCount == remoteCopyChangeCount {
-            pasteboard.clearContents()
-            remoteCopyChangeCount = nil
-            onToast("Remote clipboard emptied; cleared on this Mac too", "doc.on.clipboard")
-        } else if isEmpty == false {
+        if isEmpty {
+            clearRemoteCopyFromPasteboard()
+        } else {
             onToast("Remote copy could not be shared", "exclamationmark.triangle")
         }
         pasteboardChangeCount = pasteboard.changeCount
         localCopyIsUnsent = false
         removeCopiedDownloadIfReplaced()
+    }
+
+    /// Clears the pasteboard while it still holds what came from the
+    /// server, a download's files included.
+    private func clearRemoteCopyFromPasteboard() {
+        guard pasteboard.changeCount == remoteCopyChangeCount else {
+            return
+        }
+        pasteboard.clearContents()
+        remoteCopyChangeCount = nil
+        removeCopiedDownloadIfReplaced()
+        onToast("Remote clipboard emptied; cleared on this Mac too", "doc.on.clipboard")
     }
 
     func receiveFileList(_ descriptorList: RDPClipboardFileGroupDescriptorW, copyNumber: Int) {
