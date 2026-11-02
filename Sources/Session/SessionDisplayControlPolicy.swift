@@ -69,36 +69,3 @@ enum SessionResizeDecision: Equatable {
     /// Send this size once the window has stayed at it a moment.
     case send(RDPDisplayRequest)
 }
-
-/// The monitors the server laid out last, read once per layout: RDPKit
-/// counts the server's ResetGraphics, also those to the same size and
-/// monitors, so a new layout is noticed whatever it holds. Empty before the
-/// server's first layout, and outside RDPGFX.
-struct SessionServerLayout {
-    private(set) var monitors: [RDPRemoteMonitor] = []
-    /// The ResetGraphics count `monitors` were read at; nil until they are,
-    /// and once they are to be read again.
-    private var graphicsResetCount: UInt32?
-
-    /// The server's layout as of the ResetGraphics RDPKit counted
-    /// `graphicsResetCount` at: `monitors` are read only for a count not
-    /// seen yet. Returns whether they changed.
-    mutating func follow(graphicsResetCount: UInt32, monitors: () -> [RDPRemoteMonitor]) -> Bool {
-        guard graphicsResetCount != self.graphicsResetCount else {
-            return false
-        }
-        self.graphicsResetCount = graphicsResetCount
-        let monitors = monitors()
-        guard monitors != self.monitors else {
-            return false
-        }
-        self.monitors = monitors
-        return true
-    }
-
-    /// A server redirection's target counts its ResetGraphics from the
-    /// start, so the next count is read whatever it is.
-    mutating func countsAfresh() {
-        graphicsResetCount = nil
-    }
-}

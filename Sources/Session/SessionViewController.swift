@@ -85,8 +85,8 @@ final class SessionViewController: NSViewController {
     private var resendsWindowSize = false
     private var viewerPixelSize: RDPViewerPixelSize?
     /// The monitors the server laid out last, which window matching goes
-    /// by.
-    private var serverLayout = SessionServerLayout()
+    /// by. Empty before the server's first layout, and outside RDPGFX.
+    private var serverMonitors: [RDPRemoteMonitor] = []
     private let clipboard: SessionClipboard
     private var audioPlaybackEnabled: Bool
     private var remoteAudioPlayer = RDPAudioPlayer()
@@ -442,7 +442,7 @@ final class SessionViewController: NSViewController {
             canShareClipboardTemporarily: clipboard.canStartTemporarySharing,
             isAudioPlaybackEnabled: audioPlaybackEnabled,
             followsWindowSize: followsWindowSize,
-            reportedMonitors: serverLayout.monitors,
+            reportedMonitors: serverMonitors,
             displayLayout: displayLayout,
             displaySelection: displaySelection,
             isMetricsOverlayVisible: isMetricsOverlayVisible
@@ -955,7 +955,6 @@ final class SessionViewController: NSViewController {
                     guard let controller = self else {
                         return
                     }
-                    controller.followServerLayout(decodedFrame: presentation.frame)
                     let shouldForceMetricsSnapshot = !controller.hasPresentedFrame
                     controller.renderMetricsStore.recordDecodedFrame(
                         presentation.frame,
@@ -978,7 +977,6 @@ final class SessionViewController: NSViewController {
                     guard let controller = self else {
                         return
                     }
-                    controller.followServerLayout(decodedFrame: nil)
                     controller.renderMetricsStore.recordDecodeFailure(
                         receivedAt: receivedAt,
                         errorDescription: errorDescription
@@ -996,6 +994,11 @@ final class SessionViewController: NSViewController {
                     if controller.publishRenderMetricsSnapshotIfNeeded(at: sample.receivedAt) {
                         controller.render()
                     }
+                },
+                // Ahead of the first frame, and of each whose layout
+                // changed, also one that fails to decode.
+                onServerLayout: { [weak self] layout in
+                    self?.followServerLayout(layout)
                 },
                 // Not called for a session the window cancelled, or whose
                 // certificate it refused.
@@ -1122,8 +1125,6 @@ final class SessionViewController: NSViewController {
             displayControlSession = nil
             cancelPendingDisplayResize()
         }
-        // A redirection's target counts its ResetGraphics from the start.
-        serverLayout.countsAfresh()
         if attemptBudget.sessionActivated() {
             keepSignIn(isVerified: context.credentialsVerifiedBeforeActivation)
         }
@@ -1239,7 +1240,7 @@ final class SessionViewController: NSViewController {
     /// it: a session that is over pauses nothing.
     private func detachSessionChannels() {
         cancelPendingDisplayResize(resetLastRequestedSize: true)
-        serverLayout = SessionServerLayout()
+        serverMonitors = []
         inputSession = nil
         displayControlSession = nil
         clipboard.detach()
@@ -1393,36 +1394,34 @@ final class SessionViewController: NSViewController {
             isConnecting: isConnecting,
             hasDisplayControl: displayControlSession != nil,
             hasViewerPixelSize: viewerPixelSize != nil,
-            reportedMonitors: serverLayout.monitors
+            reportedMonitors: serverMonitors
         )
     }
 
-    /// A frame came, `decodedFrame` when it decoded. With Display Control,
-    /// its monitors are the latest, also for a frame that failed to decode;
-    /// without, a decoded frame carries its own. Several monitors pause
-    /// window matching; back at one, it resumes without the user doing
-    /// anything.
-    private func followServerLayout(decodedFrame frame: RDPGraphicsFrameSnapshot?) {
-        let monitorsChanged: Bool
-        if let displayControlSession {
-            monitorsChanged = serverLayout.follow(graphicsResetCount: displayControlSession.graphicsResetCount) {
-                displayControlSession.serverMonitors
-            }
-        } else if let frame {
-            monitorsChanged = serverLayout.follow(graphicsResetCount: frame.graphicsResetCount) {
-                frame.monitors
-            }
-        } else {
+    /// The server laid out its graphics again, as RDPKit tells ahead of
+    /// the frames that follow.
+    private func followServerLayout(_ layout: RDPServerLayout) {
+        guard takeServerMonitors(layout.monitors) else {
             return
-        }
-        guard monitorsChanged else {
-            return
-        }
-        if SessionDisplayControlPolicy.reportsSeveralMonitors(serverLayout.monitors) {
-            resendsWindowSize = true
         }
         scheduleAutoDisplaySizeUpdate()
         render()
+    }
+
+    /// Returns whether the server's monitors changed. Several pause window
+    /// matching, and the window's size goes out again once it resumes, even
+    /// when it was sent last; back at one, it resumes without the user
+    /// doing anything.
+    @discardableResult
+    private func takeServerMonitors(_ monitors: [RDPRemoteMonitor]) -> Bool {
+        guard monitors != serverMonitors else {
+            return false
+        }
+        serverMonitors = monitors
+        if SessionDisplayControlPolicy.reportsSeveralMonitors(monitors) {
+            resendsWindowSize = true
+        }
+        return true
     }
 
     private func scheduleAutoDisplaySizeUpdate() {
@@ -1483,9 +1482,10 @@ final class SessionViewController: NSViewController {
         // A server redirection's target has not been sent the layout the
         // first server got.
         lastRequestedDisplayRequest = nil
-        // The session already holds the first frame's monitors, so several
-        // pause matching before the first resize is scheduled.
-        followServerLayout(decodedFrame: nil)
+        // It comes before the first frame's layout, but already holds that
+        // frame's monitors, so several pause matching before the first
+        // resize is scheduled.
+        takeServerMonitors(session.serverMonitors)
         scheduleAutoDisplaySizeUpdate()
         render()
     }

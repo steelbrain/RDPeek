@@ -69,65 +69,6 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         }
     }
 
-    // MARK: - The server's layout
-
-    func testTheServersMonitorsAreReadOncePerLayout() {
-        // RDPKit gives every frame the count of ResetGraphics before it;
-        // the frames of one layout bring nothing new.
-        var layout = SessionServerLayout()
-
-        XCTAssertTrue(layout.follow(graphicsResetCount: 1) { sideBySideMonitors() })
-        XCTAssertEqual(layout.monitors, sideBySideMonitors())
-        XCTAssertFalse(layout.follow(graphicsResetCount: 1) {
-            XCTFail("The monitors were read again within one layout")
-            return []
-        })
-    }
-
-    func testEachNewLayoutIsRead() {
-        // A reset to the same monitors changes nothing, so no resize goes
-        // out for it; several monitors then pause matching, and one again
-        // resumes it.
-        var layout = SessionServerLayout()
-        let oneMonitor = [monitor(0, 0, 1920, 1080)]
-        var changes: [Bool] = []
-
-        for (count, monitors) in [(1, oneMonitor), (2, oneMonitor), (3, sideBySideMonitors()), (4, oneMonitor)] {
-            changes.append(layout.follow(graphicsResetCount: UInt32(count)) { monitors })
-            XCTAssertEqual(layout.monitors, monitors, "reset \(count)")
-        }
-
-        XCTAssertEqual(changes, [true, false, true, true])
-    }
-
-    func testSeveralMonitorsPauseMatchingAsDisplayControlIsReady() {
-        // RDPKit hands Display Control out before the first frame reaches
-        // the window, already holding that frame's monitors. Read then,
-        // they pause matching before the first resize is scheduled, and the
-        // first frame, of the same layout, brings nothing new.
-        var layout = SessionServerLayout()
-
-        XCTAssertTrue(layout.follow(graphicsResetCount: 1) { sideBySideMonitors() })
-        let isInEffect = isWindowMatchingInEffect(reportedMonitors: layout.monitors)
-        XCTAssertFalse(isInEffect)
-        XCTAssertEqual(resizeDecision(isInEffect: isInEffect, viewerRequest: retinaRequest), .cancel)
-        XCTAssertFalse(layout.follow(graphicsResetCount: 1) {
-            XCTFail("The first frame's monitors were read again")
-            return []
-        })
-    }
-
-    func testARedirectionTargetsFirstLayoutIsRead() {
-        // The target counts its ResetGraphics from the start, so its first
-        // layout may come with the count the first server's last had.
-        var layout = SessionServerLayout()
-        _ = layout.follow(graphicsResetCount: 1) { [monitor(0, 0, 1920, 1080)] }
-
-        layout.countsAfresh()
-
-        XCTAssertTrue(layout.follow(graphicsResetCount: 1) { sideBySideMonitors() })
-    }
-
     // MARK: - Resizing
 
     func testNoResizeGoesOutWhileMatchingIsNotInEffect() {
