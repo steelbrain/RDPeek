@@ -63,6 +63,9 @@ struct RDPConnectionDraft: Equatable, Sendable {
     /// setting changed in the editor takes the saved value, and the rest —
     /// such as a user name typed at sign-in — stay. A password belongs to
     /// the sign-in it was entered for, so a different sign-in drops it.
+    /// Remember belongs to the PC's account: a draft that now signs in as
+    /// the PC's new account takes the PC's choice, not one made for
+    /// another account.
     func following(_ saved: RDPConnectionDraft, previouslySaved previous: RDPConnectionDraft) -> RDPConnectionDraft {
         var next = self
         func follow<Value: Equatable>(_ setting: WritableKeyPath<RDPConnectionDraft, Value>) {
@@ -80,6 +83,11 @@ struct RDPConnectionDraft: Equatable, Sendable {
         follow(\.clipboardSharingEnabled)
         follow(\.audioPlaybackEnabled)
         follow(\.rememberPassword)
+        if saved.identity.hasSameConnectionIdentity(as: previous.identity) == false,
+           next.identity.hasSameConnectionIdentity(as: saved.identity)
+        {
+            next.rememberPassword = saved.rememberPassword
+        }
         if next.identity.hasSameConnectionIdentity(as: identity) == false {
             next.password = ""
         }

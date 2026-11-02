@@ -369,15 +369,18 @@ final class SessionViewController: NSViewController {
         // shows the overlay.
         hudModel.update(\.prefillUsername, to: draft.username)
         hudModel.update(\.prefillDomain, to: draft.domain)
-        // Signed in as an account the PC can't remember, the sheet starts
-        // from the PC's own choice, which shows once its account is typed.
+        // Signing in takes the PC's saved changes first, so Remember starts
+        // from the draft as it will follow them. Signed in as an account
+        // the PC can't remember, the sheet starts from the PC's own choice,
+        // which shows once its account is typed.
+        let signInDraft = draft.following(savedDraft, previouslySaved: followedSavedDraft)
         let canRememberDraftAccount = SessionCredentialPolicy.canRememberPassword(
-            signingInAs: draft.identity,
+            signingInAs: signInDraft.identity,
             onPCSavedAs: savedDraft.identity
         )
         hudModel.update(
             \.prefillRememberPassword,
-            to: canRememberDraftAccount ? draft.rememberPassword : savedDraft.rememberPassword
+            to: canRememberDraftAccount ? signInDraft.rememberPassword : savedDraft.rememberPassword
         )
         hudModel.update(\.credentialsErrorMessage, to: credentialsErrorMessage)
         hudModel.update(\.canRememberPassword, to: isPCDeleted == false)

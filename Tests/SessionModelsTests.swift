@@ -94,6 +94,79 @@ final class SessionModelsTests: XCTestCase {
         XCTAssertEqual(draft.following(saved, previouslySaved: previous), saved)
     }
 
+    func testADraftNowSigningInAsThePCsAccountTakesItsRemember() {
+        var previous = makeDraft()
+        previous.rememberPassword = true
+        // Signed in as bob, whom the sheet could not remember for alice's PC.
+        var draft = previous
+        draft.username = "bob"
+        draft.password = "secret"
+        draft.rememberPassword = false
+
+        var bobsPC = previous
+        bobsPC.username = "bob"
+        let next = draft.following(bobsPC, previouslySaved: previous)
+        XCTAssertTrue(next.rememberPassword)
+        XCTAssertEqual(next.password, "secret")
+
+        var carolsPC = previous
+        carolsPC.username = "carol"
+        XCTAssertTrue(draft.following(carolsPC, previouslySaved: previous).rememberPassword)
+        // A PC whose account did not change leaves the draft's choice.
+        var renamed = previous
+        renamed.name = "Office"
+        XCTAssertFalse(draft.following(renamed, previouslySaved: previous).rememberPassword)
+    }
+
+    /// The PC remembers alice's password. The window signs in as bob, then
+    /// the editor makes bob the PC's account, with Remember left on, and
+    /// saves his password. Reconnecting must read it from the Keychain and
+    /// keep it, not delete it as a password the PC stopped remembering.
+    func testMakingTheWindowsAccountThePCsKeepsThePasswordTheEditorSaved() throws {
+        var savedDraft = makeDraft()
+        savedDraft.rememberPassword = true
+        var followedSavedDraft = savedDraft
+        var draft = savedDraft
+        // The sheet submits Remember off for an account the PC can't remember.
+        draft.username = "bob"
+        draft.password = "old"
+        draft.rememberPassword = false
+        savedDraft.username = "bob"
+
+        // Reconnect, as `startConnection` and `keepSignIn` do it.
+        draft = draft.following(savedDraft, previouslySaved: followedSavedDraft)
+        followedSavedDraft = savedDraft
+        // The editor saved a new password for this sign-in.
+        draft.password = ""
+        let key = try XCTUnwrap(KeychainCredentialKey(identity: draft.identity))
+        let source = SessionCredentialPolicy.source(
+            sessionPassword: draft.password,
+            identity: draft.identity,
+            remembersPassword: draft.rememberPassword,
+            didPromptForCredentials: true,
+            cachedPassword: { _ in "new" }
+        )
+        XCTAssertEqual(source, .keychain(key))
+        // The Keychain or the cache gives the editor's password; the server
+        // verifies it.
+        let readKeychain = source == .keychain(key)
+        draft.password = "new"
+        let pcRemembersPassword = followedSavedDraft.rememberPassword
+            && followedSavedDraft.identity.hasSameConnectionIdentity(as: draft.identity)
+        let keep = SessionCredentialPolicy.keep(
+            password: draft.password,
+            identity: draft.identity,
+            savedIdentity: savedDraft.identity,
+            remembersPassword: draft.rememberPassword,
+            rememberedPassword: readKeychain ? "new" : nil,
+            keychainMayHoldPassword: readKeychain || pcRemembersPassword,
+            isRememberedByAnotherPC: false,
+            isPCDeleted: false
+        )
+
+        XCTAssertEqual(keep, .cacheOnly(key))
+    }
+
     // MARK: - End reasons
 
     func testUntypedFailureKeepsReportedError() {
