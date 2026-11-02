@@ -143,6 +143,11 @@ struct HelpView: View {
                             "connection starts."
                     )
                     HelpBody(
+                        "Letters or shortcuts land on the wrong keys — a remote session " +
+                            "keeps the keyboard layout it started with. Sign out of it on " +
+                            "the remote computer, not just disconnect, and connect again."
+                    )
+                    HelpBody(
                         "Choppy video — open Stats for Nerds or the performance overlay " +
                             "from the ⋯ menu to see fps, decode times, and bandwidth."
                     )
