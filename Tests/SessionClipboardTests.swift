@@ -461,6 +461,57 @@ final class SessionClipboardTests: XCTestCase {
         XCTAssertEqual(session.publishedFiles.map { $0.map(\.contents) }, [[Data("hello".utf8)]])
     }
 
+    /// The server's clipboard, emptied before the bridge attached, is
+    /// reported once attaching turns fetching on, and can reach the main
+    /// thread while the pasteboard's files are being read. The files are the
+    /// newer copy, so they still go.
+    func testCopiedFilesGoThoughAnOlderRemoteCopyArrivesDuringTheirRead() async throws {
+        let fileURL = try makeLocalFile(named: "notes.txt", contents: Data("local".utf8))
+        pasteboard.clearContents()
+        pasteboard.writeObjects([fileURL as NSURL])
+        let session = RecordedClipboard()
+        let clipboard = makeClipboard()
+        var toasts: [String] = []
+        clipboard.onToast = { text, _ in toasts.append(text) }
+
+        let emptied = session.announceRemoteCopy()
+        clipboard.attach(session)
+        clipboard.receiveRemoteCopyUnavailable(isEmpty: true, copyNumber: emptied)
+        try await XCTUnwrap(clipboard.localFileRead).value
+        XCTAssertEqual(session.publishedFiles.map { $0.map(\.contents) }, [[Data("local".utf8)]])
+
+        // Nor does a remote copy that failed to arrive stop them.
+        clipboard.detach()
+        let failed = session.announceRemoteCopy()
+        clipboard.attach(session)
+        clipboard.receiveRemoteCopyUnavailable(isEmpty: false, copyNumber: failed)
+        try await XCTUnwrap(clipboard.localFileRead).value
+        XCTAssertEqual(session.publishedFiles.count, 2)
+        XCTAssertTrue(toasts.isEmpty)
+    }
+
+    /// Files copied while a remote copy the server announced before them is
+    /// still on its way are newer: that copy, arriving during their read,
+    /// neither stops them nor replaces them on the pasteboard.
+    func testFilesCopiedDuringARemoteCopyGoWhenItArrivesDuringTheirRead() async throws {
+        let session = RecordedClipboard()
+        let clipboard = makeClipboard()
+        clipboard.attach(session)
+        let olderRemote = session.announceRemoteCopy()
+
+        let fileURL = try makeLocalFile(named: "notes.txt", contents: Data("local".utf8))
+        pasteboard.clearContents()
+        pasteboard.writeObjects([fileURL as NSURL])
+        clipboard.poll()
+        let read = try XCTUnwrap(clipboard.localFileRead)
+        clipboard.receiveText("older remote", copyNumber: olderRemote)
+        await read.value
+
+        XCTAssertEqual(session.publishedFiles.map { $0.map(\.contents) }, [[Data("local".utf8)]])
+        XCTAssertEqual(copiedFileURL()?.lastPathComponent, "notes.txt")
+        XCTAssertNotEqual(pasteboard.string(forType: .string), "older remote")
+    }
+
     func testOnlySyncNowSaysTheClipboardSynced() {
         pasteboard.clearContents()
         pasteboard.setString("hello", forType: .string)

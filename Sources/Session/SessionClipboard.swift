@@ -185,14 +185,10 @@ final class SessionClipboard {
             publishPasteboardIfChanged(force: resendsUnsentLocalCopy)
             return
         }
-        // The pasteboard replaces on the server a copy announced while
-        // sharing was off, which turning fetching on would fetch. Copied
-        // files go once read, so an empty clipboard replaces it meanwhile; a
-        // remote copy made during the read is newer and is fetched.
+        // The pasteboard goes first: it replaces on the server a copy
+        // announced while sharing was off, which turning fetching on would
+        // fetch.
         publishPasteboardIfChanged(force: true)
-        if localFileRead != nil {
-            session?.publishLocalUnicodeText(nil)
-        }
         session?.fetchesRemoteCopies = true
     }
 
@@ -426,6 +422,13 @@ final class SessionClipboard {
         cancelLocalFileRead()
         let fileURLs = pasteboardFileURLs()
         guard fileURLs.isEmpty else {
+            // The files go once read, but they replace the server's copy
+            // now, as text does: an empty clipboard goes at once, so the
+            // server's older copy is not fetched when sharing turns on, nor
+            // applied should it reach this thread late. A remote copy made
+            // during the read is newer still, and wins.
+            session?.publishLocalUnicodeText(nil)
+            serverHoldsLocalCopy = false
             // Reading up to 32 MiB, or a file iCloud has to download first,
             // on the main thread would stall the window and its input. A
             // newer local copy, remote clipboard, or sharing turned off
