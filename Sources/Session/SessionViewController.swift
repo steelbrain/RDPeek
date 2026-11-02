@@ -79,6 +79,12 @@ final class SessionViewController: NSViewController {
     /// so the next one goes out even when it is the same. The last request
     /// stays recorded: keyframe requests send it again at its own scale.
     private var resendsAfterPause = false
+    /// The last resize went out, and the server has not answered it yet
+    /// with a new layout: it still reports the size before. Keyframe
+    /// requests then send that resize again, even with Match Window Size
+    /// turned off since, rather than the size reported, which would undo
+    /// it.
+    private var isResizeInFlight = false
     /// A keyframe a frame asked for before Display Control was ready, sent
     /// once it is, and which connection Display Control came from, so a
     /// server redirection's target does not keep the first server's.
@@ -1495,6 +1501,9 @@ final class SessionViewController: NSViewController {
     /// The server laid its desktop out anew. Several monitors pause window
     /// matching; back at one, it resumes without the user doing anything.
     private func updateReportedMonitors(_ monitors: [RDPRemoteMonitor]) {
+        // The server reset its graphics: for the resize in flight, if any,
+        // or for a layout of its own that replaced it.
+        isResizeInFlight = false
         if SessionDisplayControlPolicy.reportsSeveralMonitors(monitors) {
             resendsAfterPause = true
         }
@@ -1556,6 +1565,7 @@ final class SessionViewController: NSViewController {
             return
         }
         lastRequestedDisplayRequest = request
+        isResizeInFlight = true
         resendsAfterPause = false
         requestedDesktopSizeLabel = request.label
     }
@@ -1567,6 +1577,7 @@ final class SessionViewController: NSViewController {
         // A server redirection's target has not been sent the layout the
         // first server got.
         lastRequestedDisplayRequest = nil
+        isResizeInFlight = false
         // The held request goes out although Match Window Size may send a
         // layout 350 ms from now, which brings a keyframe too. The extra
         // graphics reset happens only after a first frame failed, and the
@@ -1601,6 +1612,7 @@ final class SessionViewController: NSViewController {
         let keyframeRequest = SessionDisplayControlPolicy.keyframeRequest(
             lastSent: lastRequestedDisplayRequest,
             isWindowMatchingInEffect: isWindowMatchingInEffect,
+            isResizeInFlight: isResizeInFlight,
             reportedMonitors: monitors,
             graphicsOutputRect: graphicsOutputRect,
             connectLayout: connectLayout
@@ -1629,6 +1641,7 @@ final class SessionViewController: NSViewController {
         pendingDisplayResizeTask = nil
         if resetLastRequestedSize {
             lastRequestedDisplayRequest = nil
+            isResizeInFlight = false
             resendsAfterPause = false
         }
     }

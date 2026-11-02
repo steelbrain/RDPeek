@@ -80,10 +80,12 @@ enum SessionDisplayControlPolicy {
     /// - With several monitors, nothing. No server says what scale its
     ///   monitors use, so their layout cannot be sent back as it is.
     /// - The layout this connection asked for last, while the desktop
-    ///   follows the window, even while the server still reports the size
+    ///   follows the window or the server has not answered that request
+    ///   yet (`isResizeInFlight`), even while it still reports the size
     ///   before it: the resize may not have landed yet, and sending that
-    ///   size back would undo it. Also when the server reports the size
-    ///   asked for last, or no size at all.
+    ///   size back would undo it. Matching turned off since does not change
+    ///   that. Also when the server reports the size asked for last, or no
+    ///   size at all.
     /// - Otherwise the size the server reports, at the scale it was given
     ///   last: the one this connection asked for last, or else the one it
     ///   started with. With matching off, the server may have left the size
@@ -94,6 +96,7 @@ enum SessionDisplayControlPolicy {
     static func keyframeRequest(
         lastSent: RDPDisplayRequest?,
         isWindowMatchingInEffect: Bool,
+        isResizeInFlight: Bool,
         reportedMonitors: [RDPRemoteMonitor],
         graphicsOutputRect: RDPFrameRect?,
         connectLayout: RDPDisplayRequest
@@ -107,7 +110,7 @@ enum SessionDisplayControlPolicy {
             let reportsAnotherSize = reportedRect.map { rect in
                 UInt32(rect.width) != lastSent.width || UInt32(rect.height) != lastSent.height
             } ?? false
-            if isWindowMatchingInEffect || reportsAnotherSize == false {
+            if isWindowMatchingInEffect || isResizeInFlight || reportsAnotherSize == false {
                 return .request(lastSent)
             }
         }
@@ -237,10 +240,12 @@ struct SessionKeyframeRequestHold {
         }
         self.request = nil
         // Nothing went out through this Display Control yet, so there is
-        // no request to send again, and matching does not come into it.
+        // no request to send again, and neither matching nor a resize in
+        // flight comes into it.
         return SessionDisplayControlPolicy.keyframeRequest(
             lastSent: nil,
             isWindowMatchingInEffect: false,
+            isResizeInFlight: false,
             reportedMonitors: reportedMonitors,
             graphicsOutputRect: request.graphicsOutputRect,
             connectLayout: request.connectLayout

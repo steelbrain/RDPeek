@@ -225,6 +225,23 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         )
     }
 
+    func testWithMatchingOffAResizeNotAnsweredYetIsSentAgain() {
+        // A Retina Mac connected at 1440x900 at 100% and sent 2880x1800 at
+        // 200%. The user turned Match Window Size off before the server
+        // applied it, and a frame at 1440x900 failed. Sending 1440x900 back
+        // would undo the resize, and at 200% rescale the desktop.
+        XCTAssertEqual(
+            keyframeRequest(
+                lastSent: retinaRequest,
+                isWindowMatchingInEffect: false,
+                isResizeInFlight: true,
+                reportedMonitors: [monitor(0, 0, 1440, 900)],
+                graphicsOutputRect: rect(0, 0, 1440, 900)
+            ),
+            .request(retinaRequest)
+        )
+    }
+
     func testWithMatchingOffTheLastRequestIsSentAgainWhileTheServerHasIt() {
         // The server reports the size asked for last, so it still has that
         // request, and sending it again changes nothing.
@@ -413,6 +430,7 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
     private func keyframeRequest(
         lastSent: RDPDisplayRequest? = nil,
         isWindowMatchingInEffect: Bool = true,
+        isResizeInFlight: Bool = false,
         reportedMonitors: [RDPRemoteMonitor] = [],
         graphicsOutputRect: RDPFrameRect? = nil,
         connectLayout: RDPDisplayRequest? = nil
@@ -420,6 +438,7 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         SessionDisplayControlPolicy.keyframeRequest(
             lastSent: lastSent,
             isWindowMatchingInEffect: isWindowMatchingInEffect,
+            isResizeInFlight: isResizeInFlight,
             reportedMonitors: reportedMonitors,
             graphicsOutputRect: graphicsOutputRect,
             connectLayout: connectLayout ?? self.connectLayout
