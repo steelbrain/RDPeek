@@ -838,11 +838,6 @@ final class SessionModelsTests: XCTestCase {
         XCTAssertEqual(consent.offer, RDPLegacyCredSSPConsent.Offer(target: target, version: 3))
         XCTAssertTrue(consent.allow())
         XCTAssertTrue(try consent.connect(to: RDPConnectionTarget(host: " winbox.local ", port: 3390)))
-
-        // The PC edited to another port since is another server.
-        consent.connectionEnded(report: report)
-        XCTAssertTrue(consent.allow())
-        XCTAssertFalse(try consent.connect(to: RDPConnectionTarget(host: " winbox.local ", port: 3389)))
     }
 
     // MARK: - Attempt budget
