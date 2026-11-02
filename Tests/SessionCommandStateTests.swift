@@ -324,14 +324,10 @@ final class SessionCommandStateTests: XCTestCase {
 
     /// `count` 1920x1080 monitors in a row, the first one primary.
     private func monitorsInARow(_ count: Int) -> [RDPRemoteMonitor] {
-        (0 ..< count).map { index in
-            monitor(
-                UInt16(index * 1920),
-                0,
-                UInt16((index + 1) * 1920),
-                1080,
-                isPrimary: index == 0
-            )
+        (0 ..< count).map { (index: Int) -> RDPRemoteMonitor in
+            let left = UInt16(index * 1920)
+            let right = UInt16((index + 1) * 1920)
+            return monitor(left, 0, right, 1080, isPrimary: index == 0)
         }
     }
 
