@@ -66,8 +66,9 @@ final class SessionViewController: NSViewController {
     private var autoRetryTask: Task<Void, Never>?
     private var connectionRequestsAudio = false
     private var didReportAudioFailure = false
-    private var activeConnectionID: UUID?
-    private var activeCancellation: RDPConnectionCancellation?
+    /// The attempt under way. Cancelling it drops whatever it has still to
+    /// deliver, so a session the window left changes nothing.
+    private var activeSession: RDPLiveSession?
     private var sessionEndReason: RDPSessionEndReason?
     private var inputSession: RDPInputSession?
     private var displayControlSession: RDPDisplayControlSession?
@@ -526,10 +527,6 @@ final class SessionViewController: NSViewController {
         hudModel.showToast(text, systemImage: systemImage)
     }
 
-    fileprivate func acceptsConnectionEvent(id: UUID) -> Bool {
-        activeConnectionID == id
-    }
-
     /// Keeps the snapshot current while Stats for Nerds, its only viewer,
     /// is open; opening it again starts the loop again.
     private func startDiagnosticsLoopIfNeeded() {
@@ -853,12 +850,9 @@ final class SessionViewController: NSViewController {
         )
         recordSentSettings(configuration)
 
-        let connectionID = UUID()
-        let cancellation = RDPConnectionCancellation()
-        let liveReport = RDPLiveConnectionReport()
-        activeConnectionID = connectionID
-        activeCancellation = cancellation
-        self.liveReport = liveReport
+        let session = RDPLiveSession(threadName: "RDPeek session")
+        activeSession = session
+        liveReport = session.liveReport
         attemptBudget.attemptStarted(sendsCredentials: credentials != nil)
         renderMetricsStore.reset(connectionStartedAt: Date())
         updateViewerMetricsSummary(renderMetricsStore.metrics)
@@ -866,22 +860,16 @@ final class SessionViewController: NSViewController {
         launchStore?.recordConnectionStart(for: draft.deviceID)
         render()
 
-        startSessionThread(
-            configuration: configuration,
-            sink: SessionMainActorSink(controller: self, connectionID: connectionID),
-            liveReport: liveReport,
-            cancellation: cancellation
-        )
+        start(session, configuration: configuration)
     }
 
     /// Forgets the previous attempt, however it ended.
     private func resetForConnectionAttempt() {
         isAwaitingCredentials = false
         isAutoRetryPending = false
-        activeCancellation?.cancel()
+        activeSession?.cancel()
         detachSessionChannels()
-        activeConnectionID = nil
-        activeCancellation = nil
+        activeSession = nil
         sessionEndReason = nil
         isConnecting = false
 
@@ -954,12 +942,12 @@ final class SessionViewController: NSViewController {
         )
     }
 
-    private func startSessionThread(
-        configuration: RDPConnectionConfiguration,
-        sink: SessionMainActorSink,
-        liveReport: RDPLiveConnectionReport,
-        cancellation: RDPConnectionCancellation
-    ) {
+    /// Runs the attempt on `session`. Its events, and what its handlers
+    /// hand over, reach the window in the order they happened, until the
+    /// window cancels it; RDPeek's own handlers decide on the certificate,
+    /// the client license, the clipboard and audio.
+    private func start(_ session: RDPLiveSession, configuration: RDPConnectionConfiguration) {
+        let sink = SessionMainActorSink(controller: self, session: session)
         let clientLicenseStore = clientLicenseStore
         let clientLicenseKey = ClientLicenseStoreKey(identity: draft.identity)
         let trustedCertificateStore = trustedCertificateStore
@@ -973,73 +961,71 @@ final class SessionViewController: NSViewController {
             height: UInt32(configuration.desktopHeight),
             scaleFactors: configuration.scaleFactors
         )
-        // RDPSessionClient.run blocks for the whole session and waits on
-        // the decode queue, so it gets its own thread rather than pinning a
-        // Swift concurrency worker per session, which could starve the
-        // decode drain.
-        let sessionThread = Thread {
+        // RDPLiveSession runs RDPSessionClient.run on a thread of its own, as
+        // it blocks for the whole session, decodes frames off it, and hands
+        // its events to the main queue in order.
+        session.start(
+            events: RDPLiveSession.Events(
+                onFrameDecoded: { [weak self] presentation, receivedAt, decodedAt, timing in
+                    guard let controller = self else {
+                        return
+                    }
+                    let shouldForceMetricsSnapshot = !controller.hasPresentedFrame
+                    controller.renderMetricsStore.recordDecodedFrame(
+                        presentation.frame,
+                        receivedAt: receivedAt,
+                        decodedAt: decodedAt,
+                        timing: timing
+                    )
+                    let metricsChanged = controller.publishRenderMetricsSnapshotIfNeeded(
+                        force: shouldForceMetricsSnapshot,
+                        at: decodedAt
+                    )
+                    let presentationChanged = controller.presentDecodedFrame(presentation)
+                    if metricsChanged || presentationChanged {
+                        controller.render()
+                    }
+                },
+                onFrameDecodeFailed: { [weak self] receivedAt, errorDescription in
+                    guard let controller = self else {
+                        return
+                    }
+                    controller.renderMetricsStore.recordDecodeFailure(
+                        receivedAt: receivedAt,
+                        errorDescription: errorDescription
+                    )
+                    if controller.publishRenderMetricsSnapshotIfNeeded(at: receivedAt) {
+                        controller.render()
+                    }
+                },
+                // Also the last sample, before the session ends.
+                onWireReceive: { [weak self] sample in
+                    guard let controller = self else {
+                        return
+                    }
+                    controller.renderMetricsStore.recordWireReceive(sample)
+                    if controller.publishRenderMetricsSnapshotIfNeeded(at: sample.receivedAt) {
+                        controller.render()
+                    }
+                },
+                // Not called for a session the window cancelled, or whose
+                // certificate it refused.
+                onEnd: { report in
+                    sink.apply { controller in
+                        controller.finishConnection(report, configuration: configuration)
+                    }
+                }
+            )
+        ) { run in
             var keyframeRequests = RDPKeyframeRequestThrottle()
             // The monitors and graphics output size the server reported
             // last, so the main thread hears of a new layout once, not with
             // every frame.
             var reportedMonitors: [RDPRemoteMonitor] = []
             var reportedOutputRect: RDPFrameRect?
-            let decodeQueue = RDPFrameDecodeQueue(
-                shouldCancel: {
-                    cancellation.isCancelled
-                },
-                onDecoded: { presentation, receivedAt, decodedAt, timing in
-                    sink.apply { controller in
-                        let shouldForceMetricsSnapshot = !controller.hasPresentedFrame
-                        controller.renderMetricsStore.recordDecodedFrame(
-                            presentation.frame,
-                            receivedAt: receivedAt,
-                            decodedAt: decodedAt,
-                            timing: timing
-                        )
-                        let metricsChanged = controller.publishRenderMetricsSnapshotIfNeeded(
-                            force: shouldForceMetricsSnapshot,
-                            at: decodedAt
-                        )
-                        let presentationChanged = controller.presentDecodedFrame(presentation)
-                        if metricsChanged || presentationChanged {
-                            controller.render()
-                        }
-                    }
-                },
-                onDecodeFailed: { receivedAt, errorDescription in
-                    sink.apply { controller in
-                        controller.renderMetricsStore.recordDecodeFailure(
-                            receivedAt: receivedAt,
-                            errorDescription: errorDescription
-                        )
-                        if controller.publishRenderMetricsSnapshotIfNeeded(at: receivedAt) {
-                            controller.render()
-                        }
-                    }
-                }
-            )
-            let wireReceiveCoalescer = RDPWireReceiveMetricsCoalescer(
-                shouldCancel: {
-                    cancellation.isCancelled
-                },
-                onFlush: { sample in
-                    sink.apply { controller in
-                        controller.renderMetricsStore.recordWireReceive(sample)
-                        if controller.publishRenderMetricsSnapshotIfNeeded(at: sample.receivedAt) {
-                            controller.render()
-                        }
-                    }
-                }
-            )
-            defer {
-                wireReceiveCoalescer.flush()
-                wireReceiveCoalescer.cancel()
-                decodeQueue.cancel()
-            }
             // `run` reports a failure to connect in the report, as it does
             // every other failure.
-            let report = RDPSessionClient().run(
+            return RDPSessionClient().run(
                 configuration: configuration,
                 onGraphicsFrame: { frame in
                     // Posted ahead of the frame, so ahead of the Display
@@ -1056,13 +1042,15 @@ final class SessionViewController: NSViewController {
                             controller.updateReportedMonitors(monitors)
                         }
                     }
-                    let completion = decodeQueue.submitAndWait(
-                        frame,
-                        receivedAt: Date(),
-                        shouldContinue: {
-                            cancellation.isCancelled == false
-                        }
-                    )
+                    // The session decodes the frame, and throws for one
+                    // that failed to decode.
+                    let completion: RDPFrameDecodeCompletion
+                    do {
+                        try run.onGraphicsFrame(frame)
+                        completion = .decoded
+                    } catch let notPresented as RDPGraphicsFrameNotPresented {
+                        completion = .failed(errorDescription: notPresented.reason)
+                    }
                     try keyframeRequests.finishGraphicsFrame(frame, decoded: completion, at: Date()) {
                         let monitors = frame.monitors
                         let graphicsOutputRect = frame.graphicsOutputRect
@@ -1129,13 +1117,15 @@ final class SessionViewController: NSViewController {
                 onCertificate: { info in
                     // Runs before any credential is sent, so cancelling
                     // here refuses the server without signing in to it.
+                    // Cancelled through its cancellation, rather than by
+                    // the window, the session still delivers the refusal.
                     let refusal = trustedCertificateStore.refusal(
                         of: info,
                         port: port,
                         acceptsUntrusted: acceptsUntrustedCertificates
                     )
                     if refusal != nil {
-                        cancellation.cancel()
+                        run.cancellation.cancel()
                     }
                     sink.apply { controller in
                         controller.receiveCertificate(info, port: port, refusal: refusal)
@@ -1156,26 +1146,11 @@ final class SessionViewController: NSViewController {
                 onClientLicenseIssued: { license in
                     try? clientLicenseStore.saveLicense(license, for: clientLicenseKey)
                 },
-                onWireReceive: { sample in
-                    wireReceiveCoalescer.record(sample)
-                },
-                liveReport: liveReport,
-                cancellation: cancellation
+                onWireReceive: run.onWireReceive,
+                liveReport: run.liveReport,
+                cancellation: run.cancellation
             )
-            guard cancellation.isCancelled == false else {
-                return
-            }
-            let finalWireReceiveSample = wireReceiveCoalescer.takePendingSample()
-            sink.apply { controller in
-                if let finalWireReceiveSample {
-                    controller.renderMetricsStore.recordWireReceive(finalWireReceiveSample)
-                }
-                controller.finishConnection(report, configuration: configuration)
-            }
         }
-        sessionThread.name = "RDPeek session"
-        sessionThread.qualityOfService = .userInitiated
-        sessionThread.start()
     }
 
     /// The server activated the session. Also after a reactivation, and on
@@ -1243,8 +1218,7 @@ final class SessionViewController: NSViewController {
             sha256: finishedReport.certificateSHA256
         )
         isConnecting = false
-        activeConnectionID = nil
-        activeCancellation = nil
+        activeSession = nil
         // The channel is closed once the session returns; drop the session
         // objects so clipboard sync/polling and the input wiring can't keep
         // talking to a dead channel.
@@ -1267,7 +1241,7 @@ final class SessionViewController: NSViewController {
 
     func cancelConnection(shouldRecordCancellation: Bool = true) {
         let shouldRecordCancellation = shouldRecordCancellation
-            && (isConnecting || activeConnectionID != nil
+            && (isConnecting || activeSession != nil
                 || isResolvingStoredCredentials || isAutoRetryPending)
         autoRetryTask?.cancel()
         autoRetryTask = nil
@@ -1276,11 +1250,10 @@ final class SessionViewController: NSViewController {
         isAutoRetryPending = false
         isResolvingStoredCredentials = false
         autoRetryReason = nil
-        activeCancellation?.cancel()
+        activeSession?.cancel()
         detachSessionChannels()
         resetFramePresentationState()
-        activeCancellation = nil
-        activeConnectionID = nil
+        activeSession = nil
         isConnecting = false
         if shouldRecordCancellation {
             // Cancelling a connect that never showed a frame, when the
@@ -1971,29 +1944,24 @@ private struct KeychainPasswordRead {
     let task: Task<String?, any Error>
 }
 
-private final class SessionMainActorSink: @unchecked Sendable {
-    weak var controller: SessionViewController?
-    let connectionID: UUID
+/// Hands what the session thread hears of to the controller, on the main
+/// queue through the session: in order, and none of it once the session is
+/// cancelled. It holds the controller weakly, so it forms no cycle.
+private final class SessionMainActorSink: Sendable {
+    private weak let controller: SessionViewController?
+    private let session: RDPLiveSession
 
-    init(controller: SessionViewController, connectionID: UUID) {
+    init(controller: SessionViewController, session: RDPLiveSession) {
         self.controller = controller
-        self.connectionID = connectionID
+        self.session = session
     }
 
-    /// Runs `operation` on the main queue in submission order, so frames
-    /// and audio stay ordered. The block keeps the sink alive: the session
-    /// thread releases it right after submitting the final update. The sink
-    /// holds the controller weakly, so this forms no cycle.
     func apply(_ operation: @escaping @MainActor (SessionViewController) -> Void) {
-        DispatchQueue.main.async {
-            MainActor.assumeIsolated {
-                guard let controller = self.controller,
-                      controller.acceptsConnectionEvent(id: self.connectionID)
-                else {
-                    return
-                }
-                operation(controller)
+        session.deliver { [self] in
+            guard let controller else {
+                return
             }
+            operation(controller)
         }
     }
 }
