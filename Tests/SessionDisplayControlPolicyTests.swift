@@ -1,4 +1,5 @@
 import RDPKit
+import RDPKitTesting
 import XCTest
 
 final class SessionDisplayControlPolicyTests: XCTestCase {
@@ -137,6 +138,126 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         )
     }
 
+    // MARK: - Display Control sessions
+
+    func testSeveralMonitorsAtReadyPauseMatchingBeforeTheFirstResize() async throws {
+        // RDPKit hands Display Control out before the first frame's layout
+        // reaches the window, already holding that frame's monitors.
+        let server = try await displayControlServer()
+        server.resetGraphics(monitors: sideBySideMonitors())
+        var displayControl = SessionDisplayControl()
+
+        displayControl.ready(server.session)
+
+        XCTAssertEqual(displayControl.serverMonitors, sideBySideMonitors())
+        XCTAssertEqual(windowResize(displayControl), .cancel)
+        // The first frame's layout, which follows, brings nothing new.
+        XCTAssertFalse(displayControl.takeServerMonitors(sideBySideMonitors()))
+        XCTAssertEqual(server.sentLayouts, [])
+    }
+
+    func testOneMonitorAtReadyGetsTheWindowsSizeOnce() async throws {
+        let server = try await displayControlServer()
+        server.resetGraphics(monitors: [monitor(0, 0, 1440, 900)])
+        var displayControl = SessionDisplayControl()
+
+        displayControl.ready(server.session)
+
+        XCTAssertEqual(windowResize(displayControl), .send(retinaRequest))
+        XCTAssertTrue(displayControl.send(retinaRequest))
+        XCTAssertEqual(windowResize(displayControl), .skip)
+        XCTAssertEqual(server.sentLayouts, [retinaRequest.monitorLayout])
+    }
+
+    func testAnEndedSessionSendsNothingAndGoesOnActivation() async throws {
+        // A server redirection ends the first server's Display Control. The
+        // target's activation drops it, and the target's own comes later.
+        let first = try await displayControlServer()
+        var displayControl = SessionDisplayControl()
+        displayControl.ready(first.session)
+        XCTAssertTrue(displayControl.send(retinaRequest))
+        // A reactivation of the same connection keeps it.
+        XCTAssertFalse(displayControl.dropSessionIfEnded())
+
+        first.endSession()
+
+        // A resize that was waiting goes nowhere, and is not the size the
+        // server was sent last.
+        XCTAssertFalse(displayControl.send(connectLayout))
+        XCTAssertEqual(displayControl.lastSent, retinaRequest)
+        XCTAssertTrue(displayControl.dropSessionIfEnded())
+        XCTAssertNil(displayControl.session)
+        XCTAssertEqual(windowResize(displayControl), .cancel)
+
+        // The target was sent nothing yet, so the window's size goes to it.
+        let target = try await displayControlServer()
+        displayControl.ready(target.session)
+        XCTAssertEqual(windowResize(displayControl), .send(retinaRequest))
+        XCTAssertTrue(displayControl.send(retinaRequest))
+        XCTAssertEqual(first.sentLayouts, [retinaRequest.monitorLayout])
+        XCTAssertEqual(target.sentLayouts, [retinaRequest.monitorLayout])
+    }
+
+    func testMatchingThatResumesSendsTheSameSizeToTheServerAgain() async throws {
+        // 2880x1800 at 200% went out; the server then laid out two
+        // monitors, and came back to one at 1920x1080. The window did not
+        // change, so its size goes out again, once.
+        let server = try await displayControlServer()
+        server.resetGraphics(monitors: [monitor(0, 0, 2880, 1800)])
+        var displayControl = SessionDisplayControl()
+        displayControl.ready(server.session)
+        XCTAssertTrue(displayControl.send(retinaRequest))
+
+        // A reset to the same monitors changes nothing.
+        server.resetGraphics(monitors: [monitor(0, 0, 2880, 1800)])
+        XCTAssertFalse(displayControl.takeServerMonitors(server.session.serverMonitors))
+        XCTAssertEqual(windowResize(displayControl), .skip)
+        server.resetGraphics(monitors: sideBySideMonitors())
+        XCTAssertTrue(displayControl.takeServerMonitors(server.session.serverMonitors))
+        XCTAssertEqual(windowResize(displayControl), .cancel)
+        server.resetGraphics(monitors: [monitor(0, 0, 1920, 1080)])
+        XCTAssertTrue(displayControl.takeServerMonitors(server.session.serverMonitors))
+        XCTAssertEqual(windowResize(displayControl), .send(retinaRequest))
+        XCTAssertTrue(displayControl.send(retinaRequest))
+
+        XCTAssertEqual(windowResize(displayControl), .skip)
+        XCTAssertEqual(server.sentLayouts, [retinaRequest.monitorLayout, retinaRequest.monitorLayout])
+    }
+
+    func testTurningMatchingOnSendsTheSameSizeToTheServerAgain() async throws {
+        let server = try await displayControlServer()
+        var displayControl = SessionDisplayControl()
+        displayControl.ready(server.session)
+        XCTAssertTrue(displayControl.send(retinaRequest))
+
+        // As the window does when the user turns Match Window Size back on.
+        displayControl.resendsWindowSize = true
+
+        XCTAssertEqual(windowResize(displayControl), .send(retinaRequest))
+        XCTAssertTrue(displayControl.send(retinaRequest))
+        XCTAssertEqual(windowResize(displayControl), .skip)
+        XCTAssertEqual(server.sentLayouts, [retinaRequest.monitorLayout, retinaRequest.monitorLayout])
+    }
+
+    func testASizeTheServerRefusesIsNotTheSizeSentLast() async throws {
+        let server = try await RDPDisplayControlTestServer(
+            capabilities: RDPDisplayControlCapabilities(
+                maxNumMonitors: 1,
+                maxMonitorAreaFactorA: 1920,
+                maxMonitorAreaFactorB: 1080
+            ),
+            connectLayout: connectLayout.monitorLayout
+        )
+        var displayControl = SessionDisplayControl()
+        displayControl.ready(server.session)
+
+        XCTAssertFalse(displayControl.send(retinaRequest))
+
+        XCTAssertNil(displayControl.lastSent)
+        XCTAssertEqual(windowResize(displayControl), .send(retinaRequest))
+        XCTAssertEqual(server.sentLayouts, [])
+    }
+
     // MARK: - Helpers
 
     private func isWindowMatchingInEffect(
@@ -166,6 +287,24 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
             viewerRequest: viewerRequest,
             lastSent: lastSent,
             resendsWindowSize: resends
+        )
+    }
+
+    /// A server whose connection started with `connectLayout`.
+    private func displayControlServer() async throws -> RDPDisplayControlTestServer {
+        try await RDPDisplayControlTestServer(connectLayout: connectLayout.monitorLayout)
+    }
+
+    /// What `displayControl` does with a 1440x900-point Retina window,
+    /// matching on, while connected.
+    private func windowResize(_ displayControl: SessionDisplayControl) -> SessionResizeDecision {
+        displayControl.resizeDecision(
+            isWindowMatchingInEffect: displayControl.isWindowMatchingInEffect(
+                followsWindowSize: true,
+                isConnecting: true,
+                hasViewerPixelSize: true
+            ),
+            viewerRequest: retinaRequest
         )
     }
 

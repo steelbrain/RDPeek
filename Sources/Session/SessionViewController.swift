@@ -71,22 +71,15 @@ final class SessionViewController: NSViewController {
     private(set) var activeSession: RDPLiveSession?
     private var sessionEndReason: RDPSessionEndReason?
     private var inputSession: RDPInputSession?
-    private var displayControlSession: RDPDisplayControlSession?
     /// Match Window Size: the user's choice for this window. No connection
     /// attempt, retry or layout change alters it.
     private var followsWindowSize = SessionDisplayControlPolicy.followsWindowSizeByDefault
     private var displaySelection = RemoteDisplaySelection.all
     private var pendingDisplayResizeTask: Task<Void, Never>?
-    private var lastRequestedDisplayRequest: RDPDisplayRequest?
-    /// The next resize goes out even when it is the size sent last: since
-    /// that went out, the server laid out several monitors, or Match Window
-    /// Size was turned off and on again, and the server may have left that
-    /// size meanwhile.
-    private var resendsWindowSize = false
     private var viewerPixelSize: RDPViewerPixelSize?
-    /// The monitors the server laid out last, which window matching goes
-    /// by. Empty before the server's first layout, and outside RDPGFX.
-    private var serverMonitors: [RDPRemoteMonitor] = []
+    /// The Display Control session, the server's monitors, and the size
+    /// sent last.
+    private var displayControl = SessionDisplayControl()
     private let clipboard: SessionClipboard
     private var audioPlaybackEnabled: Bool
     private var remoteAudioPlayer = RDPAudioPlayer()
@@ -442,7 +435,7 @@ final class SessionViewController: NSViewController {
             canShareClipboardTemporarily: clipboard.canStartTemporarySharing,
             isAudioPlaybackEnabled: audioPlaybackEnabled,
             followsWindowSize: followsWindowSize,
-            reportedMonitors: serverMonitors,
+            reportedMonitors: displayControl.serverMonitors,
             displayLayout: displayLayout,
             displaySelection: displaySelection,
             isMetricsOverlayVisible: isMetricsOverlayVisible
@@ -613,7 +606,7 @@ final class SessionViewController: NSViewController {
             clientName: sentClientName,
             inputReady: inputSession != nil,
             supportsUnicodeInput: inputSession?.supportsUnicodeInput ?? false,
-            displayControlReady: displayControlSession != nil,
+            displayControlReady: displayControl.session != nil,
             clipboardReady: clipboard.session != nil,
             clipboardSharingEnabled: clipboard.isSharingEnabled,
             connectionRequestsAudio: connectionRequestsAudio,
@@ -1118,11 +1111,9 @@ final class SessionViewController: NSViewController {
     private func sessionActivated(_ session: RDPInputSession) {
         let context = session.connectionContext
         inputSession = session
-        // A Display Control session from before a redirection has ended
-        // with its connection: resizes wait for the target's own. A
-        // reactivation of the same connection keeps it.
-        if displayControlSession?.isEnded == true {
-            displayControlSession = nil
+        // Display Control from before a redirection has ended with its
+        // connection.
+        if displayControl.dropSessionIfEnded() {
             cancelPendingDisplayResize()
         }
         if attemptBudget.sessionActivated() {
@@ -1239,10 +1230,9 @@ final class SessionViewController: NSViewController {
     /// it has ended — however it ended. The layout it reported goes with
     /// it: a session that is over pauses nothing.
     private func detachSessionChannels() {
-        cancelPendingDisplayResize(resetLastRequestedSize: true)
-        serverMonitors = []
+        cancelPendingDisplayResize()
+        displayControl = SessionDisplayControl()
         inputSession = nil
-        displayControlSession = nil
         clipboard.detach()
         remoteAudioPlayer.reset()
         didReportAudioFailure = false
@@ -1389,39 +1379,21 @@ final class SessionViewController: NSViewController {
     /// Whether the desktop follows the window now. The scheduler goes by
     /// this alone, never by what the HUD last showed.
     private var isWindowMatchingInEffect: Bool {
-        SessionDisplayControlPolicy.isWindowMatchingInEffect(
+        displayControl.isWindowMatchingInEffect(
             followsWindowSize: followsWindowSize,
             isConnecting: isConnecting,
-            hasDisplayControl: displayControlSession != nil,
-            hasViewerPixelSize: viewerPixelSize != nil,
-            reportedMonitors: serverMonitors
+            hasViewerPixelSize: viewerPixelSize != nil
         )
     }
 
     /// The server laid out its graphics again, as RDPKit tells ahead of
     /// the frames that follow.
     private func followServerLayout(_ layout: RDPServerLayout) {
-        guard takeServerMonitors(layout.monitors) else {
+        guard displayControl.takeServerMonitors(layout.monitors) else {
             return
         }
         scheduleAutoDisplaySizeUpdate()
         render()
-    }
-
-    /// Returns whether the server's monitors changed. Several pause window
-    /// matching, and the window's size goes out again once it resumes, even
-    /// when it was sent last; back at one, it resumes without the user
-    /// doing anything.
-    @discardableResult
-    private func takeServerMonitors(_ monitors: [RDPRemoteMonitor]) -> Bool {
-        guard monitors != serverMonitors else {
-            return false
-        }
-        serverMonitors = monitors
-        if SessionDisplayControlPolicy.reportsSeveralMonitors(monitors) {
-            resendsWindowSize = true
-        }
-        return true
     }
 
     private func scheduleAutoDisplaySizeUpdate() {
@@ -1454,49 +1426,24 @@ final class SessionViewController: NSViewController {
     }
 
     private func resizeDecision(for viewerRequest: RDPDisplayRequest?) -> SessionResizeDecision {
-        SessionDisplayControlPolicy.resizeDecision(
-            isWindowMatchingInEffect: isWindowMatchingInEffect,
-            viewerRequest: viewerRequest,
-            lastSent: lastRequestedDisplayRequest,
-            resendsWindowSize: resendsWindowSize
-        )
+        displayControl.resizeDecision(isWindowMatchingInEffect: isWindowMatchingInEffect, viewerRequest: viewerRequest)
     }
 
-    /// Records the request only once it goes out: one the server's
-    /// capabilities refused, or one a session that ended since dropped, is
-    /// not the size the server was sent last.
     private func applyDisplayRequestToActiveSession(_ request: RDPDisplayRequest) {
-        guard displayControlSession?.send(request) == true else {
-            return
+        if displayControl.send(request) {
+            requestedDesktopSizeLabel = request.label
         }
-        lastRequestedDisplayRequest = request
-        resendsWindowSize = false
-        requestedDesktopSizeLabel = request.label
     }
 
-    /// RDPKit handed out Display Control, on the first server or a
-    /// redirection's target, once frames came but before the first one
-    /// reaches the window.
     private func displayControlReady(_ session: RDPDisplayControlSession) {
-        displayControlSession = session
-        // A server redirection's target has not been sent the layout the
-        // first server got.
-        lastRequestedDisplayRequest = nil
-        // It comes before the first frame's layout, but already holds that
-        // frame's monitors, so several pause matching before the first
-        // resize is scheduled.
-        takeServerMonitors(session.serverMonitors)
+        displayControl.ready(session)
         scheduleAutoDisplaySizeUpdate()
         render()
     }
 
-    private func cancelPendingDisplayResize(resetLastRequestedSize: Bool = false) {
+    private func cancelPendingDisplayResize() {
         pendingDisplayResizeTask?.cancel()
         pendingDisplayResizeTask = nil
-        if resetLastRequestedSize {
-            lastRequestedDisplayRequest = nil
-            resendsWindowSize = false
-        }
     }
 
     func setFollowWindowSize(_ enabled: Bool) {
@@ -1504,7 +1451,7 @@ final class SessionViewController: NSViewController {
         // own, so turning it on sends the window's size even when it was
         // the last one sent.
         if enabled, followsWindowSize == false {
-            resendsWindowSize = true
+            displayControl.resendsWindowSize = true
         }
         followsWindowSize = enabled
         if enabled {

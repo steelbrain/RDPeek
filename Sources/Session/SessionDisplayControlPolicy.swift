@@ -69,3 +69,99 @@ enum SessionResizeDecision: Equatable {
     /// Send this size once the window has stayed at it a moment.
     case send(RDPDisplayRequest)
 }
+
+/// What a window resizes the remote desktop through: the Display Control
+/// session RDPKit handed out, the server's monitors, and the size the
+/// server was sent last. The window schedules the resizes; the decisions
+/// are `SessionDisplayControlPolicy`'s. A connection that ends takes it
+/// with it.
+struct SessionDisplayControl {
+    /// The session RDPKit handed out last, until one from before a
+    /// redirection is dropped.
+    private(set) var session: RDPDisplayControlSession?
+    /// The monitors the server laid out last, which window matching goes
+    /// by. Empty before the server's first layout, and outside RDPGFX.
+    private(set) var serverMonitors: [RDPRemoteMonitor] = []
+    /// The size the server was sent last.
+    private(set) var lastSent: RDPDisplayRequest?
+    /// The next resize goes out even when it is the size sent last: since
+    /// that went out, the server laid out several monitors, or Match Window
+    /// Size was turned off and on again, and the server may have left that
+    /// size meanwhile.
+    var resendsWindowSize = false
+
+    /// RDPKit handed out Display Control, on the first server or a
+    /// redirection's target, once frames came but before the first one
+    /// reaches the window.
+    mutating func ready(_ session: RDPDisplayControlSession) {
+        self.session = session
+        // A server redirection's target has not been sent the layout the
+        // first server got.
+        lastSent = nil
+        // It comes before the first frame's layout, but already holds that
+        // frame's monitors, so several pause matching before the first
+        // resize is scheduled.
+        takeServerMonitors(session.serverMonitors)
+    }
+
+    /// Returns whether the server's monitors changed. Several pause window
+    /// matching, and the window's size goes out again once it resumes, even
+    /// when it was sent last; back at one, it resumes without the user
+    /// doing anything.
+    @discardableResult
+    mutating func takeServerMonitors(_ monitors: [RDPRemoteMonitor]) -> Bool {
+        guard monitors != serverMonitors else {
+            return false
+        }
+        serverMonitors = monitors
+        if SessionDisplayControlPolicy.reportsSeveralMonitors(monitors) {
+            resendsWindowSize = true
+        }
+        return true
+    }
+
+    /// The server activated the session. A Display Control session from
+    /// before a redirection has ended with its connection: resizes wait for
+    /// the target's own. A reactivation of the same connection keeps it.
+    /// Returns whether it dropped one.
+    mutating func dropSessionIfEnded() -> Bool {
+        guard session?.isEnded == true else {
+            return false
+        }
+        session = nil
+        return true
+    }
+
+    /// Whether the desktop follows the window now, as
+    /// `SessionDisplayControlPolicy.isWindowMatchingInEffect` decides.
+    func isWindowMatchingInEffect(followsWindowSize: Bool, isConnecting: Bool, hasViewerPixelSize: Bool) -> Bool {
+        SessionDisplayControlPolicy.isWindowMatchingInEffect(
+            followsWindowSize: followsWindowSize,
+            isConnecting: isConnecting,
+            hasDisplayControl: session != nil,
+            hasViewerPixelSize: hasViewerPixelSize,
+            reportedMonitors: serverMonitors
+        )
+    }
+
+    func resizeDecision(isWindowMatchingInEffect: Bool, viewerRequest: RDPDisplayRequest?) -> SessionResizeDecision {
+        SessionDisplayControlPolicy.resizeDecision(
+            isWindowMatchingInEffect: isWindowMatchingInEffect,
+            viewerRequest: viewerRequest,
+            lastSent: lastSent,
+            resendsWindowSize: resendsWindowSize
+        )
+    }
+
+    /// Sends `request`, and records it only once it goes out: one the
+    /// server's capabilities refused, or one a session that ended since
+    /// dropped, is not the size the server was sent last.
+    mutating func send(_ request: RDPDisplayRequest) -> Bool {
+        guard session?.send(request) == true else {
+            return false
+        }
+        lastSent = request
+        resendsWindowSize = false
+        return true
+    }
+}
