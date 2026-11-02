@@ -273,6 +273,12 @@ struct RDPSessionEndReason: Equatable {
             return "RDPeek failed on this Mac; the remote computer was not at fault."
         case .graphicsFrameHandler:
             return "RDPeek could not show the remote desktop."
+        case let .noFramePresented(framesReceived, _):
+            // RDPKit 0.7 prep: retried as a missing desktop once the bump
+            // adopts it.
+            return framesReceived == 0
+                ? firstFrameTimeout.message
+                : "RDPeek could not show the remote desktop."
         }
     }
 

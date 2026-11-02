@@ -7,7 +7,7 @@ private final class RecordedDownload: @unchecked Sendable {
     let copyNumber: Int
     let directory: URL
     let limits: RDPClipboardDownloadLimits
-    let progress: (@Sendable (RDPClipboardDownloadProgress) -> Void)?
+    let progress: (@Sendable (RDPClipboardDownloadProgress) async -> Void)?
     /// The bridge's task that waits for it, once the test has looked it up.
     @MainActor var bridgeTask: Task<Void, Never>?
     private let lock = NSLock()
@@ -19,7 +19,7 @@ private final class RecordedDownload: @unchecked Sendable {
         copyNumber: Int,
         directory: URL,
         limits: RDPClipboardDownloadLimits,
-        progress: (@Sendable (RDPClipboardDownloadProgress) -> Void)?
+        progress: (@Sendable (RDPClipboardDownloadProgress) async -> Void)?
     ) {
         self.copyNumber = copyNumber
         self.directory = directory
@@ -165,31 +165,26 @@ private final class RecordedClipboard: SessionClipboardSending, @unchecked Senda
         publishedCopyNumber = lastCopyNumber
     }
 
-    /// Writes the files with `writeFile` under the names RDPKit plans for
+    /// Writes the files with `writeFile` under the names the plan gives
     /// them, as RDPClipboardSession does, once the test finishes the
     /// download with their contents.
     func downloadRemoteFiles(
-        _ list: RDPClipboardFileGroupDescriptorW,
+        _ plan: RDPClipboardDownloadPlan,
         copyNumber: Int,
         into directory: URL,
-        limits: RDPClipboardDownloadLimits,
-        progress: (@Sendable (RDPClipboardDownloadProgress) -> Void)?,
+        progress: (@Sendable (RDPClipboardDownloadProgress) async -> Void)?,
         writeFile: @Sendable (Data, URL) throws -> Void
     ) async throws -> RDPClipboardDownload {
-        let download = RecordedDownload(copyNumber: copyNumber, directory: directory, limits: limits, progress: progress)
+        let download = RecordedDownload(copyNumber: copyNumber, directory: directory, limits: plan.limits, progress: progress)
         lock.withLock { recordedDownloads.append(download) }
         let contents = try await download.contents()
-        let files = try list.remoteFileTransferFiles(
-            maximumTotalByteCount: limits.maximumTotalByteCount,
-            maximumFileCount: limits.maximumFileCount
-        )
         var fileURLs: [URL] = []
-        for (file, data) in zip(files, contents) {
+        for (file, data) in zip(plan.files, contents) {
             let fileURL = directory.appendingPathComponent(file.fileName, isDirectory: false)
             try writeFile(data, fileURL)
             fileURLs.append(fileURL)
         }
-        return RDPClipboardDownload(fileURLs: fileURLs, leavesOutFolders: list.descriptors.contains(where: \.isDirectory))
+        return RDPClipboardDownload(fileURLs: fileURLs, leavesOutFolders: plan.leavesOutFolders)
     }
 }
 
@@ -1451,8 +1446,8 @@ final class SessionClipboardTests: XCTestCase {
 
         let download = try await startRemoteFileDownload(makeFileList(fileCount: 30), to: clipboard, from: session)
         let progress = try XCTUnwrap(download.progress)
-        func report(_ fileOffset: Int) {
-            progress(RDPClipboardDownloadProgress(
+        func report(_ fileOffset: Int) async {
+            await progress(RDPClipboardDownloadProgress(
                 fileOffset: fileOffset,
                 fileCount: 30,
                 fileName: "\(fileOffset).txt",
@@ -1461,13 +1456,13 @@ final class SessionClipboardTests: XCTestCase {
             ))
         }
         for fileOffset in 0 ..< 30 {
-            report(fileOffset)
-            report(fileOffset)
+            await report(fileOffset)
+            await report(fileOffset)
         }
-        report(2)
+        await report(2)
         try await waitUntil { toasts.count == 10 }
         try await finishRemoteFileDownload((0 ..< 30).map { _ in Data() }, from: session)
-        report(29)
+        await report(29)
         try await Task.sleep(nanoseconds: 50_000_000)
 
         XCTAssertEqual(

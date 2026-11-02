@@ -33,15 +33,14 @@ protocol SessionClipboardSending: AnyObject, Sendable {
     /// Mac's last one, and says whether it did.
     @discardableResult
     func withdrawLocalCopy() -> Bool
-    /// Downloads the files of remote copy `copyNumber` into `directory`,
-    /// handing each to `writeFile`; ends early once a newer copy replaces
-    /// it, the connection closes, or its task is cancelled.
+    /// Downloads the files `plan` holds, of remote copy `copyNumber`, into
+    /// `directory`, handing each to `writeFile`; ends early once a newer
+    /// copy replaces it, the connection closes, or its task is cancelled.
     func downloadRemoteFiles(
-        _ list: RDPClipboardFileGroupDescriptorW,
+        _ plan: RDPClipboardDownloadPlan,
         copyNumber: Int,
         into directory: URL,
-        limits: RDPClipboardDownloadLimits,
-        progress: (@Sendable (RDPClipboardDownloadProgress) -> Void)?,
+        progress: (@Sendable (RDPClipboardDownloadProgress) async -> Void)?,
         writeFile: @Sendable (Data, URL) throws -> Void
     ) async throws -> RDPClipboardDownload
 }
@@ -350,15 +349,12 @@ final class SessionClipboard {
         guard let session else {
             return
         }
-        // Planned here as RDPKit plans the download, so a copy it would
-        // refuse gets no folder, and the first toast names its first file.
-        let files: [RDPClipboardRemoteFileTransferFile]
+        // Planned before the download, so a copy RDPKit would refuse gets
+        // no folder, and the first toast names its first file.
+        let plan: RDPClipboardDownloadPlan
         let directory: URL
         do {
-            files = try descriptorList.remoteFileTransferFiles(
-                maximumTotalByteCount: sessionRemoteFileDownloadLimits.maximumTotalByteCount,
-                maximumFileCount: sessionRemoteFileDownloadLimits.maximumFileCount
-            )
+            plan = try descriptorList.downloadPlan(limits: sessionRemoteFileDownloadLimits)
             directory = try makeDownloadDirectory()
         } catch let error as RDPClipboardRemoteFileTransferPlanningError {
             onToast(planningMessage(for: error), "exclamationmark.triangle")
@@ -368,7 +364,7 @@ final class SessionClipboard {
             return
         }
         let id = UUID()
-        let progress: @Sendable (RDPClipboardDownloadProgress) -> Void = { [weak self] progress in
+        let progress: @Sendable (RDPClipboardDownloadProgress) async -> Void = { [weak self] progress in
             Task { @MainActor [self] in
                 self?.receiveDownloadProgress(progress, of: id)
             }
@@ -377,10 +373,9 @@ final class SessionClipboard {
             let outcome: Result<RDPClipboardDownload, Error>
             do {
                 outcome = try .success(await session.downloadRemoteFiles(
-                    descriptorList,
+                    plan,
                     copyNumber: copyNumber,
                     into: directory,
-                    limits: sessionRemoteFileDownloadLimits,
                     progress: progress,
                     writeFile: { data, fileURL in
                         try Self.writeQuarantined(data, to: fileURL)
@@ -402,7 +397,7 @@ final class SessionClipboard {
                 descriptor.fileName.contains { $0 == "\\" || $0 == "/" }
             }
         )
-        toastDownloadProgress(fileOffset: 0, fileCount: files.count, fileName: files[0].fileName)
+        toastDownloadProgress(fileOffset: 0, fileCount: plan.files.count, fileName: plan.files[0].fileName)
     }
 
     /// Whether no publish has replaced remote copy `copyNumber` on the

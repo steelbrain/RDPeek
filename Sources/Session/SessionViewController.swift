@@ -932,7 +932,7 @@ final class SessionViewController: NSViewController {
             // RDPKit negotiate the best path per host (Windows included).
             graphicsCapabilityProfile: .automatic,
             keyboardLayout: keyboardLayout,
-            legacyRSAKeyExchange: attemptBudget.usesLegacyRSAKeyExchange,
+            legacyRSAKeyExchange: attemptBudget.usesLegacyRSAKeyExchange ? .always : .never,
             // Servers list the session, and count per-device licenses, under
             // the Mac's name; RDPKit cuts it to 15 characters.
             clientName: SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "RDPeek"
@@ -1243,7 +1243,7 @@ final class SessionViewController: NSViewController {
             after: finishedReport,
             host: configuration.host,
             presentedFrames: hasPresentedFrame,
-            usedLegacyRSAKeyExchange: configuration.legacyRSAKeyExchange,
+            usedLegacyRSAKeyExchange: configuration.legacyRSAKeyExchange != .never,
             presentedStoredClientLicense: configuration.storedClientLicense != nil
         )
         attemptBudget.record(outcome)
