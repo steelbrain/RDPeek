@@ -44,17 +44,6 @@ enum SessionCredentialPolicy {
         return cachedPassword(key.account).map { .cache(password: $0) } ?? .prompt
     }
 
-    /// Whether the server checked the password before it activated the
-    /// session, by the security protocols it selected (RDPKit's names).
-    /// CredSSP signs in before activation, and a server redirection's
-    /// RDSTLS target is reached through such a sign-in. A server that chose
-    /// TLS alone, or Standard RDP Security, activates the session whatever
-    /// the password, then may show its own logon screen in the desktop.
-    static func verifiesSignIn(selectedProtocols: [String]?) -> Bool {
-        let verifyingProtocols: Set = ["credssp", "credssp-early-user-auth", "rdstls"]
-        return selectedProtocols?.contains { verifyingProtocols.contains($0) } ?? false
-    }
-
     /// Whether a sign-in as `identity` may be remembered for the PC saved
     /// as `savedIdentity`: only as the PC's own account, so that no
     /// Keychain item is left that no PC reads or deletes. A PC saved with

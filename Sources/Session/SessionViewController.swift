@@ -1074,37 +1074,23 @@ final class SessionViewController: NSViewController {
                         }
                     }
                 },
-                // Both read the live report here, on the session thread,
-                // where it follows the connection that calls them: a
-                // redirection the main thread hears of first must not count
-                // for them.
+                // Each session carries its connection's context, which a
+                // redirection the main thread hears of first does not move
+                // on, as it does the live report.
                 onInputReady: { session in
-                    let report = liveReport.snapshot
-                    let redirectionDepth = report?.redirectionDepth ?? 0
-                    // RDPKit: 0.6.0 reports no logon. Once it does, a
-                    // TLS-only server that logged the user on verifies the
-                    // sign-in too.
-                    let signInVerified = SessionCredentialPolicy.verifiesSignIn(
-                        selectedProtocols: report?.selectedProtocols
-                    )
                     // Licensing ends before activation; the license is saved
                     // now rather than when the session ends, which a quit or
                     // a crash could prevent.
-                    if let license = report?.rdpIssuedClientLicense {
+                    if let license = liveReport.snapshot?.rdpIssuedClientLicense {
                         clientLicense.issue(license, save: saveIssuedClientLicense)
                     }
                     sink.apply { controller in
-                        controller.sessionActivated(
-                            session,
-                            redirectionDepth: redirectionDepth,
-                            signInVerified: signInVerified
-                        )
+                        controller.sessionActivated(session)
                     }
                 },
                 onDisplayControlReady: { session in
-                    let redirectionDepth = liveReport.snapshot?.redirectionDepth ?? 0
                     sink.apply { controller in
-                        controller.displayControlReady(session, redirectionDepth: redirectionDepth)
+                        controller.displayControlReady(session)
                     }
                 },
                 onClipboardReady: { session in
@@ -1189,11 +1175,14 @@ final class SessionViewController: NSViewController {
     }
 
     /// The server activated the session. Also after a reactivation, and on
-    /// a server redirection's target, which `redirectionDepth` redirections
-    /// led to. Activation shows the server took the sign-in only when
-    /// `signInVerified`: a server that does not check the password first
-    /// activates the session whatever it is.
-    private func sessionActivated(_ session: RDPInputSession, redirectionDepth: Int, signInVerified: Bool) {
+    /// a server redirection's target, as the session's context says.
+    /// Activation shows the server took the sign-in only when it checked
+    /// the credentials before activation, with Network Level
+    /// Authentication or RDSTLS: over TLS alone a server activates the
+    /// session whatever the password, and may sign in another user at its
+    /// own logon screen.
+    private func sessionActivated(_ session: RDPInputSession) {
+        let context = session.connectionContext
         inputSession = session
         // A Display Control session from before a redirection sends
         // nothing, and RDPKit does not say so. RDPKit 0.6.0 hands out the
@@ -1202,12 +1191,12 @@ final class SessionViewController: NSViewController {
         // back until then, but servers open their graphics channel after
         // it, so this runs before the target's first frame can ask for a
         // keyframe, which then waits for the target's own Display Control.
-        if keyframeRequestHold.sessionActivated(redirectionDepth: redirectionDepth) {
+        if keyframeRequestHold.sessionActivated(redirectionDepth: context.redirectionDepth) {
             displayControlSession = nil
             cancelPendingDisplayResize()
         }
         if attemptBudget.sessionActivated() {
-            keepSignIn(isVerified: signInVerified)
+            keepSignIn(isVerified: context.credentialsVerifiedBeforeActivation)
         }
         render()
     }
@@ -1609,8 +1598,8 @@ final class SessionViewController: NSViewController {
     }
 
     /// RDPKit handed out Display Control, after the first frames of the
-    /// connection that `redirectionDepth` redirections led to.
-    private func displayControlReady(_ session: RDPDisplayControlSession, redirectionDepth: Int) {
+    /// connection the session's context says redirections led to.
+    private func displayControlReady(_ session: RDPDisplayControlSession) {
         displayControlSession = session
         // A server redirection's target has not been sent the layout the
         // first server got.
@@ -1621,7 +1610,7 @@ final class SessionViewController: NSViewController {
         // graphics reset happens only after a first frame failed, and the
         // request always goes out before that resize, so it cannot undo it.
         let keyframeRequest = keyframeRequestHold.displayControlReady(
-            redirectionDepth: redirectionDepth,
+            redirectionDepth: session.connectionContext.redirectionDepth,
             reportedMonitors: reportedMonitors
         )
         sendKeyframeRequest(keyframeRequest, through: session)

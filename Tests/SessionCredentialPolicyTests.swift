@@ -165,22 +165,6 @@ final class SessionCredentialPolicyTests: XCTestCase {
         }
     }
 
-    // MARK: - Verified sign-ins
-
-    func testOnlyASignInBeforeActivationVerifiesThePassword() {
-        for protocols in [["tls", "credssp"], ["tls", "credssp-early-user-auth"], ["tls", "rdstls"]] {
-            XCTAssertTrue(SessionCredentialPolicy.verifiesSignIn(selectedProtocols: protocols), "\(protocols)")
-        }
-        // TLS alone and Standard RDP Security activate the session whatever
-        // the password; a report without the negotiation says nothing.
-        for protocols in [["tls"], ["standard-rdp-security"], [], nil] {
-            XCTAssertFalse(
-                SessionCredentialPolicy.verifiesSignIn(selectedProtocols: protocols),
-                "\(String(describing: protocols))"
-            )
-        }
-    }
-
     // MARK: - A password saved in the editor
 
     func testAPasswordSavedInTheEditorReplacesOnlyTheSameSignIns() {
