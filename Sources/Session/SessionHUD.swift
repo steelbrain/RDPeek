@@ -49,7 +49,9 @@ final class SessionHUDModel: ObservableObject {
     @Published var isClipboardSharingEnabled = true
     @Published var isAudioPlaybackEnabled = false
     @Published var isFollowWindowSizeEnabled = SessionDisplayControlPolicy.followsWindowSizeByDefault
-    @Published var canMatchWindowSize = false
+    /// False while the server reports several monitors, which pause Match
+    /// Window Size.
+    @Published var canFollowWindowSize = true
     @Published var displays: [SessionDisplayChoice] = []
     @Published var areAllDisplaysSelected = true
     @Published var canSyncClipboard = false
@@ -633,7 +635,7 @@ struct SessionTitlebarAccessory: View {
                 Toggle(isOn: followSizeBinding) {
                     Label("Match Window Size", systemImage: "arrow.up.left.and.arrow.down.right")
                 }
-                .disabled(!model.canMatchWindowSize)
+                .disabled(model.canFollowWindowSize == false)
 
                 Divider()
 

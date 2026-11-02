@@ -1,9 +1,5 @@
 import RDPKit
 
-func remoteDisplayAllowsWindowMatching(hasPresentedFrame: Bool, reportedMonitorCount: Int) -> Bool {
-    hasPresentedFrame && reportedMonitorCount <= 1
-}
-
 /// Re-sends a desktop layout to recover video without replacing its topology.
 func remoteDisplayKeyframeRequest(
     monitors: [RDPRemoteMonitor],

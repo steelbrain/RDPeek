@@ -9,13 +9,6 @@ final class RemoteDisplaySelectionTests: XCTestCase {
         RDPRemoteMonitor(rect: RDPFrameRect(left: 200, top: 0, right: 300, bottom: 100), isPrimary: false),
     ]
 
-    func testResizeRequiresDisplayedFrameAndNeverCollapsesReportedMultimonitorLayout() {
-        XCTAssertFalse(remoteDisplayAllowsWindowMatching(hasPresentedFrame: false, reportedMonitorCount: 0))
-        XCTAssertFalse(remoteDisplayAllowsWindowMatching(hasPresentedFrame: true, reportedMonitorCount: 2))
-        XCTAssertTrue(remoteDisplayAllowsWindowMatching(hasPresentedFrame: true, reportedMonitorCount: 1))
-        XCTAssertTrue(remoteDisplayAllowsWindowMatching(hasPresentedFrame: true, reportedMonitorCount: 0))
-    }
-
     func testKeyframeRecoveryNeverReplacesMultipleOrUnknownDisplays() {
         let previous = RDPDisplayRequest(width: 1280, height: 800, scaleFactors: RDPDisplayScaleFactors(backingScaleFactor: 2))
         for layout in [[], monitors] {

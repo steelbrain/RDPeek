@@ -76,6 +76,10 @@ final class SessionViewController: NSViewController {
     private var pendingDisplayResizeTask: Task<Void, Never>?
     private var lastRequestedDisplayRequest: RDPDisplayRequest?
     private var viewerPixelSize: RDPViewerPixelSize?
+    /// The monitors the server's latest delivered frame reports, which
+    /// window matching goes by; a frame that could not be shown counts too.
+    /// Empty before the server's first layout, and outside RDPGFX.
+    private var reportedMonitors: [RDPRemoteMonitor] = []
     private let clipboard: SessionClipboard
     private var audioPlaybackEnabled: Bool
     private var remoteAudioPlayer = RDPAudioPlayer()
@@ -364,10 +368,6 @@ final class SessionViewController: NSViewController {
         }
         hudModel.update(\.displays, to: [])
         hudModel.update(\.areAllDisplaysSelected, to: displaySelection == .all)
-        hudModel.update(\.canMatchWindowSize, to: isConnecting && displayControlSession != nil
-            && remoteDisplayAllowsWindowMatching(hasPresentedFrame: hasPresentedFrame,
-                                                reportedMonitorCount: previewFrame?.monitors.count ?? 0))
-
         hudModel.update(
             \.connectingStatusDetail,
             to: nextPhase == .connecting ? autoRetryReason?.statusDetail : nil
@@ -379,7 +379,11 @@ final class SessionViewController: NSViewController {
         hudModel.update(\.metricsSummary, to: nextPhase.isActive ? viewerMetricsSummary : nil)
         hudModel.update(\.isClipboardSharingEnabled, to: clipboard.isSharingEnabled)
         hudModel.update(\.isAudioPlaybackEnabled, to: audioPlaybackEnabled)
-        hudModel.update(\.isFollowWindowSizeEnabled, to: followsWindowSize)
+        // While the server reports several monitors, Match Window Size
+        // shows that it is paused, not the preference it keeps.
+        let reportsSeveralMonitors = SessionDisplayControlPolicy.reportsSeveralMonitors(reportedMonitors)
+        hudModel.update(\.isFollowWindowSizeEnabled, to: followsWindowSize && reportsSeveralMonitors == false)
+        hudModel.update(\.canFollowWindowSize, to: reportsSeveralMonitors == false)
         hudModel.update(\.temporaryClipboardSecondsRemaining, to: clipboard.temporarySharingSecondsRemaining)
         // One command state feeds the HUD and the Session menu, so they
         // agree on what can be done.
@@ -909,6 +913,9 @@ final class SessionViewController: NSViewController {
                 configuration.storedClientLicense = try? clientLicenseStore.license(for: clientLicenseKey)
             }
             var keyframeRequests = RDPKeyframeRequestThrottle()
+            // The monitors the server reported last, so the main thread
+            // hears of a new layout once, not with every frame.
+            var reportedMonitors: [RDPRemoteMonitor] = []
             // Which remote copy a clipboard handler is called for, so the
             // bridge can drop one that a publish on the main thread
             // replaced before the copy got there.
@@ -974,6 +981,16 @@ final class SessionViewController: NSViewController {
             let report = RDPSessionClient().run(
                 configuration: configuration,
                 onGraphicsFrame: { frame in
+                    // Posted ahead of the frame, so ahead of the Display
+                    // Control RDPKit hands out after the first frame: the
+                    // first resize already knows the server's layout.
+                    if frame.monitors != reportedMonitors {
+                        reportedMonitors = frame.monitors
+                        let monitors = frame.monitors
+                        sink.apply { controller in
+                            controller.updateReportedMonitors(monitors)
+                        }
+                    }
                     let completion = decodeQueue.submitAndWait(
                         frame,
                         receivedAt: Date(),
@@ -1239,9 +1256,11 @@ final class SessionViewController: NSViewController {
     }
 
     /// Drops what a session handed out, so nothing more is sent to it once
-    /// it has ended — however it ended.
+    /// it has ended — however it ended. The layout it reported goes with
+    /// it: a session that is over pauses nothing.
     private func detachSessionChannels() {
         cancelPendingDisplayResize(resetLastRequestedSize: true)
+        reportedMonitors = []
         inputSession = nil
         displayControlSession = nil
         clipboard.detach()
@@ -1429,25 +1448,39 @@ final class SessionViewController: NSViewController {
         }
     }
 
+    /// Whether the desktop follows the window now. The scheduler goes by
+    /// this alone, never by what the HUD last showed.
+    private var isWindowMatchingInEffect: Bool {
+        SessionDisplayControlPolicy.isWindowMatchingInEffect(
+            followsWindowSize: followsWindowSize,
+            isConnecting: isConnecting,
+            hasDisplayControl: displayControlSession != nil,
+            hasViewerPixelSize: viewerPixelSize != nil,
+            reportedMonitors: reportedMonitors
+        )
+    }
+
+    /// The server laid its desktop out anew. Several monitors pause window
+    /// matching; back at one, it resumes without the user doing anything.
+    private func updateReportedMonitors(_ monitors: [RDPRemoteMonitor]) {
+        reportedMonitors = monitors
+        scheduleAutoDisplaySizeUpdate()
+        render()
+    }
+
     private func scheduleAutoDisplaySizeUpdate() {
-        guard followsWindowSize,
-              hasPresentedFrame,
-              let previewFrame,
-              remoteDisplayAllowsWindowMatching(hasPresentedFrame: hasPresentedFrame,
-                                               reportedMonitorCount: previewFrame.monitors.count),
-              isConnecting,
-              displayControlSession != nil,
+        // Cancel first: a window resized away and back within the delay
+        // must not leave the remote at the size in between, and a resize
+        // still waiting when matching pauses must not go out.
+        pendingDisplayResizeTask?.cancel()
+        pendingDisplayResizeTask = nil
+        guard isWindowMatchingInEffect,
               let viewerPixelSize
         else {
             return
         }
-
-        // Cancel first: a window resized away and back within the delay
-        // must not leave the remote at the size in between.
-        pendingDisplayResizeTask?.cancel()
         let displayRequest = viewerPixelSize.displayRequest
         guard lastRequestedDisplayRequest != displayRequest else {
-            pendingDisplayResizeTask = nil
             return
         }
 
@@ -1462,13 +1495,7 @@ final class SessionViewController: NSViewController {
 
     private func applyAutoDisplayRequest(_ displayRequest: RDPDisplayRequest) {
         pendingDisplayResizeTask = nil
-        guard followsWindowSize,
-              hasPresentedFrame,
-              let previewFrame,
-              remoteDisplayAllowsWindowMatching(hasPresentedFrame: hasPresentedFrame,
-                                               reportedMonitorCount: previewFrame.monitors.count),
-              isConnecting,
-              displayControlSession != nil,
+        guard isWindowMatchingInEffect,
               lastRequestedDisplayRequest != displayRequest
         else {
             return
