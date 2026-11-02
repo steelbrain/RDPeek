@@ -36,6 +36,9 @@
 - A server that closes the connection early in sign-in, before it
   could check the user name and password, says so, instead of asking
   for them again.
+- While RDPeek tries again to reach a PC that did not answer, the
+  connecting screen says which try it is, such as “retrying (2 of 3)”.
+  A server a session is passed on to is tried again the same way.
 
 ### Remote input
 
@@ -101,6 +104,12 @@
   no longer briefly animates the remote desktop.
 - A window whose PC was deleted no longer offers to remember a
   password.
+- Quitting with sessions open waits until each has closed its
+  connection, for up to two seconds, rather than a fixed moment, so
+  the remote computer sees the session end instead of a dropped
+  connection.
+- Stats for Nerds' Graphics Failure row says how many messages the
+  failing update held, and from which one it lists them.
 
 ### Clipboard
 
