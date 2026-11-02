@@ -6,6 +6,12 @@ final class RemoteDesktopCanvasNSView: NSView {
     let displayView = RemoteDesktopSampleBufferNSView()
     private let inputView = RemoteInputCaptureNSView()
     private var lastReportedSurface: Surface?
+    /// The frame size in remote pixels and the displays to show, as `update` last set them; the
+    /// geometry is computed again from them whenever the canvas's size or backing changes.
+    private var frameSize = CGSize.zero
+    private var visibleRects: [CGRect]?
+    /// The geometry the video and input views were last given.
+    private var geometry: RemoteDesktopGeometry?
 
     /// Reports the canvas size in points and its backing scale whenever
     /// either changes.
@@ -30,36 +36,34 @@ final class RemoteDesktopCanvasNSView: NSView {
 
     override func layout() {
         super.layout()
-        let desktopFrame = pixelAlignedDesktopFrame()
-        displayView.frame = desktopFrame
-        inputView.frame = desktopFrame
+        displayView.frame = bounds
+        inputView.frame = bounds
+        applyGeometry()
         reportSurfaceIfNeeded()
     }
 
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
-        needsLayout = true
+        applyGeometry()
         reportSurfaceIfNeeded()
     }
 
+    /// `visibleRects` are the remote displays to show, in remote pixels; nil shows the whole
+    /// frame. The geometry is applied here rather than in a later layout pass, so it changes in
+    /// the same main-thread turn as the frame that needs it.
     func update(
         frame: RDPFrameMetadata?,
+        visibleRects: [CGRect]?,
         hasPresentedFrame: Bool,
-        inputSession: RDPInputSession?,
-        viewport: RemoteDisplayViewport? = nil
+        inputSession: RDPInputSession?
     ) {
         let shouldShowDesktop = frame != nil && hasPresentedFrame
-        let viewport = viewport ?? frame.map { RemoteDisplayViewport(frame: $0) }
-        let desktopSizeChanged = inputView.viewport != viewport
         displayView.isHidden = !shouldShowDesktop
         inputView.isHidden = !shouldShowDesktop
-        inputView.viewport = viewport
-        displayView.viewport = viewport
-        inputView.rdpFrame = frame
+        frameSize = frame.map { CGSize(width: Int($0.width), height: Int($0.height)) } ?? .zero
+        self.visibleRects = visibleRects
+        applyGeometry()
         inputView.inputSession = shouldShowDesktop ? inputSession : nil
-        if desktopSizeChanged {
-            needsLayout = true
-        }
     }
 
     func makeInputFirstResponder() {
@@ -80,23 +84,26 @@ final class RemoteDesktopCanvasNSView: NSView {
         addSubview(inputView)
     }
 
-    /// The desktop is letterboxed in the middle of the canvas, which can
-    /// put its edge between device pixels — a 1x canvas one point wider
-    /// than the desktop — and blur every pixel. Shift the canvas-sized
-    /// frame so the desktop starts on a device pixel. The video and input
-    /// views share it, so input maps through the same viewport the video
-    /// is drawn in.
-    private func pixelAlignedDesktopFrame() -> CGRect {
-        guard let frame = inputView.rdpFrame else {
-            return bounds
+    /// Computes the one geometry the video and input views share and hands it to both in one
+    /// transaction with actions disabled, so the video never animates to its new place and the
+    /// pointer never maps through a layout the video doesn't show. The views fill the canvas,
+    /// so its coordinates are theirs.
+    private func applyGeometry() {
+        let geometry = RemoteDesktopGeometry(
+            frameSize: frameSize,
+            visibleRects: visibleRects,
+            bounds: CGRect(origin: .zero, size: bounds.size),
+            backingScaleFactor: window?.backingScaleFactor ?? 1
+        )
+        guard geometry != self.geometry else {
+            return
         }
-        let viewport = inputView.viewport ?? RemoteDisplayViewport(frame: frame)
-        let desktop = viewport.destinationRect(in: bounds)
-        guard desktop.isEmpty == false else {
-            return bounds
-        }
-        let aligned = backingAlignedRect(desktop, options: .alignAllEdgesNearest)
-        return bounds.offsetBy(dx: aligned.minX - desktop.minX, dy: aligned.minY - desktop.minY)
+        self.geometry = geometry
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        displayView.apply(geometry)
+        inputView.geometry = geometry
+        CATransaction.commit()
     }
 
     private func reportSurfaceIfNeeded() {

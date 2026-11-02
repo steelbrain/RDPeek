@@ -13,12 +13,10 @@ protocol RemoteInputEventSink: AnyObject {
 extension RDPInputSession: RemoteInputEventSink {}
 
 final class RemoteInputCaptureNSView: NSView {
-    var rdpFrame: RDPFrameMetadata?
-    var viewport: RemoteDisplayViewport? {
-        willSet {
-            if viewport != newValue { releasePressedInputs() }
-        }
-    }
+    /// Where the canvas draws the desktop; the canvas sets it with the video view's, so pointer
+    /// events map through what the video shows. A change releases nothing: keys and buttons are
+    /// still down on the Mac, and the next event maps through the new geometry.
+    var geometry: RemoteDesktopGeometry?
     /// The layout the session announced; it decides which keys can go as scancodes.
     var keyboardLayout = RDPKeyboardLayout.unitedStates
     /// Whether the Mac's layout makes a key a dead key with these modifiers; tests replace it.
@@ -448,9 +446,11 @@ final class RemoteInputCaptureNSView: NSView {
         inputState.synchronizationEvents(toggleFlags: MacRDPKeyboardMapping.toggleFlags(for: modifierFlags))
     }
 
+    /// A drag that leaves the shown area holds the pointer on its nearest shown pixel, so a drag
+    /// still reaches the desktop's edge; a plain move there sends nothing.
     private func sendPointerMove(_ event: NSEvent, isDragging: Bool = false) {
         releaseModifiers(missingFrom: event.modifierFlags)
-        guard let point = remotePoint(from: event, clampingToDesktop: isDragging) else {
+        guard let point = remotePoint(from: event, clampingToShownArea: isDragging) else {
             return
         }
         sendInput([inputState.pointerMove(to: point)])
@@ -497,21 +497,16 @@ final class RemoteInputCaptureNSView: NSView {
         sendInput(inputState.releasePressedInputs())
     }
 
-    /// `clampingToDesktop` moves a point outside the desktop, such as a drag's past the
-    /// letterbox, onto the desktop's nearest edge.
-    private func remotePoint(from event: NSEvent, clampingToDesktop: Bool = false) -> RDPRemotePoint? {
-        guard let rdpFrame else {
+    /// `clampingToShownArea` moves a point off the shown area, such as a drag's past the
+    /// letterbox or into a gap between chosen displays, onto the nearest shown pixel.
+    private func remotePoint(from event: NSEvent, clampingToShownArea: Bool = false) -> RDPRemotePoint? {
+        guard let geometry else {
             return nil
         }
-        let viewport = viewport ?? RemoteDisplayViewport(frame: rdpFrame)
-        // Video and input share the canvas's pixel-aligned frame.
-        let desktop = viewport.destinationRect(in: bounds)
-        var localPoint = convert(event.locationInWindow, from: nil)
-        if clampingToDesktop {
-            localPoint.x = min(max(localPoint.x, desktop.minX), desktop.maxX.nextDown)
-            localPoint.y = min(max(localPoint.y, desktop.minY), desktop.maxY.nextDown)
-        }
-        return viewport.remotePoint(from: localPoint, in: bounds)
+        let localPoint = convert(event.locationInWindow, from: nil)
+        return clampingToShownArea
+            ? geometry.nearestRemotePoint(to: localPoint)
+            : geometry.remotePoint(at: localPoint)
     }
 }
 

@@ -11,55 +11,6 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         let recorder: InputEventRecorder
     }
 
-    func testChangingViewportReleasesHeldInputsBeforeRemapping() {
-        let harness = makeHarness()
-        harness.view.flagsChanged(with: flagsEvent(keyCode: .leftCommand, flags: .leftCommandDown))
-        harness.view.mouseDown(with: mouseEvent(.leftMouseDown, location: NSPoint(x: 100, y: 50), flags: .leftCommandDown))
-        harness.recorder.events.removeAll()
-        let monitor = RDPRemoteMonitor(rect: RDPFrameRect(left: 0, top: 0, right: 100, bottom: 100), isPrimary: true)
-        harness.view.viewport = RemoteDisplayViewport(frameSize: CGSize(width: 100, height: 100), monitors: [monitor])
-        XCTAssertTrue(harness.recorder.events.contains { isPointerButton($0, button: .left, isDown: false) })
-        XCTAssertTrue(harness.recorder.events.contains(.keyboard(scancode: .leftWindows, isReleased: true)))
-        harness.recorder.events.removeAll()
-        harness.view.viewport = harness.view.viewport
-        XCTAssertTrue(harness.recorder.events.isEmpty)
-    }
-
-    func testSelectedViewportMapsPointerAndRejectsExcludedArea() {
-        let harness = makeHarness()
-        let monitors = [
-            RDPRemoteMonitor(rect: RDPFrameRect(left: 0, top: 0, right: 100, bottom: 100), isPrimary: true),
-            RDPRemoteMonitor(rect: RDPFrameRect(left: 100, top: 0, right: 200, bottom: 100), isPrimary: false),
-            RDPRemoteMonitor(rect: RDPFrameRect(left: 200, top: 0, right: 300, bottom: 100), isPrimary: false),
-        ]
-        harness.view.frame = CGRect(x: 0, y: 0, width: 300, height: 100)
-        harness.view.viewport = RemoteDisplayViewport(frameSize: CGSize(width: 300, height: 100), monitors: monitors,
-                                                     selection: .only([monitors[0], monitors[2]]))
-        harness.view.mouseMoved(with: mouseEvent(.mouseMoved, location: NSPoint(x: 150, y: 50)))
-        XCTAssertTrue(harness.recorder.events.isEmpty)
-        harness.view.mouseMoved(with: mouseEvent(.mouseMoved, location: NSPoint(x: 250, y: 50)))
-        XCTAssertEqual(harness.recorder.events, [.pointerMove(x: 250, y: 50)])
-    }
-
-    func testDraggingSelectedDisplayClampsToItsEdgeAndRejectsExcludedDisplay() {
-        let harness = makeHarness()
-        let monitors = [
-            RDPRemoteMonitor(rect: RDPFrameRect(left: 0, top: 0, right: 100, bottom: 100), isPrimary: true),
-            RDPRemoteMonitor(rect: RDPFrameRect(left: 100, top: 0, right: 200, bottom: 100), isPrimary: false),
-            RDPRemoteMonitor(rect: RDPFrameRect(left: 200, top: 0, right: 300, bottom: 100), isPrimary: false),
-        ]
-        harness.view.frame = CGRect(x: 0, y: 0, width: 300, height: 100)
-        harness.view.viewport = RemoteDisplayViewport(frameSize: CGSize(width: 300, height: 100), monitors: monitors,
-                                                     selection: .only([monitors[2]]))
-        harness.view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: 280, y: 50)))
-        XCTAssertEqual(harness.recorder.events, [.pointerMove(x: 299, y: 50)])
-        harness.recorder.events.removeAll()
-        harness.view.viewport = RemoteDisplayViewport(frameSize: CGSize(width: 300, height: 100), monitors: monitors,
-                                                     selection: .only([monitors[0], monitors[2]]))
-        harness.view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: 150, y: 50)))
-        XCTAssertTrue(harness.recorder.events.isEmpty)
-    }
-
     // MARK: - Modifier state derived from event flags
 
     func testModifierPressAndReleaseFollowDeviceFlags() {
@@ -216,13 +167,99 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         // A drag that leaves it holds the pointer on its edge; a plain move
         // there sends nothing.
         let harness = makeHarness()
-        harness.view.rdpFrame = makeFrameMetadata(width: 100, height: 100)
+        harness.view.geometry = makeGeometry(frameSize: CGSize(width: 100, height: 100), in: harness.view)
 
         harness.view.mouseMoved(with: mouseEvent(.mouseMoved, location: NSPoint(x: 180, y: 50)))
         XCTAssertEqual(harness.recorder.events, [])
         harness.view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: 180, y: 50)))
         harness.view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: 10, y: -20)))
         XCTAssertEqual(harness.recorder.events, [.pointerMove(x: 99, y: 50), .pointerMove(x: 0, y: 99)])
+    }
+
+    // MARK: - Pointer over chosen displays
+
+    func testAMoveOverAHiddenDisplaySendsNothing() {
+        // The server would put its pointer on a display the window doesn't show.
+        let harness = makeOuterTwoOfThreeHarness()
+
+        harness.view.mouseMoved(with: mouseEvent(.mouseMoved, location: NSPoint(x: 100, y: 50)))
+        XCTAssertEqual(harness.recorder.events, [])
+        harness.view.mouseMoved(with: mouseEvent(.mouseMoved, location: NSPoint(x: 150, y: 50)))
+        XCTAssertEqual(harness.recorder.events, [.pointerMove(x: 150, y: 50)])
+    }
+
+    func testADragOverAHiddenDisplayStopsOnTheNearestShownPixel() {
+        // The drag and its release land where the pointer is still on a shown display, so the
+        // drop happens where the user sees it.
+        let harness = makeOuterTwoOfThreeHarness()
+
+        harness.view.mouseDown(with: mouseEvent(.leftMouseDown, location: NSPoint(x: 40, y: 50)))
+        harness.view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: 95, y: 50)))
+        harness.view.mouseUp(with: mouseEvent(.leftMouseUp, location: NSPoint(x: 95, y: 50)))
+
+        XCTAssertEqual(harness.recorder.events, [
+            .pointerButton(button: .left, isDown: true, x: 40, y: 50),
+            .pointerMove(x: 79, y: 50),
+            .pointerButton(button: .left, isDown: false, x: 79, y: 50),
+        ])
+    }
+
+    func testAScrollOverAHiddenDisplaySendsNothing() {
+        // The scroll event lands at (100, 50), on the hidden middle display.
+        let harness = makeOuterTwoOfThreeHarness()
+
+        harness.view.scrollWheel(with: scrollEvent())
+
+        XCTAssertEqual(harness.recorder.events, [])
+    }
+
+    func testADragOutOfTheWindowStopsOnTheShownLShape() {
+        // A tall display on the left and a shorter one on the right, with the display above the
+        // shorter one hidden: past each edge the drag lands on the nearest shown pixel.
+        let harness = makeHarness()
+        harness.view.geometry = makeGeometry(
+            frameSize: CGSize(width: 200, height: 100),
+            showing: [
+                CGRect(x: 0, y: 0, width: 120, height: 100),
+                CGRect(x: 120, y: 40, width: 80, height: 60),
+            ],
+            in: harness.view
+        )
+        harness.view.mouseDown(with: mouseEvent(.leftMouseDown, location: NSPoint(x: 150, y: 20)))
+        harness.recorder.events.removeAll()
+
+        harness.view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: 180, y: 130)))
+        harness.view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: 250, y: 20)))
+        harness.view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: -30, y: -30)))
+
+        XCTAssertEqual(harness.recorder.events, [
+            .pointerMove(x: 180, y: 40),
+            .pointerMove(x: 199, y: 80),
+            .pointerMove(x: 0, y: 99),
+        ])
+    }
+
+    func testANewGeometryReleasesNothingHeld() {
+        // Keys and buttons are still down on the Mac while the desktop resizes or the chosen
+        // displays change; the next event maps through the new geometry.
+        let harness = makeHarness()
+        harness.view.flagsChanged(with: flagsEvent(keyCode: .leftControl, flags: .leftControlDown))
+        harness.view.mouseDown(with: mouseEvent(.leftMouseDown, location: NSPoint(x: 40, y: 50), flags: .leftControlDown))
+        harness.recorder.events.removeAll()
+
+        harness.view.geometry = makeGeometry(
+            frameSize: CGSize(width: 200, height: 100),
+            showing: [CGRect(x: 100, y: 0, width: 100, height: 100)],
+            in: harness.view
+        )
+        XCTAssertEqual(harness.recorder.events, [])
+
+        harness.view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: 100, y: 50), flags: .leftControlDown))
+        harness.view.mouseUp(with: mouseEvent(.leftMouseUp, location: NSPoint(x: 100, y: 50), flags: .leftControlDown))
+        XCTAssertEqual(harness.recorder.events, [
+            .pointerMove(x: 150, y: 50),
+            .pointerButton(button: .left, isDown: false, x: 150, y: 50),
+        ])
     }
 
     // MARK: - Command as the Windows key
@@ -1445,7 +1482,7 @@ final class RemoteInputCaptureViewTests: XCTestCase {
     private func makeHarness(isFirstResponder: Bool = true, supportsUnicodeInput: Bool = true) -> Harness {
         let recorder = InputEventRecorder(supportsUnicodeInput: supportsUnicodeInput)
         let view = RemoteInputCaptureNSView(frame: NSRect(x: 0, y: 0, width: 200, height: 100))
-        view.rdpFrame = makeFrameMetadata(width: 200, height: 100)
+        view.geometry = makeGeometry(frameSize: CGSize(width: 200, height: 100), in: view)
         // Option-E, as on US, is the dead key these tests type, whatever the Mac's layout is.
         view.isDeadKey = { keyCode, modifierFlags in
             keyCode == UInt16(kVK_ANSI_E) && modifierFlags.contains(.option)
@@ -1462,6 +1499,35 @@ final class RemoteInputCaptureViewTests: XCTestCase {
             recorder.events.removeAll()
         }
         return Harness(window: window, view: view, recorder: recorder)
+    }
+
+    /// Three displays, 80 | 40 | 80 pixels wide, with the outer two chosen; one to one in the
+    /// view, so a point maps to its own x and to 100 - y.
+    private func makeOuterTwoOfThreeHarness() -> Harness {
+        let harness = makeHarness()
+        harness.view.geometry = makeGeometry(
+            frameSize: CGSize(width: 200, height: 100),
+            showing: [
+                CGRect(x: 0, y: 0, width: 80, height: 100),
+                CGRect(x: 120, y: 0, width: 80, height: 100),
+            ],
+            in: harness.view
+        )
+        return harness
+    }
+
+    /// The geometry the canvas would hand the view, at 1x.
+    private func makeGeometry(
+        frameSize: CGSize,
+        showing visibleRects: [CGRect]? = nil,
+        in view: NSView
+    ) -> RemoteDesktopGeometry {
+        RemoteDesktopGeometry(
+            frameSize: frameSize,
+            visibleRects: visibleRects,
+            bounds: view.bounds,
+            backingScaleFactor: 1
+        )
     }
 
     /// What focus synchronization sends for the keyboard's current lock state.

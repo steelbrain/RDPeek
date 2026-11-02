@@ -5,41 +5,6 @@ import RDPKit
 import XCTest
 
 final class RemoteDesktopRendererTests: XCTestCase {
-    @MainActor
-    func testViewportCropsSampleBufferLayerAndMasksExcludedDisplay() throws {
-        let monitors = [
-            RDPRemoteMonitor(rect: RDPFrameRect(left: 0, top: 0, right: 100, bottom: 100), isPrimary: false),
-            RDPRemoteMonitor(rect: RDPFrameRect(left: 100, top: 0, right: 200, bottom: 100), isPrimary: true),
-            RDPRemoteMonitor(rect: RDPFrameRect(left: 200, top: 0, right: 300, bottom: 100), isPrimary: false),
-        ]
-        let view = RemoteDesktopSampleBufferNSView(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
-        view.viewport = RemoteDisplayViewport(frameSize: CGSize(width: 300, height: 100), monitors: monitors,
-                                             selection: .only([monitors[1]]))
-        view.layoutSubtreeIfNeeded()
-        let container = try XCTUnwrap(view.layer?.sublayers?.first)
-        let video = try XCTUnwrap(container.sublayers?.first as? AVSampleBufferDisplayLayer)
-        let mask = try XCTUnwrap(container.mask as? CAShapeLayer)
-        let singlePath = try XCTUnwrap(mask.path)
-        XCTAssertEqual(container.frame, CGRect(x: 0, y: 0, width: 300, height: 200))
-        XCTAssertEqual(video.frame, CGRect(x: -150, y: 0, width: 600, height: 200))
-        XCTAssertEqual(video.videoGravity, .resize)
-        XCTAssertEqual(singlePath.boundingBox, CGRect(x: 50, y: 0, width: 200, height: 200))
-        XCTAssertFalse(singlePath.contains(CGPoint(x: 25, y: 100)))
-        XCTAssertTrue(singlePath.contains(CGPoint(x: 150, y: 100)))
-
-        view.viewport = RemoteDisplayViewport(frameSize: CGSize(width: 300, height: 100), monitors: monitors,
-                                             selection: .only([monitors[0], monitors[2]]))
-        view.layoutSubtreeIfNeeded()
-        let subsetPath = try XCTUnwrap(mask.path)
-        XCTAssertTrue(container.sublayers?.first === video)
-        XCTAssertEqual(video.frame, CGRect(x: 0, y: 50, width: 300, height: 100))
-        XCTAssertEqual(subsetPath.boundingBox, CGRect(x: 0, y: 50, width: 300, height: 100))
-        XCTAssertTrue(subsetPath.contains(CGPoint(x: 50, y: 100)))
-        XCTAssertTrue(subsetPath.contains(CGPoint(x: 250, y: 100)))
-        XCTAssertFalse(subsetPath.contains(CGPoint(x: 150, y: 100)))
-        XCTAssertFalse(subsetPath.contains(CGPoint(x: 50, y: 25)))
-    }
-
     func testHealthyRendererEnqueuesWithoutFlushing() {
         XCTAssertEqual(
             rdpSampleBufferDisplayDisposition(
@@ -114,6 +79,8 @@ final class RemoteDesktopRendererTests: XCTestCase {
 
 @MainActor
 final class RemoteDesktopSampleBufferViewTests: XCTestCase {
+    // MARK: - Rendering
+
     /// On macOS 15 and later frames go to the display layer's
     /// `sampleBufferRenderer`, before and after the display is cleared.
     func testFramesRenderThroughTheDisplayLayersSampleBufferRenderer() throws {
@@ -121,7 +88,7 @@ final class RemoteDesktopSampleBufferViewTests: XCTestCase {
             throw XCTSkip("macOS 14 renders through the display layer itself")
         }
         let view = RemoteDesktopSampleBufferNSView(frame: CGRect(x: 0, y: 0, width: 64, height: 64))
-        let displayLayer = try XCTUnwrap(view.layer?.sublayers?.first?.sublayers?.first as? AVSampleBufferDisplayLayer)
+        let displayLayer = try XCTUnwrap(displayLayer(of: view))
         let renderer = displayLayer.sampleBufferRenderer
         let presentation = try makePresentation()
         XCTAssertEqual(renderer.status, .unknown)
@@ -132,6 +99,137 @@ final class RemoteDesktopSampleBufferViewTests: XCTestCase {
         view.present(presentation, id: 2)
         XCTAssertEqual(renderer.status, .rendering)
         XCTAssertNil(renderer.error)
+    }
+
+    // MARK: - Layout
+
+    func testTheWholeFrameKeepsTheLayerTreeItHadBeforeDisplaysCouldBeChosen() throws {
+        // All Displays and single-monitor sessions draw as they always did: the display layer
+        // straight in the view's layer, aspect-fitting the video, with no clip, cover or mask.
+        let view = makeView()
+        let geometry = makeGeometry(in: view, showing: nil)
+
+        view.apply(geometry)
+
+        let displayLayer = try XCTUnwrap(displayLayer(of: view))
+        XCTAssertTrue(displayLayer.superlayer === view.layer)
+        XCTAssertEqual(view.layer?.sublayers?.count, 1)
+        XCTAssertEqual(displayLayer.frame, geometry.videoLayerFrame)
+        XCTAssertEqual(displayLayer.videoGravity, .resizeAspect)
+        XCTAssertFalse(hasMask(view.layer))
+    }
+
+    func testChosenDisplaysClipTheVideoAndCoverTheHiddenOnes() throws {
+        // A rectangular clip and opaque covers, with no mask, keep video off an offscreen pass.
+        let view = makeView()
+        let geometry = makeGeometry(in: view, showing: outerTwoOfThree)
+
+        view.apply(geometry)
+
+        let displayLayer = try XCTUnwrap(displayLayer(of: view))
+        let clip = try XCTUnwrap(displayLayer.superlayer)
+        let root = try XCTUnwrap(view.layer)
+        XCTAssertFalse(clip === root)
+        XCTAssertTrue(clip.masksToBounds)
+        XCTAssertEqual(clip.frame, geometry.clipRect)
+        assertEqual(root.convert(displayLayer.frame, from: clip), geometry.videoLayerFrame)
+        XCTAssertEqual(displayLayer.videoGravity, .resizeAspect)
+        XCTAssertEqual(covers(of: view).map(\.frame), geometry.coverRects)
+        XCTAssertTrue(covers(of: view).allSatisfy { $0.backgroundColor == NSColor.black.cgColor && $0.isOpaque })
+        XCTAssertFalse(hasMask(root))
+    }
+
+    func testShowingTheWholeFrameAgainRestoresItsLayerTree() throws {
+        // Going back to All Displays leaves no clip or cover behind.
+        let view = makeView()
+        view.apply(makeGeometry(in: view, showing: outerTwoOfThree))
+        let geometry = makeGeometry(in: view, showing: nil)
+
+        view.apply(geometry)
+
+        let displayLayer = try XCTUnwrap(displayLayer(of: view))
+        XCTAssertTrue(displayLayer.superlayer === view.layer)
+        XCTAssertEqual(view.layer?.sublayers?.count, 1, "The clip and covers are gone")
+        XCTAssertEqual(displayLayer.frame, geometry.videoLayerFrame)
+    }
+
+    func testCoversAreReusedAcrossLayouts() {
+        // A live resize applies a geometry at every step; reusing the covers allocates no layers.
+        let view = makeView()
+        view.apply(makeGeometry(in: view, showing: outerTwoOfThree))
+        let firstCovers = covers(of: view)
+
+        view.setFrameSize(CGSize(width: 1000, height: 700))
+        view.apply(makeGeometry(in: view, showing: outerTwoOfThree))
+
+        XCTAssertEqual(firstCovers.count, 1)
+        XCTAssertTrue(zip(firstCovers, covers(of: view)).allSatisfy { $0 === $1 })
+    }
+
+    // MARK: - Helpers
+
+    /// 2560 x 1440 | 1920 x 1080 | 2560 x 1440 with the outer two chosen.
+    private let outerTwoOfThree = [
+        CGRect(x: 0, y: 0, width: 2560, height: 1440),
+        CGRect(x: 4480, y: 0, width: 2560, height: 1440),
+    ]
+
+    /// A view filling a Retina window, as the canvas lays it out.
+    private func makeView() -> RemoteDesktopSampleBufferNSView {
+        let window = TestWindow(size: CGSize(width: 1440, height: 872))
+        window.scale = 2
+        let view = RemoteDesktopSampleBufferNSView(frame: CGRect(x: 0, y: 0, width: 1440, height: 872))
+        window.contentView = view
+        addTeardownBlock { @MainActor in
+            window.contentView = nil
+        }
+        return view
+    }
+
+    private func makeGeometry(in view: NSView, showing visibleRects: [CGRect]?) -> RemoteDesktopGeometry {
+        RemoteDesktopGeometry(
+            frameSize: CGSize(width: 7040, height: 1440),
+            visibleRects: visibleRects,
+            bounds: view.bounds,
+            backingScaleFactor: view.window?.backingScaleFactor ?? 1
+        )
+    }
+
+    /// Found by type, wherever the view put it.
+    private func displayLayer(of view: NSView) -> AVSampleBufferDisplayLayer? {
+        var layers = view.layer.map { [$0] } ?? []
+        while layers.isEmpty == false {
+            let layer = layers.removeFirst()
+            if let displayLayer = layer as? AVSampleBufferDisplayLayer {
+                return displayLayer
+            }
+            layers += layer.sublayers ?? []
+        }
+        return nil
+    }
+
+    /// Every layer in the view's layer besides the video and its clip.
+    private func covers(of view: NSView) -> [CALayer] {
+        let displayLayer = displayLayer(of: view)
+        return (view.layer?.sublayers ?? []).filter { $0 !== displayLayer && $0 !== displayLayer?.superlayer }
+    }
+
+    private func hasMask(_ layer: CALayer?) -> Bool {
+        guard let layer else {
+            return false
+        }
+        return layer.mask != nil || (layer.sublayers ?? []).contains { hasMask($0) }
+    }
+
+    private func assertEqual(_ rect: CGRect, _ expected: CGRect, file: StaticString = #filePath, line: UInt = #line) {
+        for (value, expectedValue) in [
+            (rect.minX, expected.minX),
+            (rect.minY, expected.minY),
+            (rect.width, expected.width),
+            (rect.height, expected.height),
+        ] {
+            XCTAssertEqual(value, expectedValue, accuracy: 1e-9, "\(rect) is \(expected)", file: file, line: line)
+        }
     }
 
     /// A composed BGRA frame, as RDPKit hands one over once decoded.

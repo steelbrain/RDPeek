@@ -84,8 +84,13 @@ final class SessionViewController: NSViewController {
     private var liveReport: RDPLiveConnectionReport?
     private var liveCertificate: RDPServerCertificateInfo?
     /// The frame the canvas maps the desktop with, replaced only when the
-    /// desktop size changes.
+    /// desktop's size or its monitor layout changes.
     private var previewFrame: RDPFrameMetadata?
+    /// The last layout that offered a choice of displays, which a subset
+    /// chosen in it is matched against when the next such layout arrives.
+    /// Like `displaySelection`, it belongs to the window: no connection
+    /// attempt resets it, so a choice outlasts reconnects and retries.
+    private var lastSelectableDisplayLayout: RemoteDisplayLayout?
     /// The frame presented last, for Stats for Nerds. Its metadata, which
     /// scans the video payload, is read only while that window is open.
     private var latestPresentedFrame: RDPGraphicsFrameSnapshot?
@@ -308,14 +313,17 @@ final class SessionViewController: NSViewController {
             self?.setFollowWindowSize(enabled)
         }
         hudModel.onSelectAllDisplays = { [weak self] in
-            self?.displaySelection = .all
-            self?.render()
+            self?.showAllDisplays()
         }
         hudModel.onToggleDisplay = { [weak self] monitor in
-            guard let self, let frame = self.previewFrame else { return }
-            let monitors = RemoteDisplayViewport(frame: frame).monitors
-            self.displaySelection.toggle(monitor, in: monitors)
-            self.render()
+            guard let self,
+                  let display = displayLayout.displays.first(where: {
+                      $0.rect.origin == CGPoint(x: Int(monitor.rect.left), y: Int(monitor.rect.top))
+                  })
+            else {
+                return
+            }
+            toggleDisplay(display.number)
         }
         hudModel.onSetMetricsOverlayVisible = { [weak self] visible in
             self?.setMetricsOverlayVisible(visible)
@@ -329,14 +337,11 @@ final class SessionViewController: NSViewController {
     /// It runs for every state change, so it publishes only what changed;
     /// the diagnostics loop picks up the rest.
     private func render() {
-        // Only displayed frames may change the active input/render topology.
-        let frame = previewFrame
-        let viewport = frame.map { RemoteDisplayViewport(frame: $0, selection: displaySelection) }
         canvasView.update(
             frame: previewFrame,
+            visibleRects: displaySelection.visibleRects(in: displayLayout),
             hasPresentedFrame: hasPresentedFrame,
-            inputSession: inputSession,
-            viewport: viewport
+            inputSession: inputSession
         )
 
         hudModel.update(\.deviceName, to: draft.displayName)
@@ -355,17 +360,11 @@ final class SessionViewController: NSViewController {
             updateOverlayVisibility(for: nextPhase)
             startMetricsOverlayLoopIfNeeded()
         }
-        let monitors = viewport?.monitors ?? []
-        let selected = displaySelection.selected(in: monitors)
-        let displays = monitors.enumerated().map { index, monitor in
-            SessionDisplayChoice(id: index, label: "Display \(index + 1) — \(monitor.rect.width) × \(monitor.rect.height)",
-                                 monitor: monitor, isSelected: selected.contains(monitor), canToggle: selected.count > 1 || !selected.contains(monitor))
-        }
-        hudModel.update(\.displays, to: displays)
+        hudModel.update(\.displays, to: [])
         hudModel.update(\.areAllDisplaysSelected, to: displaySelection == .all)
         hudModel.update(\.canMatchWindowSize, to: isConnecting && displayControlSession != nil
             && remoteDisplayAllowsWindowMatching(hasPresentedFrame: hasPresentedFrame,
-                                                reportedMonitorCount: frame?.monitors.count ?? 0))
+                                                reportedMonitorCount: previewFrame?.monitors.count ?? 0))
 
         hudModel.update(
             \.connectingStatusDetail,
@@ -1318,38 +1317,22 @@ final class SessionViewController: NSViewController {
     private func applyFramePresentation(_ presentation: RDPDecodedFramePresentation) -> Bool {
         let wasFirstPresentedFrame = hasPresentedFrame == false
         let frame = presentation.frame
-        let shouldUpdateFrameMetadata = shouldPublishFrameMetadata(frame)
+        let layoutChanged = previewFrame?.width != frame.width
+            || previewFrame?.height != frame.height
+            || previewFrame?.monitors != frame.monitors
         presentedFrameCount += 1
         remoteDesktopRenderer.present(presentation, id: presentedFrameCount)
         latestPresentedFrame = frame
-        if shouldUpdateFrameMetadata {
-            let metadata = RDPFrameMetadata(frame)
-            previewFrame = metadata
-            let monitors = RemoteDisplayViewport(frame: metadata).monitors
-            displaySelection.reconcile(with: monitors)
-            if metadata.monitors.count > 1 {
-                autoApplyViewerSize = false
-                cancelPendingDisplayResize()
-            }
-            // Commit crop and input with the accepted frame when its topology changes.
-            canvasView.update(frame: metadata, hasPresentedFrame: true, inputSession: inputSession,
-                              viewport: RemoteDisplayViewport(frame: metadata, selection: displaySelection))
+        if layoutChanged {
+            previewFrame = RDPFrameMetadata(frame)
+            reconcileDisplaySelection()
         }
         if wasFirstPresentedFrame {
             hasPresentedFrame = true
             hasEverPresentedFrame = true
             autoRetryCount = 0
         }
-        return wasFirstPresentedFrame || shouldUpdateFrameMetadata
-    }
-
-    private func shouldPublishFrameMetadata(_ frame: RDPGraphicsFrameSnapshot) -> Bool {
-        guard let currentFrame = previewFrame else {
-            return true
-        }
-        return currentFrame.width != frame.width
-            || currentFrame.height != frame.height
-            || currentFrame.monitors != frame.monitors
+        return wasFirstPresentedFrame || layoutChanged
     }
 
     @discardableResult
@@ -1386,11 +1369,50 @@ final class SessionViewController: NSViewController {
 
     private func resetFramePresentationState() {
         framePresentationBuffer.clear()
-        previewFrame = nil
-        displaySelection = .all
-        autoApplyViewerSize = false
         hasPresentedFrame = false
         remoteDesktopRenderer.clear()
+    }
+
+    // MARK: - Remote displays
+
+    /// The remote displays of the frame the canvas shows; none until a
+    /// connection presents its first frame.
+    private var displayLayout: RemoteDisplayLayout {
+        previewFrame.map(RemoteDisplayLayout.init(frame:))
+            ?? RemoteDisplayLayout(frameSize: .zero, monitors: [])
+    }
+
+    /// Shows every remote display again.
+    func showAllDisplays() {
+        displaySelection = .all
+        render()
+    }
+
+    /// Shows or hides one remote display, by its number in the current
+    /// layout. A number the layout doesn't have, from a menu built for an
+    /// older one, changes nothing, and neither does hiding the last display
+    /// shown.
+    func toggleDisplay(_ number: Int) {
+        let layout = displayLayout
+        guard layout.displays.contains(where: { $0.number == number }) else {
+            return
+        }
+        displaySelection.toggle(number, in: layout)
+        render()
+    }
+
+    /// Matches the chosen displays to a new layout. Should none of them
+    /// survive, the window shows every display again and says so, rather
+    /// than leaving the user to wonder why it changed.
+    private func reconcileDisplaySelection() {
+        let layout = displayLayout
+        let keptChoice = displaySelection.reconcile(from: lastSelectableDisplayLayout, to: layout)
+        if layout.offersSelection {
+            lastSelectableDisplayLayout = layout
+        }
+        if keptChoice == false {
+            toast("Showing all displays", systemImage: "display.2")
+        }
     }
 
     // MARK: - Display control

@@ -34,17 +34,17 @@ final class RDPRemoteDesktopRenderer {
     }
 }
 
+/// Shows the decoded frames. Where the video goes comes from the canvas, as a geometry it shares
+/// with the input view.
 final class RemoteDesktopSampleBufferNSView: NSView {
     private let displayLayer = AVSampleBufferDisplayLayer()
-    private let viewportLayer = CALayer()
-    private let viewportMask = CAShapeLayer()
-    var viewport: RemoteDisplayViewport? {
-        didSet {
-            guard viewport != oldValue else { return }
-            needsLayout = true
-            layoutSubtreeIfNeeded()
-        }
-    }
+    /// Holds the display layer only while chosen displays are shown, to crop the frame to them. A
+    /// rectangular clip with no mask stays a cheap scissor, where a mask would render every
+    /// video frame through an offscreen pass.
+    private let clipLayer = CALayer()
+    /// Black covers over the parts of the chosen displays' bounding box nobody chose, kept for
+    /// reuse so a live resize allocates no layers.
+    private var coverLayers: [CALayer] = []
     private let sampleBufferFactory = RDPFrameSampleBufferFactory()
     private var lastPresentationID: Int?
     /// Shown again when the layer fails between frames; an idle remote screen sends no new one.
@@ -67,28 +67,6 @@ final class RemoteDesktopSampleBufferNSView: NSView {
             clear()
             displayLayerObservers.forEach(NotificationCenter.default.removeObserver)
         }
-    }
-
-    override func layout() {
-        super.layout()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        viewportLayer.frame = bounds
-        if let viewport {
-            displayLayer.frame = viewport.localRect(for: CGRect(origin: .zero, size: viewport.frameSize), in: bounds)
-            let path = CGMutablePath()
-            for rect in viewport.visibleRects {
-                path.addRect(viewport.localRect(for: rect, in: bounds))
-            }
-            viewportMask.frame = bounds
-            viewportMask.path = path
-            viewportLayer.mask = viewportMask
-        } else {
-            displayLayer.frame = bounds
-            viewportLayer.mask = nil
-        }
-        updateContentsScale()
-        CATransaction.commit()
     }
 
     override func viewDidMoveToWindow() {
@@ -117,6 +95,34 @@ final class RemoteDesktopSampleBufferNSView: NSView {
             lastPresentation = presentation
             didResendLastPresentation = false
         }
+    }
+
+    /// Lays the video out as `geometry` says, in this view's coordinates, which are the
+    /// canvas's. The canvas calls it inside a transaction with actions disabled, in the same
+    /// call that hands the input view the same geometry, so the layers never animate and the
+    /// pointer never maps through a layout the video doesn't show.
+    func apply(_ geometry: RemoteDesktopGeometry) {
+        guard let rootLayer = layer else {
+            return
+        }
+        guard let clipRect = geometry.clipRect else {
+            // The whole frame keeps the layer tree it had before displays could be chosen: the
+            // display layer straight in the view's layer, with no clip and no covers.
+            if displayLayer.superlayer !== rootLayer {
+                rootLayer.addSublayer(displayLayer)
+                clipLayer.removeFromSuperlayer()
+            }
+            displayLayer.frame = geometry.videoLayerFrame
+            showCovers(at: [])
+            return
+        }
+        if displayLayer.superlayer !== clipLayer {
+            rootLayer.insertSublayer(clipLayer, at: 0)
+            clipLayer.addSublayer(displayLayer)
+        }
+        clipLayer.frame = clipRect
+        displayLayer.frame = geometry.videoLayerFrame.offsetBy(dx: -clipRect.minX, dy: -clipRect.minY)
+        showCovers(at: geometry.coverRects)
     }
 
     /// Also removes the shown image, so a later session never flashes the
@@ -173,12 +179,31 @@ final class RemoteDesktopSampleBufferNSView: NSView {
         layer = CALayer()
         layer?.backgroundColor = NSColor.black.cgColor
         displayLayer.backgroundColor = NSColor.black.cgColor
-        displayLayer.videoGravity = .resize
-        layer?.masksToBounds = true
-        layer?.addSublayer(viewportLayer)
-        viewportLayer.addSublayer(displayLayer)
+        displayLayer.videoGravity = .resizeAspect
+        layer?.addSublayer(displayLayer)
+        clipLayer.masksToBounds = true
         updateContentsScale()
         observeDisplayLayer()
+    }
+
+    /// Covers go above the clipped video, the first `rects.count` of them in use and the rest
+    /// out of the layer tree. A solid colour needs no contents scale.
+    private func showCovers(at rects: [CGRect]) {
+        while coverLayers.count < rects.count {
+            let cover = CALayer()
+            cover.backgroundColor = NSColor.black.cgColor
+            cover.isOpaque = true
+            coverLayers.append(cover)
+        }
+        for (cover, rect) in zip(coverLayers, rects) {
+            cover.frame = rect
+            if cover.superlayer == nil {
+                layer?.addSublayer(cover)
+            }
+        }
+        for cover in coverLayers.dropFirst(rects.count) where cover.superlayer != nil {
+            cover.removeFromSuperlayer()
+        }
     }
 
     /// AVFoundation can post these on its own threads. The observer runs on the posting thread
