@@ -80,7 +80,8 @@ final class SessionViewController: NSViewController {
     /// stays recorded: keyframe requests send it again at its own scale.
     private var resendsAfterPause = false
     /// A keyframe a frame asked for before Display Control was ready, sent
-    /// once it is.
+    /// once it is, and which connection Display Control came from, so a
+    /// server redirection's target does not keep the first server's.
     private var keyframeRequestHold = SessionKeyframeRequestHold()
     private var viewerPixelSize: RDPViewerPixelSize?
     /// The monitors the server's latest delivered frame reports, which
@@ -1019,14 +1020,20 @@ final class SessionViewController: NSViewController {
                         }
                     }
                 },
+                // Both read the redirection depth here, on the session
+                // thread, where the live report follows the connection
+                // that calls them: a redirection the main thread hears of
+                // first must not count for them.
                 onInputReady: { session in
+                    let redirectionDepth = liveReport.snapshot?.redirectionDepth ?? 0
                     sink.apply { controller in
-                        controller.sessionActivated(session)
+                        controller.sessionActivated(session, redirectionDepth: redirectionDepth)
                     }
                 },
                 onDisplayControlReady: { session in
+                    let redirectionDepth = liveReport.snapshot?.redirectionDepth ?? 0
                     sink.apply { controller in
-                        controller.displayControlReady(session)
+                        controller.displayControlReady(session, redirectionDepth: redirectionDepth)
                     }
                 },
                 onClipboardReady: { session in
@@ -1121,9 +1128,22 @@ final class SessionViewController: NSViewController {
         sessionThread.start()
     }
 
-    /// The server activated the session: it accepted the sign-in.
-    private func sessionActivated(_ session: RDPInputSession) {
+    /// The server activated the session: it accepted the sign-in. Also
+    /// after a reactivation, and on a server redirection's target, which
+    /// `redirectionDepth` redirections led to.
+    private func sessionActivated(_ session: RDPInputSession, redirectionDepth: Int) {
         inputSession = session
+        // A Display Control session from before a redirection sends
+        // nothing, and RDPKit does not say so. RDPKit 0.6.0 hands out the
+        // target's input session when its Font Map ends the activation
+        // (SessionDispatch.swift:163-173, 404-418). It does not hold frames
+        // back until then, but servers open their graphics channel after
+        // it, so this runs before the target's first frame can ask for a
+        // keyframe, which then waits for the target's own Display Control.
+        if keyframeRequestHold.sessionActivated(redirectionDepth: redirectionDepth) {
+            displayControlSession = nil
+            cancelPendingDisplayResize()
+        }
         // Activation repeats after a reactivation or server redirection;
         // the sign-in is kept only the first time.
         if isAwaitingCredentialAcceptance {
@@ -1540,9 +1560,9 @@ final class SessionViewController: NSViewController {
         requestedDesktopSizeLabel = request.label
     }
 
-    /// RDPKit handed out Display Control, after the connection's first
-    /// frames.
-    private func displayControlReady(_ session: RDPDisplayControlSession) {
+    /// RDPKit handed out Display Control, after the first frames of the
+    /// connection that `redirectionDepth` redirections led to.
+    private func displayControlReady(_ session: RDPDisplayControlSession, redirectionDepth: Int) {
         displayControlSession = session
         // A server redirection's target has not been sent the layout the
         // first server got.
@@ -1551,7 +1571,10 @@ final class SessionViewController: NSViewController {
         // layout 350 ms from now, which brings a keyframe too. The extra
         // graphics reset happens only after a first frame failed, and the
         // request always goes out before that resize, so it cannot undo it.
-        let keyframeRequest = keyframeRequestHold.displayControlReady(reportedMonitors: reportedMonitors)
+        let keyframeRequest = keyframeRequestHold.displayControlReady(
+            redirectionDepth: redirectionDepth,
+            reportedMonitors: reportedMonitors
+        )
         sendKeyframeRequest(keyframeRequest, through: session)
         scheduleAutoDisplaySizeUpdate()
         render()

@@ -172,6 +172,12 @@ enum SessionKeyframeRequest: Equatable {
 /// connection's first frames, so a first frame that fails to decode asks
 /// with nothing to send through, and the throttle holds the next ask back
 /// for seconds.
+///
+/// A server redirection's target is such a connection too. RDPKit does not
+/// say when the redirection ends the connection whose Display Control the
+/// session has, and what is sent through it then goes nowhere. So the hold
+/// keeps which connection that Display Control came from, and tells the
+/// session to drop it once the target activates.
 struct SessionKeyframeRequestHold {
     /// What the frame that failed asked with: its graphics output, and the
     /// desktop the connection started with.
@@ -181,6 +187,9 @@ struct SessionKeyframeRequestHold {
     }
 
     private var request: Request?
+    /// How many server redirections led to the connection whose Display
+    /// Control the session has; nil while it has none.
+    private var displayControlRedirectionDepth: Int?
 
     /// Keeps the request a frame made with no Display Control to send it
     /// through. A later one replaces it: its frame is newer.
@@ -195,11 +204,34 @@ struct SessionKeyframeRequestHold {
         request = nil
     }
 
-    /// Display Control is ready: what to send for the request held, if
-    /// any. It goes out once, by the monitors the server reports now, not
-    /// those of the frame that asked: the server may have laid out several
-    /// monitors since, which a one-monitor layout would merge.
-    mutating func displayControlReady(reportedMonitors: [RDPRemoteMonitor]) -> SessionKeyframeRequest? {
+    /// The server activated the session, on the connection that
+    /// `redirectionDepth` redirections led to. A request held now came from
+    /// the activation before, or from a server the session was redirected
+    /// away from, so it is dropped. Returns true when the session's Display
+    /// Control came from such a server, and the session must drop it too:
+    /// requests then wait for the target's own. A reactivation of the same
+    /// connection keeps it.
+    mutating func sessionActivated(redirectionDepth: Int) -> Bool {
+        request = nil
+        guard let displayControlRedirectionDepth,
+              redirectionDepth > displayControlRedirectionDepth
+        else {
+            return false
+        }
+        self.displayControlRedirectionDepth = nil
+        return true
+    }
+
+    /// Display Control is ready, on the connection that `redirectionDepth`
+    /// redirections led to: what to send for the request held, if any. It
+    /// goes out once, by the monitors the server reports now, not those of
+    /// the frame that asked: the server may have laid out several monitors
+    /// since, which a one-monitor layout would merge.
+    mutating func displayControlReady(
+        redirectionDepth: Int,
+        reportedMonitors: [RDPRemoteMonitor]
+    ) -> SessionKeyframeRequest? {
+        displayControlRedirectionDepth = redirectionDepth
         guard let request else {
             return nil
         }
