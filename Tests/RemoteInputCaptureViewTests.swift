@@ -325,6 +325,37 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         ])
     }
 
+    // MARK: - Scroll wheel
+
+    func testVerticalScrollKeepsTheMacOSSign() {
+        let harness = makeHarness()
+        let event = scrollEvent(deltaY: 30, isPrecise: true)
+        XCTAssertGreaterThan(event.scrollingDeltaY, 0)
+
+        harness.view.scrollWheel(with: event)
+        XCTAssertEqual(verticalRotation(in: harness.recorder.events), 300)
+        XCTAssertNil(horizontalRotation(in: harness.recorder.events))
+    }
+
+    func testHorizontalScrollIsInvertedForTheRDPWheel() {
+        // RDP's horizontal wheel runs opposite to macOS, so a positive
+        // scrollingDeltaX has to reach the server as a negative rotation.
+        let harness = makeHarness()
+        let event = scrollEvent(deltaX: 30, deltaY: 0, isPrecise: true)
+        XCTAssertGreaterThan(event.scrollingDeltaX, 0)
+
+        harness.view.scrollWheel(with: event)
+        XCTAssertEqual(horizontalRotation(in: harness.recorder.events), -300)
+        XCTAssertNil(verticalRotation(in: harness.recorder.events))
+
+        harness.recorder.events.removeAll()
+        let opposite = scrollEvent(deltaX: -30, deltaY: 0, isPrecise: true)
+        XCTAssertLessThan(opposite.scrollingDeltaX, 0)
+
+        harness.view.scrollWheel(with: opposite)
+        XCTAssertEqual(horizontalRotation(in: harness.recorder.events), 300)
+    }
+
     // MARK: - Command as the Windows key
 
     func testCommandReleasedAloneTapsTheWindowsKey() {
@@ -1781,15 +1812,22 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         return event
     }
 
-    /// One notch at (100, 50) in the view, which fills the window at the
-    /// main display's bottom-left corner.
-    private func scrollEvent(flags: NSEvent.ModifierFlags = []) -> NSEvent {
+    /// A scroll at (100, 50) in the view, which fills the window at the main display's
+    /// bottom-left corner: one notch unless deltas are given. `NSEvent.mouseEvent` cannot carry
+    /// scrolling deltas, so the scroll is bridged from a `CGEvent`: wheel 1 is the vertical axis
+    /// and wheel 2 the horizontal one, and pixel units make AppKit report precise deltas.
+    private func scrollEvent(
+        deltaX: Int32 = 0,
+        deltaY: Int32 = 1,
+        isPrecise: Bool = false,
+        flags: NSEvent.ModifierFlags = []
+    ) -> NSEvent {
         guard let cgEvent = CGEvent(
             scrollWheelEvent2Source: nil,
-            units: .line,
-            wheelCount: 1,
-            wheel1: 1,
-            wheel2: 0,
+            units: isPrecise ? .pixel : .line,
+            wheelCount: 2,
+            wheel1: deltaY,
+            wheel2: deltaX,
             wheel3: 0
         ) else {
             preconditionFailure("Failed to synthesize scroll event")
@@ -1808,6 +1846,24 @@ final class RemoteInputCaptureViewTests: XCTestCase {
             return false
         }
         return true
+    }
+
+    private func verticalRotation(in events: [RDPSlowPathInputEvent]) -> Int? {
+        events.lazy.compactMap { event -> Int? in
+            guard case let .verticalWheel(rotation, _, _) = event else {
+                return nil
+            }
+            return rotation
+        }.first
+    }
+
+    private func horizontalRotation(in events: [RDPSlowPathInputEvent]) -> Int? {
+        events.lazy.compactMap { event -> Int? in
+            guard case let .horizontalWheel(rotation, _, _) = event else {
+                return nil
+            }
+            return rotation
+        }.first
     }
 
     private func isVerticalWheel(_ event: RDPSlowPathInputEvent?) -> Bool {
