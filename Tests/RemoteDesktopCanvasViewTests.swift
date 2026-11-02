@@ -180,6 +180,23 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         XCTAssertTrue(zip(firstCovers, covers(of: canvas)).allSatisfy { $0 === $1 })
     }
 
+    // MARK: - Keyboard
+
+    func testTheInputViewTakesCommandChordsAndTheSessionsKeyboard() throws {
+        // ⌘ and ⌃ chords go to the remote ahead of the menu bar, as Help
+        // says, and keys go as scancodes by the keyboard the session
+        // announced.
+        let canvas = makeCanvas(size: CGSize(width: 1280, height: 800), scale: 1, showing: makeFrameMetadata(width: 1280, height: 800))
+        let input = try XCTUnwrap(inputView(of: canvas))
+        XCTAssertTrue(input.claimsCommandShortcuts)
+
+        let german = RDPKeyboard(layout: RDPKeyboardLayout(rawValue: 0x0407))
+        XCTAssertNotEqual(input.keyboard, german)
+        canvas.keyboard = german
+        XCTAssertEqual(input.keyboard, german)
+        XCTAssertEqual(canvas.keyboard, german)
+    }
+
     // MARK: - Helpers
 
     /// Three displays side by side, 2560 x 1440 | 1920 x 1080 | 2560 x 1440.
