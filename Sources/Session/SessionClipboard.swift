@@ -27,6 +27,10 @@ protocol SessionClipboardSending: AnyObject, Sendable {
     func hasPublished(since remoteCopyNumber: Int) -> Bool
     func publishLocalUnicodeText(_ text: String?)
     func publishLocalFiles(_ files: [RDPClipboardLocalFile])
+    /// Publishes an empty copy while the server's clipboard holds this
+    /// Mac's last one, and says whether it did.
+    @discardableResult
+    func withdrawLocalCopy() -> Bool
     /// Downloads the files of remote copy `copyNumber` into `directory`,
     /// handing each to `writeFile`; ends early once a newer copy replaces
     /// it, the connection closes, or its task is cancelled.
@@ -71,9 +75,6 @@ final class SessionClipboard {
     /// could not be read or sent, or its read was cut short. A remote copy
     /// since is newer, which clears it.
     private var localCopyIsUnsent = false
-    /// Whether the server's clipboard holds the last local copy sent. A
-    /// remote copy replaces it there.
-    private var serverHoldsLocalCopy = false
     /// Reads copied local files off the main thread; nil once the read has
     /// finished. Tests await it.
     private(set) var localFileRead: Task<Void, Never>?
@@ -161,8 +162,6 @@ final class SessionClipboard {
             remoteCopyChangeCount = nil
         }
         self.session = session
-        // A new or restarted channel holds no copy of ours yet.
-        serverHoldsLocalCopy = false
         session.fetchesRemoteCopies = isSharingEnabled
         guard isSharingEnabled else {
             session.publishLocalUnicodeText(nil)
@@ -205,10 +204,7 @@ final class SessionClipboard {
             cancelLocalFileRead()
             // Takes back the local copy. Windows empties its clipboard for
             // the empty Format List, so a copy made there since is left be.
-            if serverHoldsLocalCopy {
-                session?.publishLocalUnicodeText(nil)
-                serverHoldsLocalCopy = false
-            }
+            session?.withdrawLocalCopy()
             pasteboardChangeCount = pasteboard.changeCount
             return
         }
@@ -268,12 +264,10 @@ final class SessionClipboard {
     }
 
     func receiveText(_ text: String, copyNumber: Int) {
-        // A copy a publish here replaced on the server is no news, and
-        // the server holds the Mac's copy again.
+        // A copy a publish here replaced on the server is no news.
         guard isUnreplaced(copyNumber) else {
             return
         }
-        serverHoldsLocalCopy = false
         guard isSharingEnabled else {
             return
         }
@@ -298,12 +292,10 @@ final class SessionClipboard {
     /// cleared there does not stay on the Mac. A local copy made since is
     /// kept.
     func receiveRemoteCopyUnavailable(isEmpty: Bool, copyNumber: Int) {
-        // A copy a publish here replaced on the server is no news, and
-        // the server holds the Mac's copy again.
+        // A copy a publish here replaced on the server is no news.
         guard isUnreplaced(copyNumber) else {
             return
         }
-        serverHoldsLocalCopy = false
         guard isSharingEnabled else {
             return
         }
@@ -322,12 +314,10 @@ final class SessionClipboard {
     }
 
     func receiveFileList(_ descriptorList: RDPClipboardFileGroupDescriptorW, copyNumber: Int) {
-        // A copy a publish here replaced on the server is no news, and
-        // the server holds the Mac's copy again.
+        // A copy a publish here replaced on the server is no news.
         guard isUnreplaced(copyNumber) else {
             return
         }
-        serverHoldsLocalCopy = false
         guard isSharingEnabled else {
             return
         }
@@ -459,7 +449,6 @@ final class SessionClipboard {
             // applied should it reach this thread late. A remote copy made
             // during the read is newer still, and wins.
             session?.publishLocalUnicodeText(nil)
-            serverHoldsLocalCopy = false
             // Reading up to 32 MiB, or a file iCloud has to download first,
             // on the main thread would stall the window and its input. A
             // newer local copy, remote clipboard, or sharing turned off
@@ -501,14 +490,12 @@ final class SessionClipboard {
         case let .text(text):
             session.publishLocalUnicodeText(text)
             localCopyIsUnsent = false
-            serverHoldsLocalCopy = true
             if announce {
                 onToast("Clipboard synced", "doc.on.clipboard.fill")
             }
         case let .files(files):
             session.publishLocalFiles(files)
             localCopyIsUnsent = false
-            serverHoldsLocalCopy = true
             if reportsResult {
                 let message = files.count == 1 ? "1 file shared to remote" : "\(files.count) files shared to remote"
                 onToast(message, "doc.on.clipboard.fill")
@@ -516,13 +503,11 @@ final class SessionClipboard {
         case .empty:
             session.publishLocalUnicodeText(nil)
             localCopyIsUnsent = false
-            serverHoldsLocalCopy = false
             if announce {
                 onToast("Clipboard has no text or files; remote clipboard cleared", "doc.on.clipboard")
             }
         case let .unsupported(message):
             session.publishLocalUnicodeText(nil)
-            serverHoldsLocalCopy = false
             if reportsResult {
                 onToast(message, "exclamationmark.triangle")
             }

@@ -98,6 +98,9 @@ private final class RecordedClipboard: SessionClipboardSending, @unchecked Senda
     /// as RDPClipboardSession numbers them.
     private var lastCopyNumber = 0
     private var publishedCopyNumber = 0
+    /// Whether the server's clipboard holds the last publish, which was not
+    /// empty, as RDPClipboardSession tracks it.
+    private(set) var serverHoldsLocalCopy = false
     private let lock = NSLock()
     private var recordedDownloads: [RecordedDownload] = []
 
@@ -106,9 +109,11 @@ private final class RecordedClipboard: SessionClipboardSending, @unchecked Senda
         lock.withLock { recordedDownloads }
     }
 
-    /// A copy the server announces, and the number its handler gets.
+    /// A copy the server announces, and the number its handler gets. It
+    /// replaces the local copy on the server.
     func announceRemoteCopy() -> Int {
         lastCopyNumber += 1
+        serverHoldsLocalCopy = false
         return lastCopyNumber
     }
 
@@ -118,12 +123,24 @@ private final class RecordedClipboard: SessionClipboardSending, @unchecked Senda
 
     func publishLocalUnicodeText(_ text: String?) {
         recordPublish()
+        serverHoldsLocalCopy = text != nil
         publishedTexts.append(text)
     }
 
     func publishLocalFiles(_ files: [RDPClipboardLocalFile]) {
         recordPublish()
+        serverHoldsLocalCopy = files.isEmpty == false
         publishedFiles.append(files)
+    }
+
+    /// Publishes an empty copy, recorded as text, only while the server
+    /// holds the last publish.
+    func withdrawLocalCopy() -> Bool {
+        guard serverHoldsLocalCopy else {
+            return false
+        }
+        publishLocalUnicodeText(nil)
+        return true
     }
 
     private func recordPublish() {
