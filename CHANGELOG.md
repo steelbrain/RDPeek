@@ -15,6 +15,10 @@
 
 - Remote audio tells the server when each sample is heard, so it can
   keep video in step with the sound.
+- A remote desktop with several displays shows all of them, or only
+  those you check under Displays in the ⋯ menu or the Session menu,
+  laid out as on the remote. Match Window Size pauses while it has
+  more than one display, so its layout is kept.
 
 ### Clipboard
 
