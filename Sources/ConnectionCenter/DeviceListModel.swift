@@ -351,7 +351,7 @@ final class DeviceListModel: ObservableObject {
     }
 
     /// Runs a keychain deletion off the main thread, after any started
-    /// before it. The confirmation dialog promises the saved password is
+    /// before it. The confirmation dialog promised the saved password is
     /// removed, so a failure must surface, not be swallowed.
     private func deleteFromKeychain(_ deletion: @escaping @Sendable () throws -> Void) {
         let previous = pendingKeychainDeletion
@@ -418,6 +418,15 @@ final class DeviceListModel: ObservableObject {
     /// the profile's saved password.
     func recordCredentialPersistence(deviceID: UUID, identity: RDPConnectionIdentity, remembered: Bool) {
         guard var device = devices.first(where: { $0.id == deviceID }) else {
+            // The PC was deleted while the session saved its password, so
+            // the save brought back an item the deletion removed.
+            if remembered,
+               let key = KeychainCredentialKey(identity: identity),
+               rememberedPasswordIsShared(identity, excluding: deviceID) == false
+            {
+                let credentialStore = credentialStore
+                deleteFromKeychain { try credentialStore.deletePassword(for: key) }
+            }
             return
         }
         if takesAccount(of: identity, device: device) {

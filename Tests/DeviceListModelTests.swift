@@ -754,7 +754,7 @@ final class DeviceListModelTests: XCTestCase {
         XCTAssertEqual(persisted.first?.rememberPassword, false)
     }
 
-    func testRecordCredentialPersistenceIgnoresUnknownDeviceAndEqualFlag() throws {
+    func testRecordCredentialPersistenceIgnoresUnknownDeviceAndEqualFlag() async throws {
         let device = makeDevice()
         let harness = try makeHarness(devices: [device])
         let persistedBefore = try DeviceProfileStore(defaults: harness.defaults).devices()
@@ -762,7 +762,7 @@ final class DeviceListModelTests: XCTestCase {
         harness.model.recordCredentialPersistence(
             deviceID: UUID(),
             identity: device.identity,
-            remembered: true
+            remembered: false
         )
         // Same value as the profile already has: must not rewrite the store.
         harness.model.recordCredentialPersistence(
@@ -770,9 +770,48 @@ final class DeviceListModelTests: XCTestCase {
             identity: device.identity,
             remembered: false
         )
+        await harness.model.pendingKeychainDeletion?.value
 
         XCTAssertNil(harness.model.errorMessage)
         XCTAssertEqual(try DeviceProfileStore(defaults: harness.defaults).devices(), persistedBefore)
+        XCTAssertEqual(harness.credentials.deletedAccounts, [])
+    }
+
+    /// A session's keychain save that lands after its PC was deleted
+    /// brings the password back; it goes again, unless another PC
+    /// remembers it.
+    func testPasswordSavedForADeletedPCIsDeletedAgain() async throws {
+        let device = makeDevice(rememberPassword: true)
+        let other = makeDevice(name: "Other PC", host: "other.example", rememberPassword: true)
+        let harness = try makeHarness(devices: [device, other])
+        let account = try account(for: device)
+        harness.model.confirmDeletion(of: device)
+        await harness.model.pendingKeychainDeletion?.value
+        harness.credentials.passwords[account] = "from-session"
+
+        harness.model.recordCredentialPersistence(deviceID: device.id, identity: device.identity, remembered: true)
+        await harness.model.pendingKeychainDeletion?.value
+
+        XCTAssertNil(harness.credentials.passwords[account])
+        XCTAssertEqual(harness.credentials.deletedAccounts, [account, account])
+        XCTAssertEqual(try DeviceProfileStore(defaults: harness.defaults).devices().map(\.id), [other.id])
+        XCTAssertNil(harness.model.errorMessage)
+    }
+
+    func testPasswordSavedForADeletedPCStaysWhileAnotherPCRemembersIt() async throws {
+        let device = makeDevice(rememberPassword: true)
+        let twin = makeDevice(name: "Twin", rememberPassword: true)
+        let harness = try makeHarness(devices: [device, twin])
+        let account = try account(for: device)
+        harness.model.confirmDeletion(of: device)
+        await harness.model.pendingKeychainDeletion?.value
+        harness.credentials.passwords[account] = "from-session"
+
+        harness.model.recordCredentialPersistence(deviceID: device.id, identity: device.identity, remembered: true)
+        await harness.model.pendingKeychainDeletion?.value
+
+        XCTAssertEqual(harness.credentials.passwords[account], "from-session")
+        XCTAssertEqual(harness.credentials.deletedAccounts, [])
     }
 
     // MARK: - recordAcceptedSignIn
