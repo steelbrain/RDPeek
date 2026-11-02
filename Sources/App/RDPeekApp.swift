@@ -27,6 +27,16 @@ struct RDPeekApp: App {
         launchStore.passwordRememberedElsewhere = { [weak deviceList] identity, deviceID in
             deviceList?.rememberedPasswordIsShared(identity, excluding: deviceID) ?? false
         }
+        // A PC saved with no user name takes the account a session signed
+        // in to it with.
+        launchStore.onAcceptedSignIn = { [weak deviceList] deviceID, identity in
+            deviceList?.recordAcceptedSignIn(deviceID: deviceID, identity: identity)
+        }
+        // A password saved in the editor replaces the one an open window
+        // signed in with, from that window's next connection.
+        deviceList.onPasswordSaved = { [weak launchStore] identity in
+            launchStore?.savedPasswordChanged(for: identity)
+        }
         // Open session windows follow edits to their PC from the next
         // connection, and keep no password for a PC that was deleted.
         launchStore.followSavedDevices(deviceList.$devices)
