@@ -1127,12 +1127,6 @@ final class SessionViewController: NSViewController {
                         controller.render()
                     }
                 },
-                onClipboardFileContents: { response in
-                    sink.apply { controller in
-                        controller.clipboard.receiveFileContents(response)
-                        controller.render()
-                    }
-                },
                 onClipboardRemoteCopyUnavailable: { isEmpty, copyNumber in
                     sink.apply { controller in
                         controller.clipboard.receiveRemoteCopyUnavailable(isEmpty: isEmpty, copyNumber: copyNumber)
