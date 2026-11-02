@@ -27,6 +27,15 @@
   access no longer asks a second time.
 - A client license the server issues is saved as soon as the session
   starts.
+- A host that answers as another service, such as SSH, is said not to
+  be a Remote Desktop server, with a reminder to check the host and
+  port. One that stops answering before the connection is set up says
+  it may be at its connection limit, or that a firewall may block
+  Remote Desktop, instead of claiming it is not a Remote Desktop
+  server.
+- A server that closes the connection early in sign-in, before it
+  could check the user name and password, says so, instead of asking
+  for them again.
 
 ### Remote input
 
@@ -66,8 +75,9 @@
   keep video in step with the sound.
 - A remote desktop with several displays shows all of them, or only
   those you check under Displays in the ⋯ menu or the Session menu,
-  laid out as on the remote. Match Window Size pauses while it has
-  more than one display, so its layout is kept.
+  laid out as on the remote and numbered as the remote lists them.
+  Match Window Size pauses while it has more than one display, so its
+  layout is kept.
 - The Session menu in the menu bar now also has the ⋯ menu's Share
   Clipboard, Remote Audio, Match Window Size and Performance Overlay
   toggles.
