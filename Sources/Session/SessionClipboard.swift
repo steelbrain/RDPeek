@@ -148,14 +148,17 @@ final class SessionClipboard {
     func attach(_ session: any SessionClipboardSending) {
         // A Server Redirection, or the server's clipboard restarting,
         // attaches again without a detach. A download in flight gets no
-        // answers there.
+        // answers there, and a local file read in flight must not send its
+        // files over a copy the server announced since; the pasteboard is
+        // read again below when it is to go.
         discardFileTransfer()
+        cancelLocalFileRead()
         // A server redirected to has a clipboard of its own.
         if session !== self.session {
             remoteCopyChangeCount = nil
         }
         self.session = session
-        // Joining the channel sent an empty Format List.
+        // A new or restarted channel holds no copy of ours yet.
         serverHoldsLocalCopy = false
         session.fetchesRemoteCopies = isSharingEnabled
         guard isSharingEnabled else {

@@ -823,6 +823,33 @@ final class SessionClipboardTests: XCTestCase {
         XCTAssertTrue(session.publishedFiles.isEmpty)
     }
 
+    /// A server whose clipboard restarts, or one redirected to, can announce
+    /// a copy before the bridge attaches again. That copy is newer than
+    /// files whose read was in flight, which do not replace it.
+    func testAttachingAgainWhileTheServersCopyIsAwaitedDropsAFileReadInFlight() async throws {
+        let fileURL = try makeLocalFile(named: "notes.txt", contents: Data("hello".utf8))
+        let session = RecordedClipboard()
+        let clipboard = makeClipboard()
+        clipboard.attach(session)
+
+        for server in [session, RecordedClipboard()] {
+            pasteboard.clearContents()
+            pasteboard.writeObjects([fileURL as NSURL])
+            clipboard.poll()
+            let staleRead = try XCTUnwrap(clipboard.localFileRead)
+            server.fetchesRemoteCopies = false
+            server.unfetchedRemoteCopy = true
+            clipboard.attach(server)
+            XCTAssertTrue(server.isAwaitingRemoteCopy)
+            await staleRead.value
+            XCTAssertTrue(session.publishedFiles.isEmpty)
+            XCTAssertTrue(server.publishedFiles.isEmpty)
+
+            clipboard.receiveText("remote", copyNumber: server.announceRemoteCopy())
+            XCTAssertEqual(pasteboard.string(forType: .string), "remote")
+        }
+    }
+
     /// RDPKit makes the names valid on Windows and tells clashing ones
     /// apart, so they go as they are on disk, except that "\", which RDPKit
     /// takes as a folder separator, becomes "_" to keep each file out of a
