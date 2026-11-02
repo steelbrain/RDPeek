@@ -491,7 +491,7 @@ enum DeviceValidationError: Error, CustomStringConvertible {
         case .missingUsernameForKeychain:
             "A username is required to remember the password in Keychain."
         case .missingPasswordForKeychain:
-            "Enter a password to remember, or turn off Remember Password."
+            "Enter a password to remember, or turn off “Remember password in Keychain”."
         }
     }
 }
