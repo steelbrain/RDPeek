@@ -71,6 +71,23 @@ final class RemoteDesktopCanvasViewTests: XCTestCase {
         try assertVideo(of: canvas, follows: geometry)
     }
 
+    func testMovingToADisplayOfAnotherScaleSnapsBothViewsAgain() throws {
+        // The device pixels the content starts on change with the backing scale: 1280 x 800 in
+        // 1283 x 805 starts 2 points up at 1x and 1.5 at 2x.
+        let frame = makeFrameMetadata(width: 1280, height: 800)
+        let canvas = makeCanvas(size: CGSize(width: 1283, height: 805), scale: 1, showing: frame)
+        let window = try XCTUnwrap(canvas.window as? TestWindow)
+        XCTAssertEqual(try XCTUnwrap(inputView(of: canvas)?.geometry).contentRect.minY, 2)
+
+        window.scale = 2
+        canvas.viewDidChangeBackingProperties()
+
+        let geometry = try XCTUnwrap(inputView(of: canvas)?.geometry)
+        XCTAssertEqual(geometry.contentRect.minY, 1.5)
+        XCTAssertEqual(geometry, makeGeometry(for: canvas, frame: frame, visibleRects: nil))
+        try assertVideo(of: canvas, follows: geometry)
+    }
+
     func testVideoAndInputShareOneGeometryForTheWholeFrame() throws {
         // All Displays takes the same path, with the display layer straight in the video view.
         let frame = makeFrameMetadata(width: 7040, height: 1440)

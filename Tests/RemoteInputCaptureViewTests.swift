@@ -234,6 +234,28 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         XCTAssertEqual(harness.recorder.events, [])
     }
 
+    func testAChosenDisplayMapsThroughARetinaScale() {
+        // Two 400 x 200 displays in the 200 x 100 view at 2x, the right one chosen: each point is
+        // two remote pixels, and a quarter point still lands on the right one.
+        let harness = makeHarness()
+        harness.view.geometry = RemoteDesktopGeometry(
+            frameSize: CGSize(width: 800, height: 200),
+            visibleRects: [CGRect(x: 400, y: 0, width: 400, height: 200)],
+            bounds: harness.view.bounds,
+            backingScaleFactor: 2
+        )
+
+        harness.view.mouseMoved(with: mouseEvent(.mouseMoved, location: NSPoint(x: 0.25, y: 99.75)))
+        harness.view.mouseMoved(with: mouseEvent(.mouseMoved, location: NSPoint(x: 150.25, y: 25.75)))
+        harness.view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: -30, y: 50)))
+
+        XCTAssertEqual(harness.recorder.events, [
+            .pointerMove(x: 400, y: 0),
+            .pointerMove(x: 700, y: 148),
+            .pointerMove(x: 400, y: 100),
+        ])
+    }
+
     func testADragOutOfTheWindowStopsOnTheShownLShape() {
         // A tall display on the left and a shorter one on the right, with the display above the
         // shorter one hidden: past each edge the drag lands on the nearest shown pixel.
