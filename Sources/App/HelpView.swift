@@ -36,9 +36,9 @@ struct HelpView: View {
 
                 HelpSection(title: "In a Session", systemImage: "display") {
                     HelpBody(
-                        "The remote display layout is preserved by default. For a " +
-                            "single-display session, enable Match Window Size in the ⋯ " +
-                            "menu to resize the remote desktop with the window."
+                        "The remote desktop follows the window: resize the window and " +
+                            "the desktop re-fits a moment later. Full screen works as a " +
+                            "primary full-screen window."
                     )
                     HelpBody(
                         "The ⋯ menu in the titlebar holds Disconnect, clipboard sharing " +
@@ -50,11 +50,12 @@ struct HelpView: View {
                             "Session menu in the menu bar instead."
                     )
                     HelpBody(
-                        "Use the Displays menu in the titlebar to view all server-reported " +
-                            "displays or any subset together. Numbers follow the server's " +
-                            "order and may differ from the remote OS. Physical desktop " +
-                            "sharing and virtual sessions use the same controls; the RDP " +
-                            "server must expose the displays you want to view."
+                        "A remote desktop with more than one display keeps its own " +
+                            "layout instead of following the window. Displays, in the ⋯ " +
+                            "menu and the Session menu, shows all of its displays or only " +
+                            "those you check, arranged as on the remote. They are numbered " +
+                            "in the order the server lists them, which may differ from the " +
+                            "remote's own numbering."
                     )
                     HelpBody(
                         "Clipboard sharing can be turned on, or shared for 30 seconds, " +
