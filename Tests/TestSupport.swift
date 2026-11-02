@@ -29,6 +29,10 @@ extension XCTestCase {
 /// A borderless window for the unhosted test bundle, which has no running
 /// app to make a window key: the window reports key status itself, and can
 /// stand on a display of a fixed scale.
+///
+/// Never `close()` one, not even in a teardown block: in the unhosted bundle
+/// that crashes the test process when the autorelease pool drains. To clean
+/// up, remove the window's content view, or the views the test added to it.
 final class TestWindow: NSWindow {
     /// A session window is key while the user controls it.
     var isKey = false
