@@ -1,10 +1,6 @@
 import AppKit
 import RDPKit
 
-private let sessionMaximumLocalClipboardFileBytes = 32 * 1024 * 1024
-/// How much of a copied local file is read at once: a cancelled read stops
-/// between reads.
-private let sessionLocalFileReadChunkByteCount = 1024 * 1024
 /// What a remote copy of files may hold, and how RDPKit fetches it: its
 /// defaults, 32 MiB and 1,000 files, asked for in ranges of 512 KiB, each
 /// request answered within two minutes. The toasts name the limits.
@@ -26,7 +22,13 @@ protocol SessionClipboardSending: AnyObject, Sendable {
     /// numbered `remoteCopyNumber`: the `copyNumber` its handler got.
     func hasPublished(since remoteCopyNumber: Int) -> Bool
     func publishLocalUnicodeText(_ text: String?)
-    func publishLocalFiles(_ files: [RDPClipboardLocalFile])
+    /// Publishes an empty copy at once for files still to be read, and
+    /// returns its number.
+    func beginLocalCopy() -> Int
+    /// Offers the files read for copy `copyNumber`, unless a newer copy,
+    /// local or remote, replaced it, and says whether it did.
+    @discardableResult
+    func publishLocalFiles(_ files: [RDPClipboardLocalFile], forCopy copyNumber: Int) -> Bool
     /// Publishes an empty copy while the server's clipboard holds this
     /// Mac's last one, and says whether it did.
     @discardableResult
@@ -411,7 +413,7 @@ final class SessionClipboard {
     /// cannot be read.
     @discardableResult
     private func publishPasteboardIfChanged(force: Bool = false, announce: Bool = false) -> Bool {
-        guard isSharingEnabled, session != nil else {
+        guard isSharingEnabled, let session else {
             pasteboardChangeCount = pasteboard.changeCount
             return false
         }
@@ -444,32 +446,35 @@ final class SessionClipboard {
         let fileURLs = pasteboardFileURLs()
         guard fileURLs.isEmpty else {
             // The files go once read, but they replace the server's copy
-            // now, as text does: an empty clipboard goes at once, so the
-            // server's older copy is not fetched when sharing turns on, nor
-            // applied should it reach this thread late. A remote copy made
-            // during the read is newer still, and wins.
-            session?.publishLocalUnicodeText(nil)
+            // now, as text does: RDPKit publishes an empty copy at once, so
+            // the server's older copy is not fetched when sharing turns on,
+            // nor applied should it reach this thread late. A remote copy
+            // made during the read is newer still, and wins: RDPKit then
+            // does not offer the files.
+            let copyNumber = session.beginLocalCopy()
             // Reading up to 32 MiB, or a file iCloud has to download first,
             // on the main thread would stall the window and its input. A
             // newer local copy, remote clipboard, or sharing turned off
-            // cancels the publish, and the read stops between 1 MiB
-            // chunks; a file iCloud still has to download blocks it until
-            // the file is available.
+            // cancels the publish at once; RDPKit's read stops before its
+            // next file, and a file iCloud still has to download blocks it
+            // until the file is available.
             localFileReadAnnounces = announce
             localFileRead = Task { [weak self] in
                 let read = Task.detached(priority: .userInitiated) {
-                    Self.localFiles(from: fileURLs)
+                    // At most 32 MiB, each file under its own name in no
+                    // folder.
+                    Result { try RDPClipboardLocalFile.read(contentsOf: fileURLs) }
                 }
-                let payload = await withTaskCancellationHandler {
+                let files = await withTaskCancellationHandler {
                     await read.value
                 } onCancel: {
                     read.cancel()
                 }
-                guard Task.isCancelled == false, let payload, let self else {
+                guard Task.isCancelled == false, let self else {
                     return
                 }
                 localFileRead = nil
-                publish(payload, announce: localFileReadAnnounces, isNewCopy: isNewCopy)
+                publishReadFiles(files, forCopy: copyNumber, announce: localFileReadAnnounces, isNewCopy: isNewCopy)
             }
             return true
         }
@@ -477,10 +482,10 @@ final class SessionClipboard {
         return true
     }
 
-    /// Reports files shared, or a copy that could not be, for a new local
-    /// copy or a sync the user asked for; `announce` also reports synced
-    /// text and an empty pasteboard. A publish on connect or when sharing
-    /// turns on stays quiet about what the pasteboard already held.
+    /// Reports text that could not be sent, for a new local copy or a sync
+    /// the user asked for; `announce` also reports synced text and an empty
+    /// pasteboard. A publish on connect or when sharing turns on stays
+    /// quiet about what the pasteboard already held.
     private func publish(_ payload: SessionLocalClipboardPayload, announce: Bool, isNewCopy: Bool) {
         guard isSharingEnabled, let session else {
             return
@@ -493,13 +498,6 @@ final class SessionClipboard {
             if announce {
                 onToast("Clipboard synced", "doc.on.clipboard.fill")
             }
-        case let .files(files):
-            session.publishLocalFiles(files)
-            localCopyIsUnsent = false
-            if reportsResult {
-                let message = files.count == 1 ? "1 file shared to remote" : "\(files.count) files shared to remote"
-                onToast(message, "doc.on.clipboard.fill")
-            }
         case .empty:
             session.publishLocalUnicodeText(nil)
             localCopyIsUnsent = false
@@ -511,6 +509,51 @@ final class SessionClipboard {
             if reportsResult {
                 onToast(message, "exclamationmark.triangle")
             }
+        }
+    }
+
+    /// Offers the files read for local copy `copyNumber`, unless a newer
+    /// copy replaced it, or says why they could not be read; the empty copy
+    /// that began it stays on the server either way. Files shared, or why
+    /// not, are reported for a new local copy or a sync the user asked for.
+    private func publishReadFiles(
+        _ result: Result<[RDPClipboardLocalFile], Error>,
+        forCopy copyNumber: Int,
+        announce: Bool,
+        isNewCopy: Bool
+    ) {
+        guard isSharingEnabled, let session else {
+            return
+        }
+        let reportsResult = announce || isNewCopy
+        switch result {
+        case let .success(files):
+            guard session.publishLocalFiles(files, forCopy: copyNumber) else {
+                return
+            }
+            localCopyIsUnsent = false
+            if reportsResult {
+                let message = files.count == 1 ? "1 file shared to remote" : "\(files.count) files shared to remote"
+                onToast(message, "doc.on.clipboard.fill")
+            }
+        case let .failure(error as RDPClipboardLocalFileReadError):
+            guard reportsResult else {
+                return
+            }
+            let message = switch error {
+            case .notARegularFile:
+                "Local clipboard has non-file items; remote clipboard cleared"
+            case .invalidFileName:
+                "Local file clipboard was not shared"
+            case .unreadable:
+                "Local file clipboard could not be read; remote clipboard cleared"
+            case .totalByteLimitExceeded:
+                "Local clipboard files exceed 32 MiB; remote clipboard cleared"
+            }
+            onToast(message, "exclamationmark.triangle")
+        case .failure:
+            // Cancelled.
+            return
         }
     }
 
@@ -564,98 +607,6 @@ final class SessionClipboard {
             return pasteboard.accessBehavior == .alwaysDeny
         }
         return false
-    }
-
-    /// What `urls` hold to send, or nil once the read is cancelled.
-    nonisolated static func localFiles(from urls: [URL]) -> SessionLocalClipboardPayload? {
-        var files: [RDPClipboardLocalFile] = []
-        var totalByteCount = 0
-
-        for url in urls {
-            guard Task.isCancelled == false else {
-                return nil
-            }
-            let fileURL = url.standardizedFileURL
-            // RDPKit offers each name under one Windows accepts, numbered
-            // where two clash, and takes "\" as a folder separator. A Mac
-            // file name may hold one, and each copied file is shared on its
-            // own, so it is kept out of any folder.
-            let fileName = fileURL.lastPathComponent.replacingOccurrences(of: "\\", with: "_")
-            guard fileName.isEmpty == false else {
-                return .unsupported("Local file clipboard was not shared")
-            }
-
-            do {
-                let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-                guard resourceValues.isRegularFile == true else {
-                    return .unsupported("Local clipboard has non-file items; remote clipboard cleared")
-                }
-
-                guard let byteCount = resourceValues.fileSize,
-                      byteCount >= 0
-                else {
-                    return .unsupported("Local file clipboard could not be read; remote clipboard cleared")
-                }
-                guard byteCount <= sessionMaximumLocalClipboardFileBytes,
-                      totalByteCount <= sessionMaximumLocalClipboardFileBytes - byteCount
-                else {
-                    return .unsupported("Local clipboard files exceed 32 MiB; remote clipboard cleared")
-                }
-
-                // The file may have grown since its size was read.
-                guard let contents = try fileContents(
-                    of: fileURL,
-                    upTo: sessionMaximumLocalClipboardFileBytes - totalByteCount
-                ) else {
-                    return .unsupported("Local clipboard files exceed 32 MiB; remote clipboard cleared")
-                }
-                totalByteCount += contents.count
-                files.append(RDPClipboardLocalFile(fileName: fileName, contents: contents))
-            } catch is CancellationError {
-                return nil
-            } catch {
-                return .unsupported("Local file clipboard could not be read; remote clipboard cleared")
-            }
-        }
-
-        return files.isEmpty ? .empty : .files(files)
-    }
-
-    /// The contents of `fileURL`, or nil when it holds more than
-    /// `maximumByteCount` bytes, of which no more than one past that is read.
-    /// Throws `CancellationError` once the read is cancelled.
-    nonisolated static func fileContents(of fileURL: URL, upTo maximumByteCount: Int) throws -> Data? {
-        let fileHandle = try FileHandle(forReadingFrom: fileURL)
-        defer {
-            try? fileHandle.close()
-        }
-        return try contents(
-            of: fileHandle,
-            upTo: maximumByteCount,
-            chunkByteCount: sessionLocalFileReadChunkByteCount
-        )
-    }
-
-    /// What `fileHandle` holds, read `chunkByteCount` bytes at a time, or
-    /// nil when it holds more than `maximumByteCount` bytes, of which no
-    /// more than one past that is read. Between chunks, throws
-    /// `CancellationError` once the read is cancelled.
-    nonisolated static func contents(
-        of fileHandle: FileHandle,
-        upTo maximumByteCount: Int,
-        chunkByteCount: Int
-    ) throws -> Data? {
-        var data = Data()
-        // A byte past the limit tells a file that grew past it.
-        while data.count <= maximumByteCount {
-            try Task.checkCancellation()
-            let byteCount = min(chunkByteCount, maximumByteCount + 1 - data.count)
-            guard let chunk = try fileHandle.read(upToCount: byteCount), chunk.isEmpty == false else {
-                break
-            }
-            data.append(chunk)
-        }
-        return data.count <= maximumByteCount ? data : nil
     }
 
     // MARK: - Remote file downloads
@@ -870,9 +821,8 @@ final class SessionClipboard {
     }
 }
 
-enum SessionLocalClipboardPayload: Sendable {
+private enum SessionLocalClipboardPayload {
     case text(String)
-    case files([RDPClipboardLocalFile])
     case empty
     case unsupported(String)
 }

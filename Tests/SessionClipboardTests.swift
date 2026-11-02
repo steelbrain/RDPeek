@@ -133,6 +133,22 @@ private final class RecordedClipboard: SessionClipboardSending, @unchecked Senda
         publishedFiles.append(files)
     }
 
+    /// Publishes an empty copy, recorded as text, and returns its number.
+    func beginLocalCopy() -> Int {
+        publishLocalUnicodeText(nil)
+        return lastCopyNumber
+    }
+
+    /// Offers `files` while nothing, local or remote, came after copy
+    /// `copyNumber`.
+    func publishLocalFiles(_ files: [RDPClipboardLocalFile], forCopy copyNumber: Int) -> Bool {
+        guard lastCopyNumber == copyNumber else {
+            return false
+        }
+        publishLocalFiles(files)
+        return true
+    }
+
     /// Publishes an empty copy, recorded as text, only while the server
     /// holds the last publish.
     func withdrawLocalCopy() -> Bool {
@@ -715,11 +731,12 @@ final class SessionClipboardTests: XCTestCase {
         clipboard.attach(session)
 
         // Copied before the file is there: a share that starts sends it.
+        // The empty copy that began the read stays on the server.
         pasteboard.clearContents()
         pasteboard.writeObjects([fileURL as NSURL])
         clipboard.startTemporarySharing()
         try await XCTUnwrap(clipboard.localFileRead).value
-        XCTAssertEqual(session.publishedTexts, [nil, nil, nil])
+        XCTAssertEqual(session.publishedTexts, [nil, nil])
         try Data("first".utf8).write(to: fileURL)
         clipboard.poll()
         XCTAssertNil(clipboard.localFileRead, "The poll does not try again")
@@ -971,27 +988,56 @@ final class SessionClipboardTests: XCTestCase {
         )
     }
 
-    /// A file that grew past what is left of the limit since its size was
-    /// checked is refused, without reading it whole.
-    func testLocalFileReadStopsPastTheLimit() throws {
-        let fileURL = try makeLocalFile(named: "grown.bin", contents: Data(count: 11))
-        XCTAssertNil(try SessionClipboard.fileContents(of: fileURL, upTo: 10))
-        XCTAssertEqual(try SessionClipboard.fileContents(of: fileURL, upTo: 11), Data(count: 11))
-        let emptyURL = try makeLocalFile(named: "empty.bin", contents: Data())
-        XCTAssertEqual(try SessionClipboard.fileContents(of: emptyURL, upTo: 0), Data())
+    /// RDPKit checks each file's size before it reads it, so files over
+    /// 32 MiB together are refused unread; the empty copy that began the
+    /// read stays on the server.
+    func testLocalFilesOverTheLimitAreRefusedUnread() async throws {
+        let small = try makeLocalFile(named: "small.bin", contents: Data(count: 10))
+        let large = try makeLocalFile(named: "large.bin", contents: Data())
+        let handle = try FileHandle(forWritingTo: large)
+        try handle.truncate(atOffset: 32 * 1024 * 1024)
+        try handle.close()
+        let session = RecordedClipboard()
+        let clipboard = makeClipboard()
+        var toasts: [String] = []
+        clipboard.onToast = { text, _ in toasts.append(text) }
+        clipboard.attach(session)
+        session.publishedTexts.removeAll()
 
-        // Read a chunk at a time, it still reads no more than a byte past.
-        let largeHandle = try FileHandle(forReadingFrom: makeLocalFile(named: "large.bin", contents: Data(count: 100)))
-        defer {
-            try? largeHandle.close()
-        }
-        XCTAssertNil(try SessionClipboard.contents(of: largeHandle, upTo: 10, chunkByteCount: 4))
-        XCTAssertEqual(try largeHandle.offset(), 11)
-        let fullHandle = try FileHandle(forReadingFrom: makeLocalFile(named: "full.bin", contents: Data(count: 10)))
-        defer {
-            try? fullHandle.close()
-        }
-        XCTAssertEqual(try SessionClipboard.contents(of: fullHandle, upTo: 10, chunkByteCount: 4), Data(count: 10))
+        pasteboard.clearContents()
+        pasteboard.writeObjects([small as NSURL, large as NSURL])
+        clipboard.poll()
+        try await XCTUnwrap(clipboard.localFileRead).value
+
+        XCTAssertEqual(toasts, ["Local clipboard files exceed 32 MiB; remote clipboard cleared"])
+        XCTAssertEqual(session.publishedTexts, [nil])
+        XCTAssertTrue(session.publishedFiles.isEmpty)
+    }
+
+    /// A copy the server announces during the read is newer than the files,
+    /// which RDPKit then does not offer, though the copy reaches the main
+    /// thread only after the read: it lands on the pasteboard.
+    func testARemoteCopyAnnouncedDuringAFileReadWins() async throws {
+        let fileURL = try makeLocalFile(named: "notes.txt", contents: Data("local".utf8))
+        let session = RecordedClipboard()
+        let clipboard = makeClipboard()
+        var toasts: [String] = []
+        clipboard.onToast = { text, _ in toasts.append(text) }
+        clipboard.attach(session)
+
+        pasteboard.clearContents()
+        pasteboard.writeObjects([fileURL as NSURL])
+        clipboard.poll()
+        let read = try XCTUnwrap(clipboard.localFileRead)
+        let newerRemote = session.announceRemoteCopy()
+        await read.value
+        XCTAssertTrue(session.publishedFiles.isEmpty)
+        XCTAssertFalse(toasts.contains("1 file shared to remote"))
+
+        clipboard.receiveText("newer remote", copyNumber: newerRemote)
+        XCTAssertEqual(pasteboard.string(forType: .string), "newer remote")
+        clipboard.syncNow()
+        XCTAssertNil(clipboard.localFileRead, "The remote copy is newer than the files")
     }
 
     /// A read whose publish was cancelled, by a newer copy or sharing
@@ -1002,31 +1048,9 @@ final class SessionClipboardTests: XCTestCase {
             while Task.isCancelled == false {
                 await Task.yield()
             }
-            return SessionClipboard.localFiles(from: fileURLs) == nil
+            return Result { try RDPClipboardLocalFile.read(contentsOf: fileURLs) }
         }
         read.cancel()
-        let stopped = await read.value
-        XCTAssertTrue(stopped)
-    }
-
-    /// Nor does it read the rest of a file it has begun: it stops at the
-    /// next chunk. A pipe stands in for the file, so the read waits for
-    /// each chunk the test writes.
-    func testACancelledLocalFileReadStopsBetweenChunksOfAFile() async throws {
-        let pipe = Pipe()
-        let chunk = Data("abcd".utf8)
-        let reader = pipe.fileHandleForReading
-        let read = Task.detached {
-            Result { try SessionClipboard.contents(of: reader, upTo: 100, chunkByteCount: chunk.count) }
-        }
-        try pipe.fileHandleForWriting.write(contentsOf: chunk)
-        // Cancelled only once the first chunk has been read.
-        while hasBytesToRead(reader) {
-            await Task.yield()
-        }
-        read.cancel()
-        try pipe.fileHandleForWriting.write(contentsOf: chunk)
-        try pipe.fileHandleForWriting.close()
         let result = await read.value
         XCTAssertThrowsError(try result.get()) { error in
             XCTAssertTrue(error is CancellationError, "\(error)")
@@ -1659,12 +1683,6 @@ final class SessionClipboardTests: XCTestCase {
     /// What the download root holds, nothing when it was never made.
     private func downloadRootContents() -> [String] {
         (try? FileManager.default.contentsOfDirectory(atPath: downloadRoot.path)) ?? []
-    }
-
-    /// Whether `fileHandle` has bytes waiting that no read has taken yet.
-    private func hasBytesToRead(_ fileHandle: FileHandle) -> Bool {
-        var descriptor = pollfd(fd: fileHandle.fileDescriptor, events: Int16(POLLIN), revents: 0)
-        return Darwin.poll(&descriptor, 1, 0) > 0
     }
 
     private func makeLocalFile(named fileName: String, contents: Data) throws -> URL {
