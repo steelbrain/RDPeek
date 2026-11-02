@@ -1298,16 +1298,39 @@ final class SessionClipboardTests: XCTestCase {
         XCTAssertFalse(fileExists(fileURL))
     }
 
-    func testDownloadsLeftByAnEarlierRunAreRemoved() throws {
-        let leftover = downloadRoot.appendingPathComponent("earlier", isDirectory: true)
-        try FileManager.default.createDirectory(at: leftover, withIntermediateDirectories: true)
+    /// A download an earlier run left goes once it is an hour old; a newer
+    /// one may be another copy of the app's, still downloading. Anything
+    /// else in the folder, and links, are left alone.
+    func testOnlyOldDownloadsLeftByAnEarlierRunAreRemoved() throws {
+        let outside = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RDPeekTests.\(UUID().uuidString)", isDirectory: true)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: outside)
+        }
+        let old = now.addingTimeInterval(-2 * 60 * 60)
+        let stale = downloadRoot.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let recent = downloadRoot.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let notOurs = downloadRoot.appendingPathComponent("Other", isDirectory: true)
+        let link = downloadRoot.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try makeDownloadFolder(stale, changedAt: old)
+        try makeDownloadFolder(recent, changedAt: now)
+        try makeDownloadFolder(notOurs, changedAt: old)
+        try makeDownloadFolder(outside, changedAt: old)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: outside)
+
         _ = makeClipboard()
-        XCTAssertFalse(fileExists(leftover))
+
+        XCTAssertFalse(fileExists(stale))
+        for kept in [recent, notOurs, link, outside.appendingPathComponent("file.bin")] {
+            XCTAssertTrue(fileExists(kept), kept.lastPathComponent)
+        }
     }
 
+    /// Telling which files the pasteboard holds would mean reading it,
+    /// which a session that does not share must not do.
     func testDownloadsLeftByAnEarlierRunStayWhileFilesAreCopied() throws {
-        let leftover = downloadRoot.appendingPathComponent("earlier", isDirectory: true)
-        try FileManager.default.createDirectory(at: leftover, withIntermediateDirectories: true)
+        let leftover = downloadRoot.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try makeDownloadFolder(leftover, changedAt: now.addingTimeInterval(-2 * 60 * 60))
         let fileURL = try makeLocalFile(named: "notes.txt", contents: Data())
         pasteboard.clearContents()
         pasteboard.writeObjects([fileURL as NSURL])
@@ -1394,6 +1417,13 @@ final class SessionClipboardTests: XCTestCase {
             ok: true,
             data: contents
         ))
+    }
+
+    /// A folder holding one file, last changed at `date`.
+    private func makeDownloadFolder(_ url: URL, changedAt date: Date) throws {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: url.appendingPathComponent("file.bin"))
+        try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: url.path)
     }
 
     /// What the download root holds, nothing when it was never made.

@@ -13,6 +13,9 @@ private let sessionFileContentsRequestTimeout: TimeInterval = 120
 /// The most files one remote copy may hold: each costs a round trip and a
 /// write, and all of them are pasted side by side.
 private let sessionMaximumRemoteClipboardFileCount = 1000
+/// Age at which a download folder an earlier run left is removed. A newer
+/// one may belong to another copy of the app that is still downloading.
+private let sessionStaleDownloadDirectoryAge: TimeInterval = 60 * 60
 
 /// Where the clipboard bridge sends: the session's `RDPClipboardSession`, or
 /// a test's recorder.
@@ -55,7 +58,8 @@ final class SessionClipboard {
     private let pasteboard: NSPasteboard
     /// Holds a directory for each remote file download.
     private let downloadRoot: URL
-    /// The time, for download timeouts and temporary shares.
+    /// The time, for download timeouts, temporary shares, and the age of
+    /// earlier runs' downloads.
     private let now: @MainActor () -> Date
     /// Whether macOS denies this app reading the pasteboard, as the user
     /// can choose in System Settings: a read then gets nothing.
@@ -827,7 +831,34 @@ final class SessionClipboard {
         guard pasteboard.types?.contains(.fileURL) != true else {
             return
         }
-        try? FileManager.default.removeItem(at: downloadRoot)
+        Self.removeStaleDownloadDirectories(
+            in: downloadRoot,
+            changedBefore: now().addingTimeInterval(-sessionStaleDownloadDirectoryAge)
+        )
+    }
+
+    /// Removes the UUID-named folders in `directory` last changed before
+    /// `cutoff`. Anything else there, and links, are left alone.
+    private static func removeStaleDownloadDirectories(in directory: URL, changedBefore cutoff: Date) {
+        let fileManager = FileManager.default
+        let keys: Set<URLResourceKey> = [.isDirectoryKey, .isSymbolicLinkKey, .contentModificationDateKey]
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: Array(keys)
+        ) else {
+            return
+        }
+        for entry in entries where UUID(uuidString: entry.lastPathComponent) != nil {
+            guard let values = try? entry.resourceValues(forKeys: keys),
+                  values.isDirectory == true,
+                  values.isSymbolicLink != true,
+                  let changedAt = values.contentModificationDate,
+                  changedAt < cutoff
+            else {
+                continue
+            }
+            try? fileManager.removeItem(at: entry)
+        }
     }
 
     /// A new directory for each download, so the files of the previous one
