@@ -79,14 +79,21 @@ enum SessionDisplayControlPolicy {
     /// or rescale the desktop, so the layout sent is the one the server has:
     /// - With several monitors, nothing. No server says what scale its
     ///   monitors use, so their layout cannot be sent back as it is.
-    /// - The layout this connection asked for last, if it asked for one,
-    ///   even while the server still reports the size before it.
-    /// - Otherwise the size the server reports, at the scale the connection
-    ///   started with, which the server still has. Nothing when Display
-    ///   Control would move that size into its range.
+    /// - The layout this connection asked for last, while the desktop
+    ///   follows the window, even while the server still reports the size
+    ///   before it: the resize may not have landed yet, and sending that
+    ///   size back would undo it. Also when the server reports the size
+    ///   asked for last, or no size at all.
+    /// - Otherwise the size the server reports, at the scale it was given
+    ///   last: the one this connection asked for last, or else the one it
+    ///   started with. With matching off, the server may have left the size
+    ///   asked for last on its own, or the user resized the desktop inside
+    ///   the session, and sending that request again would undo it. Nothing
+    ///   when Display Control would move the size into its range.
     /// - With no size reported, the desktop the connection started with.
     static func keyframeRequest(
         lastSent: RDPDisplayRequest?,
+        isWindowMatchingInEffect: Bool,
         reportedMonitors: [RDPRemoteMonitor],
         graphicsOutputRect: RDPFrameRect?,
         connectLayout: RDPDisplayRequest
@@ -94,20 +101,27 @@ enum SessionDisplayControlPolicy {
         guard reportsSeveralMonitors(reportedMonitors) == false else {
             return nil
         }
-        if let lastSent {
-            return .request(lastSent)
-        }
         // A lone monitor is the desktop, whether flagged primary or not.
-        guard let reportedRect = reportedMonitors.first?.rect ?? graphicsOutputRect else {
+        let reportedRect = reportedMonitors.first?.rect ?? graphicsOutputRect
+        if let lastSent {
+            let reportsAnotherSize = reportedRect.map { rect in
+                UInt32(rect.width) != lastSent.width || UInt32(rect.height) != lastSent.height
+            } ?? false
+            if isWindowMatchingInEffect || reportsAnotherSize == false {
+                return .request(lastSent)
+            }
+        }
+        guard let reportedRect else {
             return .request(connectLayout)
         }
         let width = UInt32(reportedRect.width)
         let height = UInt32(reportedRect.height)
+        let scaleFactors = lastSent?.scaleFactors ?? connectLayout.scaleFactors
         let layout = RDPMonitorLayout.singlePrimary(
             width: width,
             height: height,
-            desktopScaleFactor: connectLayout.scaleFactors.desktopScaleFactor,
-            deviceScaleFactor: connectLayout.scaleFactors.deviceScaleFactor
+            desktopScaleFactor: scaleFactors.desktopScaleFactor,
+            deviceScaleFactor: scaleFactors.deviceScaleFactor
         )
         // Display Control makes an odd width even and keeps each side
         // within 200 to 8192 pixels; such a layout would resize the desktop.
@@ -147,7 +161,7 @@ enum SessionResizeDecision: Equatable {
 enum SessionKeyframeRequest: Equatable {
     /// A desktop the session asked for, or the one it connected with.
     case request(RDPDisplayRequest)
-    /// The desktop the server reports, at the scale the session connected
-    /// with.
+    /// The desktop the server reports, at the scale the session asked for
+    /// last, or else the one it connected with.
     case layout(RDPMonitorLayout)
 }

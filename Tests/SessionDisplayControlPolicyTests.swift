@@ -131,7 +131,11 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         // request would then send the server's 1920x1080 at 100%, while
         // its desktop is at 200%.
         XCTAssertEqual(
-            keyframeRequest(lastSent: retinaRequest, reportedMonitors: [monitor(0, 0, 1920, 1080)]),
+            keyframeRequest(
+                lastSent: retinaRequest,
+                isWindowMatchingInEffect: true,
+                reportedMonitors: [monitor(0, 0, 1920, 1080)]
+            ),
             .request(retinaRequest)
         )
     }
@@ -170,11 +174,78 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         ]
         for (name, monitors, outputRect) in reported {
             XCTAssertEqual(
-                keyframeRequest(lastSent: lastSent, reportedMonitors: monitors, graphicsOutputRect: outputRect),
+                keyframeRequest(
+                    lastSent: lastSent,
+                    isWindowMatchingInEffect: true,
+                    reportedMonitors: monitors,
+                    graphicsOutputRect: outputRect
+                ),
                 .request(lastSent),
                 name
             )
         }
+    }
+
+    func testWithMatchingOffTheServersOwnSizeIsSentBack() {
+        // 2880x1800 at 200% went out, the user then turned Match Window
+        // Size off, and the server moved to 1920x1080 on its own. Sending
+        // the last request again would resize the desktop back. The scale
+        // stays the last one sent: at the 100% the connection started
+        // with, the request would rescale the desktop.
+        let reported: [(String, [RDPRemoteMonitor], RDPFrameRect?)] = [
+            ("on a monitor", [monitor(0, 0, 1920, 1080)], rect(0, 0, 1920, 1080)),
+            ("as the output", [], rect(0, 0, 1920, 1080)),
+        ]
+        for (name, monitors, outputRect) in reported {
+            XCTAssertEqual(
+                keyframeRequest(
+                    lastSent: retinaRequest,
+                    isWindowMatchingInEffect: false,
+                    reportedMonitors: monitors,
+                    graphicsOutputRect: outputRect
+                ),
+                .layout(.singlePrimary(width: 1920, height: 1080, desktopScaleFactor: 200, deviceScaleFactor: 180)),
+                name
+            )
+        }
+    }
+
+    func testWhileMatchingAnotherReportedSizeKeepsTheLastRequest() {
+        // The same inputs while the desktop follows the window: the size
+        // reported may be from before a resize still on its way, and
+        // sending it back would undo that resize.
+        XCTAssertEqual(
+            keyframeRequest(
+                lastSent: retinaRequest,
+                isWindowMatchingInEffect: true,
+                reportedMonitors: [monitor(0, 0, 1920, 1080)],
+                graphicsOutputRect: rect(0, 0, 1920, 1080)
+            ),
+            .request(retinaRequest)
+        )
+    }
+
+    func testWithMatchingOffTheLastRequestIsSentAgainWhileTheServerHasIt() {
+        // The server reports the size asked for last, so it still has that
+        // request, and sending it again changes nothing.
+        XCTAssertEqual(
+            keyframeRequest(
+                lastSent: retinaRequest,
+                isWindowMatchingInEffect: false,
+                reportedMonitors: [monitor(0, 0, 2880, 1800)],
+                graphicsOutputRect: rect(0, 0, 2880, 1800)
+            ),
+            .request(retinaRequest)
+        )
+    }
+
+    func testWithMatchingOffAndNoSizeReportedTheLastRequestIsSentAgain() {
+        // Outside RDPGFX nothing reports a size, and the last request is
+        // the latest desktop the server is known to have.
+        XCTAssertEqual(
+            keyframeRequest(lastSent: retinaRequest, isWindowMatchingInEffect: false),
+            .request(retinaRequest)
+        )
     }
 
     func testALoneMonitorIsSentBackAtTheConnectScale() {
@@ -341,12 +412,14 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
 
     private func keyframeRequest(
         lastSent: RDPDisplayRequest? = nil,
+        isWindowMatchingInEffect: Bool = true,
         reportedMonitors: [RDPRemoteMonitor] = [],
         graphicsOutputRect: RDPFrameRect? = nil,
         connectLayout: RDPDisplayRequest? = nil
     ) -> SessionKeyframeRequest? {
         SessionDisplayControlPolicy.keyframeRequest(
             lastSent: lastSent,
+            isWindowMatchingInEffect: isWindowMatchingInEffect,
             reportedMonitors: reportedMonitors,
             graphicsOutputRect: graphicsOutputRect,
             connectLayout: connectLayout ?? self.connectLayout

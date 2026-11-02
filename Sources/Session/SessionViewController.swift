@@ -1565,6 +1565,7 @@ final class SessionViewController: NSViewController {
         }
         let keyframeRequest = SessionDisplayControlPolicy.keyframeRequest(
             lastSent: lastRequestedDisplayRequest,
+            isWindowMatchingInEffect: isWindowMatchingInEffect,
             reportedMonitors: monitors,
             graphicsOutputRect: graphicsOutputRect,
             connectLayout: connectLayout
