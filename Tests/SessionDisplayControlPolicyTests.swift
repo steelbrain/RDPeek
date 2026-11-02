@@ -169,6 +169,27 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         }
     }
 
+    func testWithMatchingOffSeveralMonitorsGetNoKeyframeRequest() {
+        // Turned off, matching changes nothing here: a one-monitor layout
+        // would still merge them, even a resize still on its way.
+        let cases: [(String, RDPDisplayRequest?, Bool)] = [
+            ("nothing sent", nil, false),
+            ("resize answered", retinaRequest, false),
+            ("resize in flight", retinaRequest, true),
+        ]
+        for (name, lastSent, isInFlight) in cases {
+            XCTAssertNil(
+                keyframeRequest(
+                    lastSent: lastSent,
+                    isWindowMatchingInEffect: false,
+                    isResizeInFlight: isInFlight,
+                    reportedMonitors: sideBySideMonitors()
+                ),
+                name
+            )
+        }
+    }
+
     func testTheLastRequestSentIsSentAgain() {
         // A resize the server has not applied yet still reports the old
         // size. Sending that size back would undo the resize, and at 100%
@@ -250,6 +271,21 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
                 graphicsOutputRect: rect(0, 0, 1440, 900)
             ),
             .request(retinaRequest)
+        )
+    }
+
+    func testWithMatchingOffASizeDisplayControlWouldChangeGetsNoKeyframeRequest() {
+        // 2880x1800 at 200% went out and the server applied it, then moved
+        // to 1921x1080 on its own. Sending the last request again would
+        // resize the desktop back, and Display Control would make that
+        // odd width even.
+        XCTAssertNil(
+            keyframeRequest(
+                lastSent: retinaRequest,
+                isWindowMatchingInEffect: false,
+                reportedMonitors: [monitor(0, 0, 1921, 1080)],
+                graphicsOutputRect: rect(0, 0, 1921, 1080)
+            )
         )
     }
 
