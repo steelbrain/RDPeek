@@ -13,10 +13,12 @@ lightweight, and Mac-first.
   recent use
 - **Full-bleed sessions** — edge-to-edge video under a transparent titlebar,
   with an animated connecting overlay, a status pill, and a session menu
-- **Hardware-decoded video** — H.264 (AVC420/AVC444) via VideoToolbox,
-  presented on the display link for smooth pacing
-- **No resolution fiddling** — the remote desktop starts at your screen's
-  size and follows the window as you resize, HiDPI aware
+- **Hardware-decoded video** — H.264 (AVC420/AVC444) via
+  VideoToolbox, presented on the display link for smooth pacing
+- **Remote display selection** — view all server-reported displays or any
+  subset together, with their relative arrangement preserved
+- **Optional window matching** — preserve the remote layout by default, or
+  enable HiDPI-aware window size matching for a single-display session
 - **Your keyboard, their shortcuts** — while a session has focus, ⌘ and ⌃
   chords go to the remote desktop (⌘ maps to the Windows key, so ⌘R is
   Win+R), and modifier state survives focus changes without sticking
@@ -42,10 +44,27 @@ Requires macOS 14.0 or later. Free and open source.
 2. **Double-click a card** (or hover and hit the play button, or select it
    and press **Return**) to connect. If no password is stored, the session
    window asks you to sign in.
-3. The session window opens maximized; the remote desktop re-fits whenever
-   you resize the window. The **⋯ menu** in the titlebar holds clipboard,
-   audio, and display controls, the performance overlay, and Stats for
+3. The session window opens maximized. The **⋯ menu** in the titlebar holds clipboard,
+   audio, and window size controls, the performance overlay, and Stats for
    Nerds.
+
+Choose **Displays → All Displays** in the titlebar, or check individual displays to view
+a subset. At least one display stays selected. Selected displays retain their
+relative positions; gaps and excluded displays are black and do not accept
+pointer input. Display numbers follow the server's reported order and may
+differ from the remote OS's display numbers.
+
+The same controls apply to physical desktop-sharing sessions and virtual
+sessions, on any remote OS with a compatible RDP server. The server must expose
+the desired displays in the connected session. Connecting to a virtual desktop
+does not grant access to the machine's physical screens. If individual display
+information is unavailable, RDPeek shows the complete desktop. This feature
+selects which existing session displays to view; it does not create virtual
+monitors or change the server's display arrangement.
+
+**Match Window Size** is off by default to preserve the server's layout. Enable
+it for a single-display session to resize its virtual desktop with the window.
+It is unavailable while multiple displays are reported.
 
 Press **⌘?** in the app for the full shortcut list and usage details.
 
