@@ -335,6 +335,66 @@ final class SessionModelsTests: XCTestCase {
         )
     }
 
+    // MARK: - Connection configuration
+
+    func testEachAttemptAsksRDPKitForRDPeeksChoices() throws {
+        let target = try RDPConnectionTarget(host: "winbox", port: 3390)
+        let credentials = try XCTUnwrap(RDPCredentials.validated(username: "alice", domain: "CORP", password: "pw"))
+        let desktopSize = try RDPDesktopSize(width: 1440, height: 900)
+        let japanese = RDPKeyboard(layout: RDPKeyboardLayout(rawValue: 0x0411), type: .japanese, subType: 2)
+        func configuration(
+            legacyCredSSP: Bool = false,
+            audioPlaybackEnabled: Bool = false,
+            computerName: String? = "Studio"
+        ) -> RDPConnectionConfiguration {
+            .sessionAttempt(
+                target: target,
+                credentials: credentials,
+                timeoutSeconds: 25,
+                hideCertificateWarnings: true,
+                desktopSize: desktopSize,
+                keyboard: japanese,
+                audioPlaybackEnabled: audioPlaybackEnabled,
+                legacyCredSSP: legacyCredSSP,
+                computerName: computerName
+            )
+        }
+        let attempt = configuration()
+
+        // RDPKit tries the TCP connect again, as while macOS asks to allow
+        // local network access.
+        XCTAssertEqual(attempt.connectAttempts, 3)
+        XCTAssertEqual(attempt.connectRetryDelay, 1.3)
+        // A certificate that refuses ECDHE gets one more connection, with
+        // RSA key exchange.
+        XCTAssertEqual(attempt.legacyRSAKeyExchange, .fallback)
+        // An outdated CredSSP only with the user's agreement.
+        XCTAssertFalse(attempt.legacyCredSSP)
+        XCTAssertTrue(configuration(legacyCredSSP: true).legacyCredSSP)
+        // The clipboard channel always joins, and fetches nothing until the
+        // bridge applies the sharing choice.
+        XCTAssertTrue(attempt.clipboardEnabled)
+        XCTAssertFalse(attempt.clipboardFetchesRemoteCopies)
+        // The session runs until it ends, not for a number of frames, on
+        // the graphics path RDPKit picks.
+        XCTAssertNil(attempt.graphicsFrameCaptureLimit)
+        XCTAssertEqual(attempt.graphicsCapabilityProfile, .automatic)
+        // The PC's settings, the canvas's size, and the Mac's keyboard and
+        // name.
+        XCTAssertEqual(attempt.host, "winbox")
+        XCTAssertEqual(attempt.port, 3390)
+        XCTAssertEqual(attempt.credentials, credentials)
+        XCTAssertEqual(attempt.timeoutSeconds, 25)
+        XCTAssertTrue(attempt.hideCertificateWarnings)
+        XCTAssertEqual(attempt.desktopWidth, 1440)
+        XCTAssertEqual(attempt.desktopHeight, 900)
+        XCTAssertEqual(attempt.keyboard, japanese)
+        XCTAssertFalse(attempt.audioPlaybackEnabled)
+        XCTAssertTrue(configuration(audioPlaybackEnabled: true).audioPlaybackEnabled)
+        XCTAssertEqual(attempt.clientName, "Studio")
+        XCTAssertEqual(configuration(computerName: nil).clientName, "RDPeek")
+    }
+
     // MARK: - Attempt outcomes
 
     func testNoConnectFailureIsRetriedAsRDPKitTriedTheConnectAgain() {

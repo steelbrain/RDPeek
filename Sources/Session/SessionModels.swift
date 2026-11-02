@@ -444,6 +444,68 @@ enum SessionConnectRetry {
     }
 }
 
+extension RDPConnectionConfiguration {
+    /// What one connection attempt asks of RDPKit; the window adds the
+    /// handlers it runs the session with, for the certificate, the client
+    /// license, the clipboard and audio. `legacyCredSSP` accepts an
+    /// outdated CredSSP, for the attempt the user agreed to only.
+    /// `computerName` is the Mac's, or nil when it has none.
+    static func sessionAttempt(
+        target: RDPConnectionTarget,
+        credentials: RDPCredentials?,
+        timeoutSeconds: Int,
+        hideCertificateWarnings: Bool,
+        desktopSize: RDPDesktopSize,
+        keyboard: RDPKeyboard,
+        audioPlaybackEnabled: Bool,
+        legacyCredSSP: Bool,
+        computerName: String?
+    ) -> RDPConnectionConfiguration {
+        var configuration = RDPConnectionConfiguration(
+            target: target,
+            credentials: credentials,
+            timeoutSeconds: timeoutSeconds,
+            hideCertificateWarnings: hideCertificateWarnings,
+            graphicsFrameCaptureLimit: nil,
+            desktopSize: desktopSize,
+            // Always join the clipboard channel: SessionClipboard keeps both
+            // directions shut while sharing is off, so turning it on (or a
+            // temporary share) works without reconnecting. The cost: joining
+            // sends the mandatory empty Format List, and Windows empties its
+            // clipboard for it (checked on Windows 11; gnome-remote-desktop
+            // keeps its own).
+            clipboardEnabled: true,
+            // The server's first copy can come before the bridge attaches
+            // on the main thread, so nothing is fetched until it applies
+            // the sharing choice; on, fetching then gets a copy that came
+            // in between. A restart of the server's clipboard turns
+            // fetching off again until the bridge attaches again.
+            clipboardFetchesRemoteCopies: false,
+            audioPlaybackEnabled: audioPlaybackEnabled,
+            // RDPeek never exposes a graphics-profile picker: automatic lets
+            // RDPKit negotiate the best path per host (Windows included).
+            graphicsCapabilityProfile: .automatic,
+            // A certificate that refuses ECDHE gets a second connection
+            // within the run offering only RSA key exchange, before any
+            // credential is sent; never a redirection's target.
+            legacyRSAKeyExchange: .fallback,
+            // Off but for the attempt Connect Anyway starts: RDPKit refuses
+            // a server answering with CredSSP below 5 before sending any
+            // credential, and the ended session asks the user.
+            legacyCredSSP: legacyCredSSP,
+            // Servers list the session, and count per-device licenses, under
+            // the Mac's name; RDPKit cuts it to 15 characters.
+            clientName: computerName ?? "RDPeek"
+        )
+        configuration.keyboard = keyboard
+        // While macOS asks to allow local network access, the first
+        // connection into the local network fails as unreachable.
+        configuration.connectAttempts = SessionConnectRetry.attempts
+        configuration.connectRetryDelay = SessionConnectRetry.delay
+        return configuration
+    }
+}
+
 /// Why a session connects again on its own.
 enum SessionAutoRetryReason: Equatable {
     /// The server activated the session but showed no desktop in time.

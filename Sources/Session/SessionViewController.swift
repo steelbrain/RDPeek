@@ -893,48 +893,17 @@ final class SessionViewController: NSViewController {
         let keyboard = RDPMacKeyboardLayout.current()
         canvasView.keyboard = keyboard
         connectionRequestsAudio = audioPlaybackEnabled
-        var configuration = RDPConnectionConfiguration(
+        return .sessionAttempt(
             target: target,
             credentials: credentials,
             timeoutSeconds: draft.timeoutSeconds,
             hideCertificateWarnings: draft.hideCertificateWarnings,
-            graphicsFrameCaptureLimit: nil,
             desktopSize: desktopSize,
-            // Always join the clipboard channel: SessionClipboard keeps both
-            // directions shut while sharing is off, so turning it on (or a
-            // temporary share) works without reconnecting. The cost: joining
-            // sends the mandatory empty Format List, and Windows empties its
-            // clipboard for it (checked on Windows 11; gnome-remote-desktop
-            // keeps its own).
-            clipboardEnabled: true,
-            // The server's first copy can come before the bridge attaches
-            // on the main thread, so nothing is fetched until it applies
-            // the sharing choice; on, fetching then gets a copy that came
-            // in between. A restart of the server's clipboard turns
-            // fetching off again until the bridge attaches again.
-            clipboardFetchesRemoteCopies: false,
+            keyboard: keyboard,
             audioPlaybackEnabled: audioPlaybackEnabled,
-            // RDPeek never exposes a graphics-profile picker: automatic lets
-            // RDPKit negotiate the best path per host (Windows included).
-            graphicsCapabilityProfile: .automatic,
-            // A certificate that refuses ECDHE gets a second connection
-            // within the run offering only RSA key exchange, before any
-            // credential is sent; never a redirection's target.
-            legacyRSAKeyExchange: .fallback,
-            // Off but for the attempt Connect Anyway starts: RDPKit refuses
-            // a server answering with CredSSP below 5 before sending any
-            // credential, and the ended session asks the user.
             legacyCredSSP: legacyCredSSP,
-            // Servers list the session, and count per-device licenses, under
-            // the Mac's name; RDPKit cuts it to 15 characters.
-            clientName: SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "RDPeek"
+            computerName: SCDynamicStoreCopyComputerName(nil, nil) as String?
         )
-        configuration.keyboard = keyboard
-        // While macOS asks to allow local network access, the first
-        // connection into the local network fails as unreachable.
-        configuration.connectAttempts = SessionConnectRetry.attempts
-        configuration.connectRetryDelay = SessionConnectRetry.delay
-        return configuration
     }
 
     /// Runs the attempt on `session`. Its events, and what its handlers
