@@ -19,11 +19,12 @@
   those you check under Displays in the ⋯ menu or the Session menu,
   laid out as on the remote. Match Window Size pauses while it has
   more than one display, so its layout is kept.
-- The Session menu in the menu bar has the ⋯ menu's Share Clipboard,
-  Remote Audio, Match Window Size and Performance Overlay toggles, so
-  they work while the remote desktop has the keyboard.
+- The Session menu in the menu bar now also has the ⋯ menu's Share
+  Clipboard, Remote Audio, Match Window Size and Performance Overlay
+  toggles.
 - When the first video of a session fails to decode, the server is
-  asked for a fresh picture right away, not a few seconds later.
+  asked for a fresh picture as soon as it can take the request, not a
+  few seconds later.
 - With Match Window Size off, recovering from a video glitch keeps
   the remote desktop's size instead of returning it to the size the
   window last asked for.
