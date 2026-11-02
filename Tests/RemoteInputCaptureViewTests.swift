@@ -176,6 +176,17 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         XCTAssertEqual(harness.recorder.events, [.pointerMove(x: 99, y: 50), .pointerMove(x: 0, y: 99)])
     }
 
+    func testAPressInTheLetterboxSendsNoStrayRelease() {
+        // The server never saw the button go down, so it must not see it go up.
+        let harness = makeHarness()
+        harness.view.geometry = makeGeometry(frameSize: CGSize(width: 100, height: 100), in: harness.view)
+
+        harness.view.mouseDown(with: mouseEvent(.leftMouseDown, location: NSPoint(x: 20, y: 50)))
+        harness.view.mouseUp(with: mouseEvent(.leftMouseUp, location: NSPoint(x: 100, y: 50)))
+
+        XCTAssertEqual(harness.recorder.events, [])
+    }
+
     // MARK: - Pointer over chosen displays
 
     func testAMoveOverAHiddenDisplaySendsNothing() {
@@ -202,6 +213,16 @@ final class RemoteInputCaptureViewTests: XCTestCase {
             .pointerMove(x: 79, y: 50),
             .pointerButton(button: .left, isDown: false, x: 79, y: 50),
         ])
+    }
+
+    func testAPressOnAHiddenDisplaySendsNoStrayRelease() {
+        // The server never saw the press on a hidden display, so it must not see a release.
+        let harness = makeOuterTwoOfThreeHarness()
+
+        harness.view.mouseDown(with: mouseEvent(.leftMouseDown, location: NSPoint(x: 100, y: 50)))
+        harness.view.mouseUp(with: mouseEvent(.leftMouseUp, location: NSPoint(x: 40, y: 50)))
+
+        XCTAssertEqual(harness.recorder.events, [])
     }
 
     func testAScrollOverAHiddenDisplaySendsNothing() {

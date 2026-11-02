@@ -456,8 +456,15 @@ final class RemoteInputCaptureNSView: NSView {
         sendInput([inputState.pointerMove(to: point)])
     }
 
+    /// A press off the shown area goes nowhere. A release goes only for a button the server
+    /// saw go down, so a press dropped in a gap never sends a stray release; off the shown area
+    /// it goes at the nearest shown pixel, where the drag that led there stopped.
     private func sendPointerButton(_ button: RDPPointerButton, isDown: Bool, event: NSEvent) {
-        guard let inputEvent = inputState.pointerButton(button, isDown: isDown, at: remotePoint(from: event)) else {
+        guard isDown || inputState.isPointerButtonPressed(button) else {
+            return
+        }
+        let point = remotePoint(from: event, clampingToShownArea: isDown == false)
+        guard let inputEvent = inputState.pointerButton(button, isDown: isDown, at: point) else {
             return
         }
         let deferredKeyEvents = isDown ? deferredModifierKeys.flush(&inputState) : []
