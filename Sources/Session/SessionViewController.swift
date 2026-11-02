@@ -1909,7 +1909,10 @@ final class SessionViewController: NSViewController {
             if isVerified {
                 persistAcceptedCredentials(.save(key: key, password: draft.password))
             } else {
-                toast("Password not remembered: this server doesn't confirm sign-ins", systemImage: "key")
+                toast(
+                    "Password not remembered: this server doesn't confirm sign-ins. Save it in the PC's settings.",
+                    systemImage: "key"
+                )
             }
         case .delete:
             persistAcceptedCredentials(.delete(key: key))
