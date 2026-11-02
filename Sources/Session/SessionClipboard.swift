@@ -10,7 +10,7 @@ private let sessionRemoteFileDownloadLimits = RDPClipboardDownloadLimits()
 private let sessionStaleDownloadDirectoryAge: TimeInterval = 60 * 60
 
 /// Where the clipboard bridge sends: the session's `RDPClipboardSession`, or
-/// a test's recorder.
+/// a test's wrapper around one.
 protocol SessionClipboardSending: AnyObject, Sendable {
     /// Off while sharing is off, so the server's copies are not even
     /// fetched. Turned on, it fetches a copy the server announced while it
@@ -389,7 +389,13 @@ final class SessionClipboard {
             } catch {
                 outcome = .failure(error)
             }
-            self?.finishFileDownload(id, with: outcome)
+            guard let self else {
+                // Nothing pastes a download whose bridge went with its
+                // window.
+                try? FileManager.default.removeItem(at: directory)
+                return
+            }
+            finishFileDownload(id, with: outcome, in: directory)
         }
         fileDownload = SessionRemoteClipboardFileDownload(id: id, task: task, directory: directory)
     }
@@ -636,10 +642,16 @@ final class SessionClipboard {
 
     /// Puts the files of download `id` on the pasteboard, unless a newer
     /// copy discarded them, or says why it failed. Discarding a download
-    /// cancelled it and removed its folder, and RDPKit writes no file once
-    /// its task is cancelled.
-    private func finishFileDownload(_ id: UUID, with outcome: Result<RDPClipboardDownload, Error>) {
+    /// cancelled it and removed its folder, but a file RDPKit was writing
+    /// then still lands in `directory`, so a discarded download's folder is
+    /// removed again once its task ends.
+    private func finishFileDownload(
+        _ id: UUID,
+        with outcome: Result<RDPClipboardDownload, Error>,
+        in directory: URL
+    ) {
         guard let fileDownload, fileDownload.id == id else {
+            removeDownloadDirectory(directory)
             return
         }
         let download: RDPClipboardDownload

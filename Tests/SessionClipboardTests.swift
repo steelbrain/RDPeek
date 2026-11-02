@@ -3,21 +3,30 @@ import RDPKit
 import RDPKitTesting
 import XCTest
 
-/// The test server's session as the bridge sees it, for two orders the
+/// The test server's session as the bridge sees it, for three orders the
 /// in-memory server cannot set up, since it answers on a thread of its own:
 /// a copy that turning fetching on fetches comes, and is handed over,
 /// before `startFetchingRemoteCopies()` returns, as a fast server's can;
-/// and a download RDPKit ended for a newer copy reaches the bridge only
-/// once the bridge has cancelled it, after that copy.
+/// a download RDPKit ended for a newer copy reaches the bridge only once
+/// the bridge has cancelled it, after that copy; and a file RDPKit was
+/// writing as the bridge cancelled its download lands after the bridge
+/// removed the download's folder.
 private final class PacedSession: SessionClipboardSending, @unchecked Sendable {
     let server: RDPClipboardTestServer
     private let fetchesBeforeReturning: Bool
     private let endsDownloadsOnceCancelled: Bool
+    private let writesAFileOnceCancelled: Bool
 
-    init(server: RDPClipboardTestServer, fetchesBeforeReturning: Bool = false, endsDownloadsOnceCancelled: Bool = false) {
+    init(
+        server: RDPClipboardTestServer,
+        fetchesBeforeReturning: Bool = false,
+        endsDownloadsOnceCancelled: Bool = false,
+        writesAFileOnceCancelled: Bool = false
+    ) {
         self.server = server
         self.fetchesBeforeReturning = fetchesBeforeReturning
         self.endsDownloadsOnceCancelled = endsDownloadsOnceCancelled
+        self.writesAFileOnceCancelled = writesAFileOnceCancelled
     }
 
     private var session: RDPClipboardSession {
@@ -60,7 +69,7 @@ private final class PacedSession: SessionClipboardSending, @unchecked Sendable {
     }
 
     /// RDPKit's download, which, when told to, ends only once its task is
-    /// cancelled, however RDPKit ended it.
+    /// cancelled, however RDPKit ended it, and then writes one more file.
     func downloadRemoteFiles(
         _ plan: RDPClipboardDownloadPlan,
         copyNumber: Int,
@@ -83,6 +92,14 @@ private final class PacedSession: SessionClipboardSending, @unchecked Sendable {
         if endsDownloadsOnceCancelled {
             // Returns at once once the task is cancelled.
             try? await Task.sleep(nanoseconds: 10_000_000_000)
+        }
+        if writesAFileOnceCancelled {
+            // Once the main thread has left the turn that cancelled the
+            // download and removed its folder. A file landing while the
+            // folder is being removed keeps it the same way.
+            await MainActor.run {}
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try? writeFile(Data("late".utf8), directory.appendingPathComponent("late.bin", isDirectory: false))
         }
         return try outcome.get()
     }
@@ -1503,6 +1520,27 @@ final class SessionClipboardTests: XCTestCase {
         XCTAssertEqual(downloadRootContents(), [])
         XCTAssertEqual(pasteboard.string(forType: .string), "remote")
         XCTAssertEqual(toasts, ["Downloading older.bin", "Downloading newer.bin", "Remote text copied"])
+    }
+
+    /// A file RDPKit was still writing as a newer copy dropped its download
+    /// lands after the bridge removed the download's folder; the folder
+    /// goes again once the download ends.
+    func testAFileWrittenAsItsDownloadIsDroppedGoesWithItsFolder() async throws {
+        let clipboard = makeClipboard()
+        let server = try await connectServer(to: clipboard, attachesOnReady: false)
+        clipboard.attach(PacedSession(server: server, endsDownloadsOnceCancelled: true, writesAFileOnceCancelled: true))
+
+        try await copyFilesUnanswered([RDPClipboardLocalFile(fileName: "big.bin", contents: Data(count: 10))], on: server)
+        let download = try XCTUnwrap(serverHandOff.downloadTasks.last)
+        XCTAssertEqual(downloadRootContents().count, 1)
+        server.copyText("remote")
+        await settle(server)
+        await download.value
+
+        XCTAssertTrue(download.isCancelled)
+        XCTAssertNil(clipboard.fileDownloadTask)
+        XCTAssertEqual(downloadRootContents(), [])
+        XCTAssertEqual(pasteboard.string(forType: .string), "remote")
     }
 
     /// A local copy the poll has not published yet is older than a remote
