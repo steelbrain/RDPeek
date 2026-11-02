@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.3.0
+
+Connecting, input, session, and clipboard fixes, on RDPKit 0.7.0.
 
 ### Connecting
 
