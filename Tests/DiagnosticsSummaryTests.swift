@@ -1,4 +1,5 @@
 import RDPKit
+import RDPKitAppKit
 import XCTest
 
 final class ViewerMetricsSummaryTests: XCTestCase {

@@ -1,4 +1,5 @@
 import RDPKit
+import RDPKitAppKit
 import SwiftUI
 
 private func metricMilliseconds(_ value: Double?) -> String {

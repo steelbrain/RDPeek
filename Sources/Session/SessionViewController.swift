@@ -138,7 +138,7 @@ final class SessionViewController: NSViewController {
 
     private let canvasView = RemoteDesktopCanvasNSView()
     private let titlebarBackdrop = NSVisualEffectView()
-    private let frameClockView = FramePresentationClockNSView()
+    private let frameClockView = RDPFramePresentationClock()
     private var overlayHost: PassThroughHostingView<SessionOverlayRoot>?
     private var bannerHost: NSHostingView<SessionBannerRoot>?
     private var toastHost: PassThroughHostingView<SessionToastRoot>?
@@ -1334,16 +1334,13 @@ final class SessionViewController: NSViewController {
         if presentation.frame.contentKind == .video {
             keyframeRequestHold.recordDecodedVideo()
         }
-        guard hasPresentedFrame else {
+        // The first frame shows at once; later ones wait for the display's
+        // next refresh, unless there is no clock to wait for: none while the
+        // clock is off or the view has no window.
+        guard hasPresentedFrame, frameClockView.requestFrame() else {
             return applyFramePresentation(presentation)
         }
 
-        guard framePacing.hasDisplayLink else {
-            return applyFramePresentation(presentation)
-        }
-
-        // The display link idles until a frame waits for it.
-        frameClockView.requestFrame()
         if framePresentationBuffer.replacePendingPresentation(presentation) {
             let skippedAt = Date()
             renderMetricsStore.recordSkippedPresentationFrame(at: skippedAt)
