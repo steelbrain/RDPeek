@@ -10,6 +10,11 @@
 - Windows 11 sessions no longer end when the server confirms graphics
   with both AVC flags, and Network Level Authentication works with
   certificates signed with RSASSA-PSS and SHA-384 or SHA-512.
+- A remote computer that signs in with an outdated version of Network
+  Level Authentication, CredSSP 2, 3 or 4 without the 2018 update, is
+  refused before any password is sent. Connect Anyway, under the
+  message, signs in with the outdated version for that one connection
+  to that computer, which RDPeek does not retry on its own.
 - A password typed at sign-in is kept only when the server checked it
   before showing the desktop. On servers that don't, such as xrdp or a
   Windows PC set to the TLS security layer, a mistyped password is no
@@ -87,6 +92,9 @@
 - When the first video of a session fails to decode, the server is
   asked for a fresh picture as soon as it can take the request, not a
   few seconds later.
+- A session whose video arrives but never decodes now reconnects once,
+  as one that never shows the desktop does, before saying RDPeek could
+  not show the remote desktop.
 - With Match Window Size off, recovering from a video glitch keeps
   the remote desktop's size instead of returning it to the size the
   window last asked for.
@@ -121,7 +129,8 @@
   the remote clipboard restarts.
 - Files copied on the Mac reach the remote even when an older remote
   copy arrives while they are being read, and that copy no longer
-  replaces them on the Mac clipboard.
+  replaces them on the Mac clipboard. A copy made on the remote during
+  the read now always wins, and the files are not sent.
 - A remote file download under way when the server redirects the
   session, or when the remote clipboard restarts, ends at once instead
   of failing two minutes later.
@@ -130,6 +139,9 @@
   per file.
 - When clipboard access for RDPeek is off in System Settings, RDPeek
   says so instead of emptying the remote clipboard with each copy.
+- With sharing off too, emptying the remote clipboard, as password
+  managers do, clears the Mac clipboard while it still holds the copy
+  the session took from it, such as during Share for 30 Seconds.
 - Turning sharing off or copying something else stops reading copied
   files, and a copied file that grew past 32 MiB is no longer read
   whole.
