@@ -126,6 +126,17 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         )
     }
 
+    func testTurningMatchingOnSendsTheSameSizeAgain() {
+        // 2880x1800 at 200% went out, the user turned Match Window Size
+        // off, and the server moved to 1920x1080 on its own. Turned on
+        // again, matching must send the window's unchanged size for the
+        // desktop to fit it.
+        XCTAssertEqual(
+            resizeDecision(viewerRequest: retinaRequest, lastSent: retinaRequest, resends: true),
+            .send(retinaRequest)
+        )
+    }
+
     func testKeyframesAfterAPauseKeepTheScaleSentLast() {
         // Why the resend does not forget the last request: a keyframe
         // request would then send the server's 1920x1080 at 100%, while
@@ -423,7 +434,7 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
             isWindowMatchingInEffect: isInEffect,
             viewerRequest: viewerRequest,
             lastSent: lastSent,
-            resendsAfterPause: resends
+            resendsWindowSize: resends
         )
     }
 

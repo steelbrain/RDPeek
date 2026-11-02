@@ -75,10 +75,12 @@ final class SessionViewController: NSViewController {
     private var displaySelection = RemoteDisplaySelection.all
     private var pendingDisplayResizeTask: Task<Void, Never>?
     private var lastRequestedDisplayRequest: RDPDisplayRequest?
-    /// The server laid out several monitors since the last resize went out,
-    /// so the next one goes out even when it is the same. The last request
-    /// stays recorded: keyframe requests send it again at its own scale.
-    private var resendsAfterPause = false
+    /// The next resize goes out even when it is the size sent last: since
+    /// that went out, the server laid out several monitors, or Match Window
+    /// Size was turned off and on again, and the server may have left that
+    /// size meanwhile. The last request stays recorded: keyframe requests
+    /// send it again at its own scale.
+    private var resendsWindowSize = false
     /// The last resize went out, and the server has not answered it yet
     /// with a new layout: it still reports the size before. Keyframe
     /// requests then send that resize again, even with Match Window Size
@@ -1505,7 +1507,7 @@ final class SessionViewController: NSViewController {
         // or for a layout of its own that replaced it.
         isResizeInFlight = false
         if SessionDisplayControlPolicy.reportsSeveralMonitors(monitors) {
-            resendsAfterPause = true
+            resendsWindowSize = true
         }
         reportedMonitors = monitors
         scheduleAutoDisplaySizeUpdate()
@@ -1546,7 +1548,7 @@ final class SessionViewController: NSViewController {
             isWindowMatchingInEffect: isWindowMatchingInEffect,
             viewerRequest: viewerRequest,
             lastSent: lastRequestedDisplayRequest,
-            resendsAfterPause: resendsAfterPause
+            resendsWindowSize: resendsWindowSize
         )
     }
 
@@ -1566,7 +1568,7 @@ final class SessionViewController: NSViewController {
         }
         lastRequestedDisplayRequest = request
         isResizeInFlight = true
-        resendsAfterPause = false
+        resendsWindowSize = false
         requestedDesktopSizeLabel = request.label
     }
 
@@ -1642,11 +1644,17 @@ final class SessionViewController: NSViewController {
         if resetLastRequestedSize {
             lastRequestedDisplayRequest = nil
             isResizeInFlight = false
-            resendsAfterPause = false
+            resendsWindowSize = false
         }
     }
 
     func setFollowWindowSize(_ enabled: Bool) {
+        // While matching was off, the server may have changed size on its
+        // own, so turning it on sends the window's size even when it was
+        // the last one sent.
+        if enabled, followsWindowSize == false {
+            resendsWindowSize = true
+        }
         followsWindowSize = enabled
         if enabled {
             scheduleAutoDisplaySizeUpdate()
