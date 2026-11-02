@@ -36,15 +36,27 @@
   layouts put letters on other keys. Latvian sessions get US English,
   whose letters match it. A Windows session left signed in from before
   keeps its old layout, so sign out of it once.
+- Albanian, Hungarian – QWERTY, Lithuanian, Lithuanian – ĄŽERTY and
+  Kabyle – AZERTY get a remote layout with their letters on the same
+  keys, so ⌃ and ⌘ shortcuts land where they are labelled there too.
 - On JIS keyboards, 英数 and かな no longer type a space on the remote,
   and the keypad comma types “,”.
+- With a Japanese input source that types with the ABC or US layout,
+  the remote desktop gets a Japanese keyboard, 106/109-key on a JIS
+  keyboard and 101-key on others, so the remote's Japanese input method
+  takes the keys: 英数 and かな turn it off and on, and on other
+  keyboards left ⌥ with the key left of 1 does.
 - Releasing ⌘ or right ⌥ pressed while ⇧, ⌃ or left ⌥ was down, or
   during a drag, no longer taps the Windows key or Alt.
+- ⌘-scroll now reaches the remote as the Windows key with the wheel,
+  and releasing ⌘ after it taps nothing.
 - A Caps Lock change made while a menu was open reaches the remote
   with the next key, and keys held as a menu opens no longer stay down
   on the remote.
 - Scrolling a session window in the background scrolls what is under
   the pointer, also on servers that scroll at their own pointer.
+- The remote desktop's top row of pixels takes the pointer, hovers and
+  clicks also when the desktop fills the window.
 - A dead key typed right after one that went as an Alt shortcut
   composes the next key, also on layouts such as German – Standard.
 
