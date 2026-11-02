@@ -2,6 +2,9 @@ import AppKit
 import RDPKit
 
 private let sessionMaximumLocalClipboardFileBytes = 32 * 1024 * 1024
+/// How much of a copied local file is read at once: a cancelled read stops
+/// between reads.
+private let sessionLocalFileReadChunkByteCount = 1024 * 1024
 /// The most asked for in one FILECONTENTS_RANGE request; servers may send
 /// less anyway. Half a MiB arrives within the timeout down to about 4 KB/s,
 /// and costs a round trip per range: 64 for the 32 MiB limit.
@@ -471,7 +474,9 @@ final class SessionClipboard {
             // Reading up to 32 MiB, or a file iCloud has to download first,
             // on the main thread would stall the window and its input. A
             // newer local copy, remote clipboard, or sharing turned off
-            // cancels the publish, and the read with it.
+            // cancels the publish, and the read stops between 1 MiB
+            // chunks; a file iCloud still has to download blocks it until
+            // the file is available.
             localFileReadAnnounces = announce
             localFileRead = Task { [weak self] in
                 let read = Task.detached(priority: .userInitiated) {
@@ -632,6 +637,8 @@ final class SessionClipboard {
                 }
                 totalByteCount += contents.count
                 files.append(RDPClipboardLocalFile(fileName: fileName, contents: contents))
+            } catch is CancellationError {
+                return nil
             } catch {
                 return .unsupported("Local file clipboard could not be read; remote clipboard cleared")
             }
@@ -642,13 +649,39 @@ final class SessionClipboard {
 
     /// The contents of `fileURL`, or nil when it holds more than
     /// `maximumByteCount` bytes, of which no more than one past that is read.
+    /// Throws `CancellationError` once the read is cancelled.
     nonisolated static func fileContents(of fileURL: URL, upTo maximumByteCount: Int) throws -> Data? {
         let fileHandle = try FileHandle(forReadingFrom: fileURL)
         defer {
             try? fileHandle.close()
         }
-        let contents = try fileHandle.read(upToCount: maximumByteCount + 1) ?? Data()
-        return contents.count <= maximumByteCount ? contents : nil
+        return try contents(
+            of: fileHandle,
+            upTo: maximumByteCount,
+            chunkByteCount: sessionLocalFileReadChunkByteCount
+        )
+    }
+
+    /// What `fileHandle` holds, read `chunkByteCount` bytes at a time, or
+    /// nil when it holds more than `maximumByteCount` bytes, of which no
+    /// more than one past that is read. Between chunks, throws
+    /// `CancellationError` once the read is cancelled.
+    nonisolated static func contents(
+        of fileHandle: FileHandle,
+        upTo maximumByteCount: Int,
+        chunkByteCount: Int
+    ) throws -> Data? {
+        var data = Data()
+        // A byte past the limit tells a file that grew past it.
+        while data.count <= maximumByteCount {
+            try Task.checkCancellation()
+            let byteCount = min(chunkByteCount, maximumByteCount + 1 - data.count)
+            guard let chunk = try fileHandle.read(upToCount: byteCount), chunk.isEmpty == false else {
+                break
+            }
+            data.append(chunk)
+        }
+        return data.count <= maximumByteCount ? data : nil
     }
 
     // MARK: - Remote file downloads

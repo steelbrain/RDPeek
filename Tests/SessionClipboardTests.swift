@@ -850,6 +850,19 @@ final class SessionClipboardTests: XCTestCase {
         XCTAssertEqual(try SessionClipboard.fileContents(of: fileURL, upTo: 11), Data(count: 11))
         let emptyURL = try makeLocalFile(named: "empty.bin", contents: Data())
         XCTAssertEqual(try SessionClipboard.fileContents(of: emptyURL, upTo: 0), Data())
+
+        // Read a chunk at a time, it still reads no more than a byte past.
+        let largeHandle = try FileHandle(forReadingFrom: makeLocalFile(named: "large.bin", contents: Data(count: 100)))
+        defer {
+            try? largeHandle.close()
+        }
+        XCTAssertNil(try SessionClipboard.contents(of: largeHandle, upTo: 10, chunkByteCount: 4))
+        XCTAssertEqual(try largeHandle.offset(), 11)
+        let fullHandle = try FileHandle(forReadingFrom: makeLocalFile(named: "full.bin", contents: Data(count: 10)))
+        defer {
+            try? fullHandle.close()
+        }
+        XCTAssertEqual(try SessionClipboard.contents(of: fullHandle, upTo: 10, chunkByteCount: 4), Data(count: 10))
     }
 
     /// A read whose publish was cancelled, by a newer copy or sharing
@@ -865,6 +878,30 @@ final class SessionClipboardTests: XCTestCase {
         read.cancel()
         let stopped = await read.value
         XCTAssertTrue(stopped)
+    }
+
+    /// Nor does it read the rest of a file it has begun: it stops at the
+    /// next chunk. A pipe stands in for the file, so the read waits for
+    /// each chunk the test writes.
+    func testACancelledLocalFileReadStopsBetweenChunksOfAFile() async throws {
+        let pipe = Pipe()
+        let chunk = Data("abcd".utf8)
+        let reader = pipe.fileHandleForReading
+        let read = Task.detached {
+            Result { try SessionClipboard.contents(of: reader, upTo: 100, chunkByteCount: chunk.count) }
+        }
+        try pipe.fileHandleForWriting.write(contentsOf: chunk)
+        // Cancelled only once the first chunk has been read.
+        while hasBytesToRead(reader) {
+            await Task.yield()
+        }
+        read.cancel()
+        try pipe.fileHandleForWriting.write(contentsOf: chunk)
+        try pipe.fileHandleForWriting.close()
+        let result = await read.value
+        XCTAssertThrowsError(try result.get()) { error in
+            XCTAssertTrue(error is CancellationError, "\(error)")
+        }
     }
 
     // MARK: - Remote files
@@ -1463,6 +1500,12 @@ final class SessionClipboardTests: XCTestCase {
     /// What the download root holds, nothing when it was never made.
     private func downloadRootContents() -> [String] {
         (try? FileManager.default.contentsOfDirectory(atPath: downloadRoot.path)) ?? []
+    }
+
+    /// Whether `fileHandle` has bytes waiting that no read has taken yet.
+    private func hasBytesToRead(_ fileHandle: FileHandle) -> Bool {
+        var descriptor = pollfd(fd: fileHandle.fileDescriptor, events: Int16(POLLIN), revents: 0)
+        return Darwin.poll(&descriptor, 1, 0) > 0
     }
 
     private func makeLocalFile(named fileName: String, contents: Data) throws -> URL {
