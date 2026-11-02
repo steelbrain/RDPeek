@@ -1,9 +1,12 @@
 import AppKit
+import RDPKit
+import RDPKitAppKit
 import XCTest
 
-/// RDPeek's side of the clipboard: the clearing of what earlier runs left.
-/// The bridge is RDPKitAppKit's `RDPPasteboardClipboard`, which RDPKit's
-/// `PasteboardClipboardTests` test against RDPeek's toasts.
+/// RDPeek's side of the clipboard: the toast each event of the bridge shows,
+/// and the clearing of what earlier runs left. The bridge is RDPKitAppKit's
+/// `RDPPasteboardClipboard`, which RDPKit's `PasteboardClipboardTests` test
+/// against these same toasts.
 @MainActor
 final class SessionClipboardTests: XCTestCase {
     /// A pasteboard and download root of the test's own, so tests never
@@ -24,6 +27,79 @@ final class SessionClipboardTests: XCTestCase {
         pasteboard = nil
         try? FileManager.default.removeItem(at: downloadRoot)
         downloadRoot = nil
+    }
+
+    // MARK: - Toasts
+
+    /// Each event, with each reason it carries, shows the toast RDPeek's own
+    /// bridge showed for it, word for word.
+    func testEachClipboardEventShowsRDPeeksToast() {
+        let url = URL(fileURLWithPath: "/tmp/notes.txt")
+        let copied = "doc.on.clipboard"
+        let synced = "doc.on.clipboard.fill"
+        let warning = "exclamationmark.triangle"
+        let shown: [(RDPPasteboardClipboard.Event, String, String)] = [
+            (.localTextShared, "Clipboard synced", synced),
+            (.localClipboardEmpty, "Clipboard has no text or files; remote clipboard cleared", copied),
+            (.localTextTooLarge, "Local text is too large to sync; remote clipboard cleared", warning),
+            (.localFilesShared(count: 1), "1 file shared to remote", synced),
+            (.localFilesShared(count: 3), "3 files shared to remote", synced),
+            (.localFilesNotShared(.notARegularFile(url)), "Local clipboard has non-file items; remote clipboard cleared", warning),
+            (.localFilesNotShared(.invalidFileName(url)), "Local file clipboard was not shared", warning),
+            (.localFilesNotShared(.unreadable(url)), "Local file clipboard could not be read; remote clipboard cleared", warning),
+            (.localFilesNotShared(.totalByteLimitExceeded), "Local clipboard files exceed 32 MiB; remote clipboard cleared", warning),
+            (.pasteboardAccessDenied, "Clipboard access is off for RDPeek in System Settings", "hand.raised"),
+            (.upToDate, "Clipboard is up to date", synced),
+            (.remoteTextCopied, "Remote text copied", copied),
+            (.remoteCopyUnavailable, "Remote copy could not be shared", warning),
+            (.remoteClipboardEmptied(clearedHere: true), "Remote clipboard emptied; cleared on this Mac too", copied),
+            (.remoteFilesRefused(.emptyFileList), "Remote file clipboard is empty", warning),
+            (.remoteFilesRefused(.containsOnlyDirectories), "Remote folders have no files", warning),
+            (.remoteFilesRefused(.invalidFileIndex), "Remote file index is not valid", warning),
+            (.remoteFilesRefused(.totalByteLimitExceeded), "Remote files exceed 32 MiB", warning),
+            (.remoteFilesRefused(.fileCountLimitExceeded), "Remote copy has more than 1,000 files", warning),
+            (.downloadProgress(progress(file: 0, of: 1, named: "report.pdf")), "Downloading report.pdf", "arrow.down.doc"),
+            (.downloadProgress(progress(file: 4, of: 20, named: "4.txt")), "Downloading file 5 of 20", "arrow.down.doc"),
+            (.remoteFilesCopied(download(["a.txt"], leavesOutFolders: false)), "Remote file copied: a.txt", copied),
+            (
+                .remoteFilesCopied(download(["a.txt"], leavesOutFolders: true)),
+                "Remote file copied without its folder: a.txt",
+                copied
+            ),
+            (.remoteFilesCopied(download(["a.txt", "b.txt"], leavesOutFolders: false)), "2 remote files copied", copied),
+            (
+                .remoteFilesCopied(download(["a.txt", "b.txt"], leavesOutFolders: true)),
+                "2 remote files copied without their folders",
+                copied
+            ),
+            (.downloadFailed(.download(.timedOut)), "Remote file transfer timed out", warning),
+            (.downloadFailed(.download(.refused)), "Remote file transfer failed", warning),
+            (.downloadFailed(.download(.incomplete)), "Remote file transfer was incomplete", warning),
+            (.downloadFailed(.download(.totalByteLimitExceeded)), "Remote files exceed 32 MiB", warning),
+            (.downloadFailed(.folderNotCreated), "Remote files could not be prepared", warning),
+            (.downloadFailed(.notSaved), "Remote file could not be saved", warning),
+            (.downloadFailed(.clipboardChanged), "Clipboard changed; remote files were not copied", warning),
+            (.downloadFailed(.pasteboardRefused), "Remote files could not be copied", warning),
+            (.temporarySharingStarted, "Sharing clipboard for 30 seconds", "clock"),
+            (.temporarySharingEnded, "Clipboard sharing ended", copied),
+        ]
+        for (event, text, systemImage) in shown {
+            let toast = SessionClipboard.toast(for: event)
+            XCTAssertEqual(toast?.text, text, "\(event)")
+            XCTAssertEqual(toast?.systemImage, systemImage, "\(event)")
+        }
+
+        // The server's clipboard emptied while the pasteboard holds something
+        // else, and the two reasons the bridge never reports, which a newer
+        // copy or the session's end say themselves.
+        let silent: [RDPPasteboardClipboard.Event] = [
+            .remoteClipboardEmptied(clearedHere: false),
+            .downloadFailed(.download(.replaced)),
+            .downloadFailed(.download(.sessionEnded)),
+        ]
+        for event in silent {
+            XCTAssertNil(SessionClipboard.toast(for: event), "\(event)")
+        }
     }
 
     // MARK: - Earlier runs' downloads
@@ -70,6 +146,23 @@ final class SessionClipboardTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    private func progress(file offset: Int, of count: Int, named fileName: String) -> RDPClipboardDownloadProgress {
+        RDPClipboardDownloadProgress(
+            fileOffset: offset,
+            fileCount: count,
+            fileName: fileName,
+            receivedByteCount: 0,
+            fileByteCount: nil
+        )
+    }
+
+    private func download(_ fileNames: [String], leavesOutFolders: Bool) -> RDPClipboardDownload {
+        RDPClipboardDownload(
+            fileURLs: fileNames.map { downloadRoot.appendingPathComponent($0, isDirectory: false) },
+            leavesOutFolders: leavesOutFolders
+        )
+    }
 
     private func fileExists(_ url: URL) -> Bool {
         FileManager.default.fileExists(atPath: url.path)
