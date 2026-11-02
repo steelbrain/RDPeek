@@ -10,6 +10,41 @@
 - Windows 11 sessions no longer end when the server confirms graphics
   with both AVC flags, and Network Level Authentication works with
   certificates signed with RSASSA-PSS and SHA-384 or SHA-512.
+- A password typed at sign-in is kept only when the server checked it
+  before showing the desktop. On servers that don't, such as xrdp or
+  Windows without Network Level Authentication, a mistyped password is
+  no longer remembered or offered to other PCs; save the password in
+  the PC's settings instead.
+- Remember in Keychain on the sign-in sheet applies to the PC's own
+  account only, and a PC added with just a host takes the account you
+  sign in with, so its next connection doesn't ask again.
+- Unchecking Remember in Keychain at sign-in forgets the saved
+  password even when RDPeek couldn't read it, and the sign-in sheet
+  says when the Keychain refused access.
+- A password changed in a PC's settings is used by its open window
+  from the next connection.
+- Cancelling and reconnecting while macOS asks to allow Keychain
+  access no longer asks a second time.
+- A client license the server issues is saved as soon as the session
+  starts.
+
+### Remote input
+
+- ⌃ and ⌘ shortcuts land on the keys they are labelled on with
+  Turkish F, German – Standard, Slovenian – QWERTZ, ABC – QWERTZ,
+  ABC – AZERTY, Romanian, Finnish – Extended and Latvian, whose remote
+  layouts put letters on other keys.
+- On JIS keyboards, 英数 and かな no longer type a space on the remote,
+  and the keypad comma types “,”.
+- Releasing ⌘ or right ⌥ pressed while ⇧, ⌃ or left ⌥ was down, or
+  during a drag, no longer taps the Windows key or Alt.
+- A Caps Lock change made while a menu was open reaches the remote
+  with the next key, and keys held as a menu opens no longer stay down
+  on the remote.
+- Scrolling a session window in the background scrolls what is under
+  the pointer, also on servers that scroll at their own pointer.
+- A dead key typed right after one that went as an Alt shortcut
+  composes the next key, as on German – Standard.
 
 ### Sessions
 
@@ -31,6 +66,14 @@
 - Turning Match Window Size back on fits the remote desktop to the
   window again, even when the remote desktop changed its size while it
   was off.
+- Clicks and scrolls reach the remote desktop as soon as it appears,
+  instead of being lost while the connecting screen fades out.
+- The Stats for Nerds window's title follows the PC's name when you
+  rename it.
+- Moving a session window between displays of different resolutions
+  no longer briefly animates the remote desktop.
+- A window whose PC was deleted no longer offers to remember a
+  password.
 
 ### Clipboard
 
@@ -40,6 +83,37 @@
   saved over another whose name the Mac treats as the same.
 - Remote copies keep coming after one that failed to arrive, or after
   the remote clipboard restarts.
+- Files copied on the Mac reach the remote even when an older remote
+  copy arrives while they are being read, and that copy no longer
+  replaces them on the Mac clipboard.
+- A remote file download under way when the server redirects the
+  session, or when the remote clipboard restarts, ends at once instead
+  of failing two minutes later.
+- A remote copy of more than 1,000 files is refused with a notice, and
+  a copy of many files shows its progress a few times instead of once
+  per file.
+- When clipboard access for RDPeek is off in System Settings, RDPeek
+  says so instead of emptying the remote clipboard with each copy.
+- Turning sharing off or copying something else stops reading a copied
+  file, such as one iCloud is still downloading.
+- Remote downloads left by an earlier run are removed once they are an
+  hour old, so a second copy of RDPeek no longer deletes the files the
+  first is downloading.
+
+### Connection Center
+
+- Edit PC… (⌘E) and Duplicate PC (⌘D) in the File menu act on the
+  selected PC.
+- Saving or deleting a PC no longer freezes RDPeek while a Keychain
+  prompt waits; the editor's buttons wait for it instead.
+- A PC can be saved when the editor could not read its password, and a
+  password typed while a session turned on Remember is the one kept.
+- A password a session saves just as its PC is deleted is removed too,
+  and deleting one of two PCs that share an account no longer gives the
+  other the deleted one's password saved by RDPeek 1.0.
+- An unreadable list of saved PCs is reported as kept unchanged,
+  instead of showing No PCs Yet.
+- A card's hidden play button is no longer an invisible Tab stop.
 
 ### Under the hood
 
