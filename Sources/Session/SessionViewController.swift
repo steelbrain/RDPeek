@@ -53,8 +53,6 @@ final class SessionViewController: NSViewController {
     /// The automatic retries left to the connection the user started, and
     /// whether its sign-in was dealt with.
     private var attemptBudget = SessionAttemptBudget()
-    /// The client license the connection the user started presents.
-    private var clientLicense: SessionClientLicense
     private var isConnecting = false
     private var hasEverPresentedFrame = false
     private var isAutoRetryPending = false
@@ -157,7 +155,6 @@ final class SessionViewController: NSViewController {
         self.launchStore = launchStore
         self.credentialStore = credentialStore
         self.credentialCache = credentialCache
-        clientLicense = SessionClientLicense(key: ClientLicenseStoreKey(identity: draft.identity))
         clipboard = SessionClipboard(isSharingEnabled: draft.clipboardSharingEnabled)
         audioPlaybackEnabled = draft.audioPlaybackEnabled
         super.init(nibName: nil, bundle: nil)
@@ -795,12 +792,6 @@ final class SessionViewController: NSViewController {
         attemptBudget.userStarted()
         isAutoRetryPending = false
         autoRetryReason = nil
-        // A license read still under way for this sign-in is waited on, not
-        // read again.
-        let clientLicenseKey = ClientLicenseStoreKey(identity: draft.identity)
-        if clientLicense.key != clientLicenseKey || clientLicense.isKnown {
-            clientLicense = SessionClientLicense(key: clientLicenseKey)
-        }
         connect(using: credentialSource(remembersPassword: draft.rememberPassword))
     }
 
@@ -941,40 +932,29 @@ final class SessionViewController: NSViewController {
     }
 
     private func startSessionThread(
-        configuration baseConfiguration: RDPConnectionConfiguration,
+        configuration: RDPConnectionConfiguration,
         sink: SessionMainActorSink,
         liveReport: RDPLiveConnectionReport,
         cancellation: RDPConnectionCancellation
     ) {
         let clientLicenseStore = clientLicenseStore
-        let clientLicense = clientLicense
-        let saveIssuedClientLicense: @Sendable (RDPStoredClientLicense) -> Void = { license in
-            try? clientLicenseStore.saveLicense(license, for: clientLicense.key)
-        }
+        let clientLicenseKey = ClientLicenseStoreKey(identity: draft.identity)
         let trustedCertificateStore = trustedCertificateStore
         let acceptsUntrustedCertificates = draft.hideCertificateWarnings
         let remoteAudioPlayer = remoteAudioPlayer
-        let port = baseConfiguration.port
+        let port = configuration.port
         // The desktop this attempt connects with, at the scale it connects
         // with: what the server has until Display Control resizes it.
         let connectLayout = RDPDisplayRequest(
-            width: UInt32(baseConfiguration.desktopWidth),
-            height: UInt32(baseConfiguration.desktopHeight),
-            scaleFactors: baseConfiguration.scaleFactors
+            width: UInt32(configuration.desktopWidth),
+            height: UInt32(configuration.desktopHeight),
+            scaleFactors: configuration.scaleFactors
         )
         // RDPSessionClient.run blocks for the whole session and waits on
         // the decode queue, so it gets its own thread rather than pinning a
         // Swift concurrency worker per session, which could starve the
         // decode drain.
         let sessionThread = Thread {
-            var configuration = baseConfiguration
-            // Read here, not on the main thread: the Keychain can block on
-            // its access-approval dialog. No connection deadline runs yet.
-            // Automatic retries present what the first attempt read. A
-            // license the server refuses, RDPKit connects again without.
-            configuration.storedClientLicense = clientLicense.license {
-                try? clientLicenseStore.license(for: clientLicense.key)
-            }
             var keyframeRequests = RDPKeyframeRequestThrottle()
             // The monitors and graphics output size the server reported
             // last, so the main thread hears of a new layout once, not with
@@ -1076,12 +1056,6 @@ final class SessionViewController: NSViewController {
                 // redirection the main thread hears of first does not move
                 // on, as it does the live report.
                 onInputReady: { session in
-                    // Licensing ends before activation; the license is saved
-                    // now rather than when the session ends, which a quit or
-                    // a crash could prevent.
-                    if let license = liveReport.snapshot?.rdpIssuedClientLicense {
-                        clientLicense.issue(license, save: saveIssuedClientLicense)
-                    }
                     sink.apply { controller in
                         controller.sessionActivated(session)
                     }
@@ -1144,18 +1118,27 @@ final class SessionViewController: NSViewController {
                         controller.receiveCertificate(info, port: port, refusal: refusal)
                     }
                 },
+                // Read only once a server starts licensing, on this thread,
+                // not the main one: the Keychain can block on its
+                // access-approval dialog, and RDPKit starts the connection's
+                // next deadline once the read returns. A license the server
+                // refuses, RDPKit connects again without.
+                storedClientLicenseProvider: {
+                    try? clientLicenseStore.license(for: clientLicenseKey)
+                },
+                // Saved as it arrives, before the session starts, so it
+                // stays valid however the session ends, a cancel or a crash
+                // included; RDPKit's deadline waits for the Keychain here
+                // too.
+                onClientLicenseIssued: { license in
+                    try? clientLicenseStore.saveLicense(license, for: clientLicenseKey)
+                },
                 onWireReceive: { sample in
                     wireReceiveCoalescer.record(sample)
                 },
                 liveReport: liveReport,
                 cancellation: cancellation
             )
-            // A license the server issued stays valid even when closing the
-            // window cancelled the session; the next connection presents it.
-            // One issued after activation, on a reactivation, is saved here.
-            if let license = report.rdpIssuedClientLicense {
-                clientLicense.issue(license, save: saveIssuedClientLicense)
-            }
             guard cancellation.isCancelled == false else {
                 return
             }

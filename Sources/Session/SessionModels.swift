@@ -1,5 +1,4 @@
 import Foundation
-import os
 import RDPKit
 
 /// The session-opening surface the device list needs, as a seam so tests
@@ -595,76 +594,6 @@ struct SessionAttemptBudget {
         }
         hasDecidedSignIn = true
         return true
-    }
-}
-
-/// The client license the attempts of a connection the user started
-/// present, and the licenses servers issue them. The Keychain is read
-/// once, by the first attempt that presents a license, on its session
-/// thread; a read cannot be stopped, so a caller meanwhile waits for its
-/// answer rather than reading again, which could ask the user to allow
-/// access again. A license a server issues replaces it for later attempts,
-/// and is saved once, in the order servers issued them, off the session
-/// thread: the write can block on the access-approval dialog.
-final class SessionClientLicense: Sendable {
-    private enum State {
-        case unread
-        case known(RDPStoredClientLicense?)
-    }
-
-    let key: ClientLicenseStoreKey
-    /// Held for the Keychain read.
-    private let readLock = NSLock()
-    private let state = OSAllocatedUnfairLock(initialState: State.unread)
-    private let lastIssued = OSAllocatedUnfairLock<RDPStoredClientLicense?>(initialState: nil)
-    private let saveQueue = DispatchQueue(label: "RDPeek.client-license", qos: .utility)
-
-    init(key: ClientLicenseStoreKey) {
-        self.key = key
-    }
-
-    /// Whether the license is known: read, or issued.
-    var isKnown: Bool {
-        state.withLock { state in
-            if case .known = state {
-                return true
-            }
-            return false
-        }
-    }
-
-    /// The license to present. The first call reads it with `read`.
-    func license(reading read: () -> RDPStoredClientLicense?) -> RDPStoredClientLicense? {
-        readLock.withLock {
-            if case let .known(license) = state.withLock({ $0 }) {
-                return license
-            }
-            let stored = read()
-            return state.withLock { state in
-                // A license issued during the read is the newer one.
-                if case let .known(issued) = state {
-                    return issued
-                }
-                state = .known(stored)
-                return stored
-            }
-        }
-    }
-
-    /// A server issued `license`: later attempts present it, and `save`
-    /// runs for it unless it was issued last time too.
-    func issue(_ license: RDPStoredClientLicense, save: @escaping @Sendable (RDPStoredClientLicense) -> Void) {
-        state.withLock { $0 = .known(license) }
-        let saveQueue = saveQueue
-        lastIssued.withLock { lastIssued in
-            guard lastIssued != license else {
-                return
-            }
-            lastIssued = license
-            saveQueue.async {
-                save(license)
-            }
-        }
     }
 }
 

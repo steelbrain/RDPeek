@@ -1,4 +1,3 @@
-import os
 import RDPKit
 import XCTest
 
@@ -677,98 +676,6 @@ final class SessionModelsTests: XCTestCase {
         XCTAssertTrue(budget.sessionActivated())
     }
 
-    // MARK: - Client license
-
-    func testTheClientLicenseIsReadOnceForEveryAttempt() {
-        let clientLicense = SessionClientLicense(key: ClientLicenseStoreKey(identity: RDPConnectionIdentity(host: "winbox")))
-        let stored = makeClientLicense(1)
-        var reads = 0
-
-        XCTAssertFalse(clientLicense.isKnown)
-        for _ in 0 ..< 3 {
-            XCTAssertEqual(clientLicense.license { reads += 1; return stored }, stored)
-        }
-        XCTAssertEqual(reads, 1)
-        XCTAssertTrue(clientLicense.isKnown)
-    }
-
-    func testAReadUnderWayIsWaitedOnRatherThanRepeated() {
-        let clientLicense = SessionClientLicense(key: ClientLicenseStoreKey(identity: RDPConnectionIdentity(host: "winbox")))
-        let stored = makeClientLicense(1)
-        let reads = OSAllocatedUnfairLock(initialState: 0)
-        let readStarted = DispatchSemaphore(value: 0)
-        let finishRead = DispatchSemaphore(value: 0)
-        let secondCaller = OSAllocatedUnfairLock<thread_act_t>(initialState: 0)
-        let secondCalls = DispatchSemaphore(value: 0)
-        let secondRead = DispatchSemaphore(value: 0)
-        let bothRead = DispatchGroup()
-
-        bothRead.enter()
-        DispatchQueue.global().async {
-            _ = clientLicense.license {
-                reads.withLock { $0 += 1 }
-                readStarted.signal()
-                finishRead.wait()
-                return stored
-            }
-            bothRead.leave()
-        }
-        readStarted.wait()
-        let second = OSAllocatedUnfairLock<RDPStoredClientLicense?>(initialState: nil)
-        bothRead.enter()
-        DispatchQueue.global().async {
-            secondCaller.withLock { $0 = pthread_mach_thread_np(pthread_self()) }
-            secondCalls.signal()
-            let license = clientLicense.license {
-                reads.withLock { $0 += 1 }
-                secondRead.signal()
-                return nil
-            }
-            second.withLock { $0 = license }
-            bothRead.leave()
-        }
-        // The first read goes on until the second caller is blocked waiting
-        // for it, or has read for itself.
-        secondCalls.wait()
-        let secondThread = secondCaller.withLock { $0 }
-        let deadline = DispatchTime.now() + 5
-        while secondRead.wait(timeout: .now() + .milliseconds(1)) == .timedOut, isBlocked(secondThread) == false {
-            if DispatchTime.now() > deadline {
-                XCTFail("The second caller neither waited nor read")
-                break
-            }
-        }
-        finishRead.signal()
-
-        XCTAssertEqual(bothRead.wait(timeout: .now() + 5), .success)
-        XCTAssertEqual(reads.withLock { $0 }, 1)
-        XCTAssertEqual(second.withLock { $0 }, stored)
-    }
-
-    func testAnIssuedLicenseIsPresentedNextAndSavedOnce() {
-        let clientLicense = SessionClientLicense(key: ClientLicenseStoreKey(identity: RDPConnectionIdentity(host: "winbox")))
-        let issued = makeClientLicense(2)
-        let newer = makeClientLicense(3)
-        let saved = OSAllocatedUnfairLock<[RDPStoredClientLicense]>(initialState: [])
-        let allSaved = expectation(description: "Both licenses saved")
-        allSaved.expectedFulfillmentCount = 2
-        let save: @Sendable (RDPStoredClientLicense) -> Void = { license in
-            saved.withLock { $0.append(license) }
-            allSaved.fulfill()
-        }
-        _ = clientLicense.license { self.makeClientLicense(1) }
-
-        // At activation, then as the session ends; then on a reactivation.
-        clientLicense.issue(issued, save: save)
-        clientLicense.issue(issued, save: save)
-        XCTAssertEqual(clientLicense.license { nil }, issued)
-        clientLicense.issue(newer, save: save)
-
-        wait(for: [allSaved], timeout: 5)
-        XCTAssertEqual(saved.withLock { $0 }, [issued, newer])
-        XCTAssertEqual(clientLicense.license { nil }, newer)
-    }
-
     // MARK: - Logon names
 
     func testDomainQualifiedUserNameSignsInSplitAndKeepsItsKeychainAccount() throws {
@@ -921,29 +828,6 @@ final class SessionModelsTests: XCTestCase {
         }
         XCTFail("The retries never ended")
         return retries
-    }
-
-    /// Whether `thread` is blocked, as on a lock, rather than running or
-    /// ready to run.
-    private func isBlocked(_ thread: thread_act_t) -> Bool {
-        var info = thread_basic_info()
-        var count = mach_msg_type_number_t(MemoryLayout<thread_basic_info_data_t>.size / MemoryLayout<integer_t>.size)
-        let result = withUnsafeMutablePointer(to: &info) { pointer in
-            pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                thread_info(thread, thread_flavor_t(THREAD_BASIC_INFO), $0, &count)
-            }
-        }
-        return result == KERN_SUCCESS && info.run_state == TH_STATE_WAITING
-    }
-
-    private func makeClientLicense(_ byte: UInt8) -> RDPStoredClientLicense {
-        RDPStoredClientLicense(
-            version: 0x0001_0000,
-            scope: "microsoft.com",
-            companyName: "Microsoft Corporation",
-            productID: "A02",
-            licenseInfo: Data([byte])
-        )
     }
 
     private func endReason(_ report: RDPConnectionReport, presentedFrames: Bool = false) -> RDPSessionEndReason {
