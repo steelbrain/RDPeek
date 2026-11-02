@@ -708,6 +708,9 @@ final class SessionModelsTests: XCTestCase {
         let reads = OSAllocatedUnfairLock(initialState: 0)
         let readStarted = DispatchSemaphore(value: 0)
         let finishRead = DispatchSemaphore(value: 0)
+        let secondCaller = OSAllocatedUnfairLock<thread_act_t>(initialState: 0)
+        let secondCalls = DispatchSemaphore(value: 0)
+        let secondRead = DispatchSemaphore(value: 0)
         let bothRead = DispatchGroup()
 
         bothRead.enter()
@@ -724,12 +727,26 @@ final class SessionModelsTests: XCTestCase {
         let second = OSAllocatedUnfairLock<RDPStoredClientLicense?>(initialState: nil)
         bothRead.enter()
         DispatchQueue.global().async {
+            secondCaller.withLock { $0 = pthread_mach_thread_np(pthread_self()) }
+            secondCalls.signal()
             let license = clientLicense.license {
                 reads.withLock { $0 += 1 }
+                secondRead.signal()
                 return nil
             }
             second.withLock { $0 = license }
             bothRead.leave()
+        }
+        // The first read goes on until the second caller is blocked waiting
+        // for it, or has read for itself.
+        secondCalls.wait()
+        let secondThread = secondCaller.withLock { $0 }
+        let deadline = DispatchTime.now() + 5
+        while secondRead.wait(timeout: .now() + .milliseconds(1)) == .timedOut, isBlocked(secondThread) == false {
+            if DispatchTime.now() > deadline {
+                XCTFail("The second caller neither waited nor read")
+                break
+            }
         }
         finishRead.signal()
 
@@ -916,6 +933,19 @@ final class SessionModelsTests: XCTestCase {
         }
         XCTFail("The retries never ended")
         return retries
+    }
+
+    /// Whether `thread` is blocked, as on a lock, rather than running or
+    /// ready to run.
+    private func isBlocked(_ thread: thread_act_t) -> Bool {
+        var info = thread_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<thread_basic_info_data_t>.size / MemoryLayout<integer_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) { pointer in
+            pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                thread_info(thread, thread_flavor_t(THREAD_BASIC_INFO), $0, &count)
+            }
+        }
+        return result == KERN_SUCCESS && info.run_state == TH_STATE_WAITING
     }
 
     private func makeClientLicense(_ byte: UInt8) -> RDPStoredClientLicense {
