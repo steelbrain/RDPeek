@@ -807,10 +807,10 @@ final class SessionModelsTests: XCTestCase {
     // MARK: - Outdated CredSSP consent
 
     // The window keeps RDPKit's RDPLegacyCredSSPConsent: Connect Anyway
-    // calls `allow()`, each attempt `connect(to:)` as it starts, and each
-    // attempt that ends on its own `connectionEnded(_:report:)`. A cancel,
-    // or an attempt that fails before it connects, starts it afresh. These
-    // tests take the window's steps.
+    // calls `allow()`, which takes the offer, each attempt `connect(to:)`
+    // as it starts, and each attempt that ends on its own
+    // `connectionEnded(report:)`. A cancel, or an attempt that fails before
+    // it connects, `reset()`s it. These tests take the window's steps.
 
     func testConnectAnywayAcceptsTheOutdatedCredSSPForItsOneAttempt() throws {
         let winbox = try RDPConnectionTarget(host: "winbox")
@@ -818,16 +818,21 @@ final class SessionModelsTests: XCTestCase {
         XCTAssertFalse(consent.connect(to: winbox))
         XCTAssertNil(consent.offer)
 
-        consent.connectionEnded(winbox, report: makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 3)))
+        consent.connectionEnded(report: makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 3)))
         XCTAssertEqual(consent.offer, RDPLegacyCredSSPConsent.Offer(target: winbox, version: 3))
+        XCTAssertNil(consent.allowedTarget)
         XCTAssertTrue(consent.allow())
-        XCTAssertTrue(consent.connect(to: winbox))
+        // Agreeing takes the offer, so a second click agrees to nothing
+        // more; the agreement waits for the attempt it starts.
         XCTAssertNil(consent.offer)
+        XCTAssertEqual(consent.allowedTarget, winbox)
+        XCTAssertFalse(consent.allow())
+        XCTAssertTrue(consent.connect(to: winbox))
+        XCTAssertNil(consent.allowedTarget)
 
         // Any later attempt, an automatic retry included, and a later
         // connection to the same server, refuse it again.
         consent.connectionEnded(
-            winbox,
             report: makeReport(failure: .noFramePresented(framesReceived: 0, lastNotPresentedReason: nil))
         )
         XCTAssertNil(consent.offer)
@@ -843,30 +848,32 @@ final class SessionModelsTests: XCTestCase {
         // Connect Anyway found no password to sign in with, as when the
         // Keychain could not be read: the sign-in it asks for is still the
         // connection the user agreed to, as no attempt started meanwhile.
-        consent.connectionEnded(winbox, report: refused)
+        consent.connectionEnded(report: refused)
         XCTAssertTrue(consent.allow())
+        XCTAssertEqual(consent.allowedTarget, winbox)
         XCTAssertTrue(consent.connect(to: winbox))
 
         // Once that attempt ran, signing in again, as after a rejected
         // password, starts another.
-        consent.connectionEnded(winbox, report: makeReport(stage: "credssp", failure: .credSSP(status: .logonFailure)))
+        consent.connectionEnded(report: makeReport(stage: "credssp", failure: .credSSP(status: .logonFailure)))
         XCTAssertFalse(consent.connect(to: winbox))
 
         // Cancelling, as while the Keychain is read, ends the agreement
         // before the sign-in the cancel asks for.
-        consent.connectionEnded(winbox, report: refused)
+        consent.connectionEnded(report: refused)
         XCTAssertTrue(consent.allow())
-        consent = RDPLegacyCredSSPConsent()
+        consent.reset()
+        XCTAssertNil(consent.allowedTarget)
         XCTAssertFalse(consent.connect(to: winbox))
 
         // Signing in without agreeing, as with Use Different Credentials,
         // agrees to nothing, and the offer goes.
-        consent.connectionEnded(winbox, report: refused)
+        consent.connectionEnded(report: refused)
         XCTAssertFalse(consent.connect(to: winbox))
         XCTAssertNil(consent.offer)
 
         // The PC was edited to another server meanwhile.
-        consent.connectionEnded(winbox, report: refused)
+        consent.connectionEnded(report: refused)
         XCTAssertTrue(consent.allow())
         XCTAssertFalse(try consent.connect(to: RDPConnectionTarget(host: "winbox", port: 3390)))
     }
@@ -881,7 +888,7 @@ final class SessionModelsTests: XCTestCase {
         XCTAssertFalse(consent.connect(to: winbox))
 
         // Reconnect forgets the offer.
-        consent.connectionEnded(winbox, report: refused)
+        consent.connectionEnded(report: refused)
         XCTAssertFalse(consent.connect(to: winbox))
         XCTAssertNil(consent.offer)
         XCTAssertFalse(consent.allow())
@@ -889,17 +896,18 @@ final class SessionModelsTests: XCTestCase {
         // An agreement whose attempt never started, as when the user
         // cancelled while the Keychain was read, goes with the cancel, and
         // so does one whose attempt failed before it connected.
-        consent.connectionEnded(winbox, report: refused)
+        consent.connectionEnded(report: refused)
         XCTAssertTrue(consent.allow())
-        consent = RDPLegacyCredSSPConsent()
-        XCTAssertNil(consent.offer)
+        consent.reset()
+        XCTAssertNil(consent.allowedTarget)
         XCTAssertFalse(consent.connect(to: winbox))
     }
 
     func testTheOutdatedCredSSPIsAcceptedOnlyForTheServerOffered() throws {
         let winbox = try RDPConnectionTarget(host: "winbox")
         var consent = RDPLegacyCredSSPConsent()
-        consent.connectionEnded(winbox, report: makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 3)))
+        consent.connectionEnded(report: makeReport(stage: "credssp", failure: .legacyCredSSPVersion(version: 3)))
+        XCTAssertEqual(consent.offer?.target, winbox)
 
         // The PC was edited to another server or port since.
         XCTAssertTrue(consent.allow())
@@ -918,7 +926,7 @@ final class SessionModelsTests: XCTestCase {
             makeReport(stage: "credssp", failure: .credSSP(status: .logonFailure)),
             makeReport(stage: "credssp", failure: .cancelled),
         ] {
-            consent.connectionEnded(winbox, report: report)
+            consent.connectionEnded(report: report)
             XCTAssertNil(consent.offer, "\(String(describing: report.failure))")
         }
     }

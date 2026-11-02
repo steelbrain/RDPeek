@@ -838,7 +838,7 @@ final class SessionViewController: NSViewController {
             )
         } catch {
             // No attempt starts, so the agreement goes with this one.
-            legacyCredSSPConsent = RDPLegacyCredSSPConsent()
+            legacyCredSSPConsent.reset()
             sessionEndReason = RDPSessionEndReason(kind: .failed, message: String(describing: error))
             render()
             return
@@ -868,7 +868,7 @@ final class SessionViewController: NSViewController {
         launchStore?.recordConnectionStart(for: draft.deviceID)
         render()
 
-        start(session, to: target, configuration: configuration)
+        start(session, configuration: configuration)
     }
 
     /// Forgets the previous attempt, however it ended.
@@ -921,15 +921,11 @@ final class SessionViewController: NSViewController {
         )
     }
 
-    /// Runs the attempt to `target` on `session`. Its events, and what its
-    /// handlers hand over, reach the window in the order they happened,
-    /// until the window cancels it; RDPeek's own handlers decide on the
-    /// certificate, the client license, the clipboard and audio.
-    private func start(
-        _ session: RDPLiveSession,
-        to target: RDPConnectionTarget,
-        configuration: RDPConnectionConfiguration
-    ) {
+    /// Runs the attempt `configuration` describes on `session`. Its events,
+    /// and what its handlers hand over, reach the window in the order they
+    /// happened, until the window cancels it; RDPeek's own handlers decide
+    /// on the certificate, the client license, the clipboard and audio.
+    private func start(_ session: RDPLiveSession, configuration: RDPConnectionConfiguration) {
         // The handlers hold the window weakly, so a closed one is not kept
         // alive by the session's thread.
         let recipient = session.recipient(self)
@@ -997,7 +993,7 @@ final class SessionViewController: NSViewController {
                 // certificate it refused.
                 onEnd: { report in
                     recipient.deliver { controller in
-                        controller.finishConnection(report, target: target, configuration: configuration)
+                        controller.finishConnection(report, configuration: configuration)
                     }
                 }
             )
@@ -1142,18 +1138,16 @@ final class SessionViewController: NSViewController {
     }
 
     /// The session ended without the user ending it: record why, then
-    /// connect again, ask to sign in, or show the end. `target` and
-    /// `configuration` are the ones the session ran with.
-    private func finishConnection(
-        _ finishedReport: RDPConnectionReport,
-        target: RDPConnectionTarget,
-        configuration: RDPConnectionConfiguration
-    ) {
+    /// connect again, ask to sign in, or show the end. `configuration` is
+    /// the one the session ran with.
+    private func finishConnection(_ finishedReport: RDPConnectionReport, configuration: RDPConnectionConfiguration) {
         framePresenter.flush()
         publishRenderMetricsSnapshotIfNeeded(force: true)
         let outcome = attemptBudget.outcome(after: finishedReport, host: configuration.host)
         attemptBudget.record(outcome)
-        legacyCredSSPConsent.connectionEnded(target, report: finishedReport)
+        // Offered for the server the report's connection went to, which is
+        // the one this attempt was started for whenever there is an offer.
+        legacyCredSSPConsent.connectionEnded(report: finishedReport)
         report = finishedReport
         certificateTrustedByApp = trustedCertificateStore.trusted.isTrusted(
             host: liveCertificate?.host ?? configuration.host,
@@ -1189,7 +1183,7 @@ final class SessionViewController: NSViewController {
         // An agreement to an outdated CredSSP goes with the connection it
         // was for, even before its attempt: the sign-in a cancel asks for
         // is not that connection.
-        legacyCredSSPConsent = RDPLegacyCredSSPConsent()
+        legacyCredSSPConsent.reset()
         autoRetryTask?.cancel()
         autoRetryTask = nil
         credentialResolutionTask?.cancel()
