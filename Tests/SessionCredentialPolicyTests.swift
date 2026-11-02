@@ -184,15 +184,30 @@ final class SessionCredentialPolicyTests: XCTestCase {
     // MARK: - A password saved in the editor
 
     func testAPasswordSavedInTheEditorReplacesOnlyTheSameSignIns() {
-        XCTAssertTrue(SessionCredentialPolicy.dropsSessionPassword(
-            signingInAs: alice,
-            savedPasswordChangedFor: RDPConnectionIdentity(host: "winbox", username: "CORP\\alice")
-        ))
-        XCTAssertFalse(SessionCredentialPolicy.dropsSessionPassword(
-            signingInAs: alice,
-            savedPasswordChangedFor: RDPConnectionIdentity(host: "winbox", username: "bob", domain: "CORP")
-        ))
-        XCTAssertFalse(SessionCredentialPolicy.dropsSessionPassword(signingInAs: alice, savedPasswordChangedFor: nil))
+        var changes = SessionSavedPasswordChanges()
+        XCTAssertFalse(changes.takeChange(for: alice))
+
+        changes.record(RDPConnectionIdentity(host: "winbox", username: "CORP\\alice"))
+        XCTAssertFalse(changes.takeChange(for: RDPConnectionIdentity(host: "winbox", username: "bob", domain: "CORP")))
+        XCTAssertTrue(changes.takeChange(for: alice))
+        // Once a connection signed in as it, the change is used up.
+        XCTAssertFalse(changes.takeChange(for: alice))
+    }
+
+    /// One password changed on two PCs, as a domain password is, one after
+    /// the other: a window keeps both changes until it signs in as each.
+    func testAWindowKeepsEveryPasswordSavedInTheEditor() {
+        let onOtherServer = RDPConnectionIdentity(host: "otherbox", username: "alice", domain: "CORP")
+        var changes = SessionSavedPasswordChanges()
+
+        changes.record(alice)
+        changes.record(onOtherServer)
+        changes.record(alice)
+
+        XCTAssertTrue(changes.takeChange(for: alice))
+        XCTAssertFalse(changes.takeChange(for: alice))
+        XCTAssertTrue(changes.takeChange(for: onOtherServer))
+        XCTAssertFalse(changes.takeChange(for: onOtherServer))
     }
 
     // MARK: - Forgetting

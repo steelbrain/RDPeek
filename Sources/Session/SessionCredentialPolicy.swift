@@ -142,16 +142,6 @@ enum SessionCredentialPolicy {
         return isRememberedByAnotherPC ? .stopRemembering(key) : .delete(key)
     }
 
-    /// Whether a connection the user starts drops the session's password,
-    /// so that it finds the password the PC editor saved for
-    /// `changedIdentity` since: only when it signs in as that identity.
-    static func dropsSessionPassword(
-        signingInAs identity: RDPConnectionIdentity,
-        savedPasswordChangedFor changedIdentity: RDPConnectionIdentity?
-    ) -> Bool {
-        changedIdentity.map(identity.hasSameConnectionIdentity(as:)) ?? false
-    }
-
     /// Whether to drop this app run's copy of a password the server
     /// rejected: only when the cache holds that password, not one kept for
     /// the sign-in since.
@@ -167,5 +157,29 @@ enum SessionCredentialPolicy {
         insteadOf previousIdentity: RDPConnectionIdentity
     ) -> Bool {
         identity.hasSameConnectionIdentity(as: previousIdentity)
+    }
+}
+
+/// The sign-ins whose password the PC editor saved since a connection the
+/// user started last signed in as them. A window keeps every one: the
+/// editor reports each password it saves to every window.
+struct SessionSavedPasswordChanges {
+    private var identities: [RDPConnectionIdentity] = []
+
+    /// The editor saved a new password for `identity`.
+    mutating func record(_ identity: RDPConnectionIdentity) {
+        if identities.contains(where: identity.hasSameConnectionIdentity(as:)) == false {
+            identities.append(identity)
+        }
+    }
+
+    /// Whether the editor saved a password for `identity` since, which a
+    /// connection the user starts as it then finds instead of the one the
+    /// session has. Forgets it: from now on the session's password is that
+    /// one, or one the user typed.
+    mutating func takeChange(for identity: RDPConnectionIdentity) -> Bool {
+        let count = identities.count
+        identities.removeAll(where: identity.hasSameConnectionIdentity(as:))
+        return identities.count != count
     }
 }

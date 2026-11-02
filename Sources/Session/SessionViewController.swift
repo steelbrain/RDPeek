@@ -42,9 +42,9 @@ final class SessionViewController: NSViewController {
     /// account waits on it, as a read cannot be stopped and a second one
     /// could ask the user to allow access again.
     private var keychainPasswordRead: KeychainPasswordRead?
-    /// The PC editor saved a new password for this identity since the last
-    /// connection the user started.
-    private var pendingSavedPasswordIdentity: RDPConnectionIdentity?
+    /// The sign-ins the PC editor saved a new password for since a
+    /// connection the user started signed in as them.
+    private var savedPasswordChanges = SessionSavedPasswordChanges()
     private var isAwaitingCredentials = false
     /// Why the sign-in overlay asks again, if it does.
     private var credentialsErrorMessage: String?
@@ -713,7 +713,7 @@ final class SessionViewController: NSViewController {
         isAwaitingCredentials = false
         credentialsErrorMessage = nil
         // The password typed here wins over one the editor saved.
-        pendingSavedPasswordIdentity = nil
+        _ = savedPasswordChanges.takeChange(for: draft.identity)
         startConnection()
     }
 
@@ -744,7 +744,7 @@ final class SessionViewController: NSViewController {
     /// in as it finds that password from the next connection the user
     /// starts; automatic retries keep the password they started with.
     func savedPasswordChanged(for identity: RDPConnectionIdentity) {
-        pendingSavedPasswordIdentity = identity
+        savedPasswordChanges.record(identity)
     }
 
     /// Connect on the PC in the Connection Center: a session that ended or
@@ -787,14 +787,10 @@ final class SessionViewController: NSViewController {
     /// password first when the session has none.
     func startConnection() {
         followSavedDraft()
-        if SessionCredentialPolicy.dropsSessionPassword(
-            signingInAs: draft.identity,
-            savedPasswordChangedFor: pendingSavedPasswordIdentity
-        ) {
+        if savedPasswordChanges.takeChange(for: draft.identity) {
             draft.password = ""
             rememberedPassword = nil
         }
-        pendingSavedPasswordIdentity = nil
         autoRetryTask?.cancel()
         autoRetryTask = nil
         attemptBudget.userStarted()
