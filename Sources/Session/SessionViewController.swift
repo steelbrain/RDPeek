@@ -53,9 +53,15 @@ final class SessionViewController: NSViewController {
     /// The automatic retries left to the connection the user started, and
     /// whether its sign-in was dealt with.
     private var attemptBudget = SessionAttemptBudget()
-    /// Whether the ended attempt offers to sign in with an outdated
-    /// CredSSP, and whether the user agreed to it for the next attempt.
-    private var legacyCredSSPConsent = SessionLegacyCredSSPConsent()
+    /// RDPKit's rule for an outdated CredSSP, version 2, 3 or 4, which it
+    /// refuses before sending any credential unless `legacyCredSSP` is set
+    /// (CVE-2018-0886): offered once the server an attempt connected to
+    /// answers with one, and allowed, once the user clicks Connect Anyway,
+    /// for the next attempt to that server only. It holds until an attempt
+    /// starts, so the sign-in that connection may ask for first keeps the
+    /// agreement; a cancel, or an attempt that fails before it connects,
+    /// forgets it.
+    private var legacyCredSSPConsent = RDPLegacyCredSSPConsent()
     private var isConnecting = false
     private var hasEverPresentedFrame = false
     private var isAutoRetryPending = false
@@ -377,7 +383,7 @@ final class SessionViewController: NSViewController {
         }
         hudModel.update(\.connectingStatusDetail, to: nextPhase == .connecting ? connectingStatusDetail : nil)
         hudModel.update(\.certificateNotice, to: certificateNoticeState())
-        hudModel.update(\.offersLegacyCredSSP, to: legacyCredSSPConsent.isOffered)
+        hudModel.update(\.offersLegacyCredSSP, to: legacyCredSSPConsent.offer != nil)
         // One command state feeds the HUD and the Session menu, so they
         // agree on what can be done and on which toggles are on.
         let commands = sessionCommandState
@@ -703,7 +709,7 @@ final class SessionViewController: NSViewController {
         credentialsErrorMessage = nil
         // The password typed here wins over one the editor saved.
         _ = savedPasswordChanges.takeChange(for: draft.identity)
-        startConnection(as: .signIn)
+        startConnection()
     }
 
     // MARK: - Saved PC
@@ -772,12 +778,11 @@ final class SessionViewController: NSViewController {
 
     /// The one way a connection starts: the window opening, Reconnect, ⌘R,
     /// Connect on the PC, signing in, trusting a certificate, and Connect
-    /// Anyway, which alone agrees to an outdated CredSSP; signing in keeps
-    /// that agreement until its attempt starts. Takes the PC's saved
-    /// changes, resets the automatic retries, and finds the password first
-    /// when the session has none.
-    func startConnection(as start: SessionLegacyCredSSPConsent.Start = .other) {
-        legacyCredSSPConsent.userStartsConnection(start)
+    /// Anyway, which alone agrees to an outdated CredSSP, until the attempt
+    /// it leads to starts. Takes the PC's saved changes, resets the
+    /// automatic retries, and finds the password first when the session
+    /// has none.
+    func startConnection() {
         followSavedDraft()
         if savedPasswordChanges.takeChange(for: draft.identity) {
             draft.password = ""
@@ -827,14 +832,15 @@ final class SessionViewController: NSViewController {
                 password: draft.password
             )
         } catch {
-            legacyCredSSPConsent.attemptStarts(to: nil)
+            // No attempt starts, so the agreement goes with this one.
+            legacyCredSSPConsent = RDPLegacyCredSSPConsent()
             sessionEndReason = RDPSessionEndReason(kind: .failed, message: String(describing: error))
             render()
             return
         }
-        // Only the attempt Connect Anyway starts accepts an outdated
+        // Only the attempt Connect Anyway leads to accepts an outdated
         // CredSSP, and it is not retried; starting forgets that agreement.
-        let acceptsLegacyCredSSP = legacyCredSSPConsent.attemptStarts(to: target)
+        let acceptsLegacyCredSSP = legacyCredSSPConsent.connect(to: target)
         let desktopSize = initialDesktopSize()
         let configuration = makeConnectionConfiguration(
             target: target,
@@ -857,7 +863,7 @@ final class SessionViewController: NSViewController {
         launchStore?.recordConnectionStart(for: draft.deviceID)
         render()
 
-        start(session, configuration: configuration)
+        start(session, to: target, configuration: configuration)
     }
 
     /// Forgets the previous attempt, however it ended.
@@ -910,11 +916,15 @@ final class SessionViewController: NSViewController {
         )
     }
 
-    /// Runs the attempt on `session`. Its events, and what its handlers
-    /// hand over, reach the window in the order they happened, until the
-    /// window cancels it; RDPeek's own handlers decide on the certificate,
-    /// the client license, the clipboard and audio.
-    private func start(_ session: RDPLiveSession, configuration: RDPConnectionConfiguration) {
+    /// Runs the attempt to `target` on `session`. Its events, and what its
+    /// handlers hand over, reach the window in the order they happened,
+    /// until the window cancels it; RDPeek's own handlers decide on the
+    /// certificate, the client license, the clipboard and audio.
+    private func start(
+        _ session: RDPLiveSession,
+        to target: RDPConnectionTarget,
+        configuration: RDPConnectionConfiguration
+    ) {
         // The handlers hold the window weakly, so a closed one is not kept
         // alive by the session's thread.
         let recipient = session.recipient(self)
@@ -982,7 +992,7 @@ final class SessionViewController: NSViewController {
                 // certificate it refused.
                 onEnd: { report in
                     recipient.deliver { controller in
-                        controller.finishConnection(report, configuration: configuration)
+                        controller.finishConnection(report, target: target, configuration: configuration)
                     }
                 }
             )
@@ -1127,17 +1137,18 @@ final class SessionViewController: NSViewController {
     }
 
     /// The session ended without the user ending it: record why, then
-    /// connect again, ask to sign in, or show the end. `configuration` is
-    /// the one the session ran with.
+    /// connect again, ask to sign in, or show the end. `target` and
+    /// `configuration` are the ones the session ran with.
     private func finishConnection(
         _ finishedReport: RDPConnectionReport,
+        target: RDPConnectionTarget,
         configuration: RDPConnectionConfiguration
     ) {
         framePresenter.flush()
         publishRenderMetricsSnapshotIfNeeded(force: true)
         let outcome = attemptBudget.outcome(after: finishedReport, host: configuration.host)
         attemptBudget.record(outcome)
-        legacyCredSSPConsent.attemptEnded(with: finishedReport)
+        legacyCredSSPConsent.connectionEnded(target, report: finishedReport)
         report = finishedReport
         certificateTrustedByApp = trustedCertificateStore.trusted.isTrusted(
             host: liveCertificate?.host ?? configuration.host,
@@ -1173,7 +1184,7 @@ final class SessionViewController: NSViewController {
         // An agreement to an outdated CredSSP goes with the connection it
         // was for, even before its attempt: the sign-in a cancel asks for
         // is not that connection.
-        legacyCredSSPConsent.userCancelled()
+        legacyCredSSPConsent = RDPLegacyCredSSPConsent()
         autoRetryTask?.cancel()
         autoRetryTask = nil
         credentialResolutionTask?.cancel()
@@ -1498,13 +1509,13 @@ final class SessionViewController: NSViewController {
     // MARK: - Outdated CredSSP
 
     /// The user agreed, on the ended session, to sign in with the outdated
-    /// CredSSP the server was refused for: the connection this starts
+    /// CredSSP the server was refused for: the attempt this leads to
     /// accepts it, and no later one.
     private func connectWithLegacyCredSSP() {
-        guard sessionCommandState.canStart, legacyCredSSPConsent.isOffered else {
+        guard sessionCommandState.canStart, legacyCredSSPConsent.allow() else {
             return
         }
-        startConnection(as: .connectAnyway)
+        startConnection()
     }
 
     // MARK: - Certificate trust

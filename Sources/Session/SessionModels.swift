@@ -489,9 +489,10 @@ extension RDPConnectionConfiguration {
             // within the run offering only RSA key exchange, before any
             // credential is sent; never a redirection's target.
             legacyRSAKeyExchange: .fallback,
-            // Off but for the attempt Connect Anyway starts: RDPKit refuses
-            // a server answering with CredSSP below 5 before sending any
-            // credential, and the ended session asks the user.
+            // Off but for the attempt Connect Anyway leads to: RDPKit
+            // refuses a server answering with CredSSP below 5 before
+            // sending any credential, and the ended session asks the user.
+            // A redirection's target is refused either way.
             legacyCredSSP: legacyCredSSP,
             // Servers list the session, and count per-device licenses, under
             // the Mac's name; RDPKit cuts it to 15 characters.
@@ -657,97 +658,5 @@ struct SessionAttemptBudget {
         }
         hasDecidedSignIn = true
         return true
-    }
-}
-
-/// The user's consent to sign in with an outdated CredSSP, version 2, 3 or
-/// 4, which RDPKit refuses before sending any credential unless
-/// `legacyCredSSP` is set: those versions prove the TLS key by sealing the
-/// certificate's raw public key, which lets whoever intercepts the
-/// connection learn the sign-in (CVE-2018-0886). It is offered once the
-/// server an attempt connected to answers with one, until the user starts
-/// another connection, and allowed only for the first attempt of the
-/// connection the user's agreement starts, to the server offered. Signing
-/// in on the sheet that connection asks with, as when the Keychain has no
-/// password to give, keeps the agreement until that attempt starts;
-/// cancelling, closing the window or starting any other connection
-/// forgets it. Any other attempt refuses the outdated version again: the
-/// one that accepted it is not retried (`SessionAttemptBudget`), and a
-/// later connection to the same server is offered it again.
-struct SessionLegacyCredSSPConsent {
-    /// How the user starts a connection, as far as the agreement goes.
-    enum Start {
-        /// Connect Anyway, on the ended session that offers it.
-        case connectAnyway
-        /// Signing in on the sheet the connection asked with: still that
-        /// connection.
-        case signIn
-        /// Any other way: the window opening, Reconnect, Connect on the PC,
-        /// or trusting a certificate.
-        case other
-    }
-
-    /// The server the attempt that ended last was refused for, until the
-    /// user starts a connection.
-    private var offeredTarget: RDPConnectionTarget?
-    /// The server the attempt under way connects to.
-    private var attemptTarget: RDPConnectionTarget?
-    /// The server the user agreed to, for the next attempt only.
-    private var allowedTarget: RDPConnectionTarget?
-
-    /// Whether the ended attempt offers to connect anyway.
-    var isOffered: Bool {
-        offeredTarget != nil
-    }
-
-    /// The user starts a connection: the one Connect Anyway starts may
-    /// accept the outdated version, once, for the server offered; signing
-    /// in keeps an agreement whose attempt has not started, and any other
-    /// start forgets it. The offer goes either way.
-    mutating func userStartsConnection(_ start: Start) {
-        switch start {
-        case .connectAnyway:
-            allowedTarget = offeredTarget
-        case .signIn:
-            break
-        case .other:
-            allowedTarget = nil
-        }
-        offeredTarget = nil
-    }
-
-    /// The user cancelled the connection, or closed its window: an
-    /// agreement whose attempt has not started goes with it.
-    mutating func userCancelled() {
-        allowedTarget = nil
-    }
-
-    /// An attempt starts, to `target`, or to none for one that fails before
-    /// it connects: forgets the offer and the agreement, and returns
-    /// whether the attempt accepts an outdated CredSSP, which only one to
-    /// the server the user just agreed to does.
-    @discardableResult
-    mutating func attemptStarts(to target: RDPConnectionTarget?) -> Bool {
-        defer {
-            attemptTarget = target
-            offeredTarget = nil
-            allowedTarget = nil
-        }
-        return target != nil && target == allowedTarget
-    }
-
-    /// The attempt under way ended with `report`: offers to connect anyway
-    /// when RDPKit refused the server it connected to for its CredSSP
-    /// version. After a Server Redirection (`redirectionDepth` above 0)
-    /// another server answered, which the user did not choose, so nothing
-    /// is offered.
-    mutating func attemptEnded(with report: RDPConnectionReport) {
-        guard case .legacyCredSSPVersion = report.failure,
-              report.redirectionDepth == 0,
-              let attemptTarget
-        else {
-            return
-        }
-        offeredTarget = attemptTarget
     }
 }
