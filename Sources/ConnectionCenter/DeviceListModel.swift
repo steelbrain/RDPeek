@@ -45,6 +45,10 @@ final class DeviceListModel: ObservableObject {
     /// stay in storage unchanged; the Connection Center says so until the
     /// notice is dismissed, which zeroes this for the rest of the run.
     @Published private(set) var unreadableDeviceCount = 0
+    /// Called after the editor saved a password the user typed, with the
+    /// sign-in it is for, so an open session window uses it rather than
+    /// one it kept.
+    var onPasswordSaved: ((RDPConnectionIdentity) -> Void)?
     /// The latest keychain deletion, which runs off the main thread: a
     /// keychain call can block on the access-approval dialog.
     private(set) var pendingKeychainDeletion: Task<Void, Never>?
@@ -247,15 +251,20 @@ final class DeviceListModel: ObservableObject {
         // the user left as it was, which may be older than one a session
         // accepted since, nor any once a session changed Remember after the
         // sheet loaded a password: that session has kept a newer one.
+        var keepsTypedPassword = false
         if password.isEmpty == false,
            keepsSavedPassword == false,
            keepsSessionRemember == false || hadRememberedPassword == false,
            let account = device.identity.credentialAccountName
         {
             credentialCache.setPassword(password, for: account)
+            keepsTypedPassword = true
         }
 
         devices = try store.save(device)
+        if keepsTypedPassword {
+            onPasswordSaved?(device.identity)
+        }
         return device
     }
 

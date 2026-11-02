@@ -501,6 +501,49 @@ final class DeviceListModelTests: XCTestCase {
         XCTAssertEqual(harness.cache.password(for: account), "new")
     }
 
+    func testSaveReportsATypedPasswordAfterSavingThePC() async throws {
+        let device = makeDevice(rememberPassword: true)
+        let harness = try makeHarness(devices: [device])
+        var reported: [(identity: RDPConnectionIdentity, isSaved: Bool)] = []
+        harness.model.onPasswordSaved = { [defaults = harness.defaults] identity in
+            let saved = try? DeviceProfileStore(defaults: defaults).devices().first
+            reported.append((identity, saved?.name == "Renamed"))
+        }
+        var edited = device
+        edited.name = "Renamed"
+        edited.username = "bob"
+
+        _ = try await harness.model.save(
+            editor: DeviceEditorState(device: device, isNew: false),
+            editedDevice: edited,
+            password: "typed",
+            loadedPassword: "loaded",
+            hadRememberedPassword: true
+        )
+
+        XCTAssertEqual(reported.map(\.identity), [edited.identity])
+        XCTAssertEqual(reported.map(\.isSaved), [true])
+    }
+
+    func testSaveReportsNoPasswordForOneLeftAsLoaded() async throws {
+        let device = makeDevice(rememberPassword: true)
+        let harness = try makeHarness(devices: [device])
+        var reported: [RDPConnectionIdentity] = []
+        harness.model.onPasswordSaved = { reported.append($0) }
+        var edited = device
+        edited.name = "Renamed"
+
+        _ = try await harness.model.save(
+            editor: DeviceEditorState(device: device, isNew: false),
+            editedDevice: edited,
+            password: "loaded",
+            loadedPassword: "loaded",
+            hadRememberedPassword: true
+        )
+
+        XCTAssertEqual(reported, [])
+    }
+
     func testSaveKeepsStoreLastConnectedAtOverEditorSnapshot() async throws {
         let device = makeDevice()
         let harness = try makeHarness(devices: [device])
