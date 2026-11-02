@@ -10,6 +10,9 @@ private let sessionMaximumFileRangeByteCount: UInt64 = 512 * 1024
 /// fails: long enough for a range on a slow link, or for a server that
 /// fetches a cloud file first.
 private let sessionFileContentsRequestTimeout: TimeInterval = 120
+/// The most files one remote copy may hold: each costs a round trip and a
+/// write, and all of them are pasted side by side.
+private let sessionMaximumRemoteClipboardFileCount = 1000
 
 /// Where the clipboard bridge sends: the session's `RDPClipboardSession`, or
 /// a test's recorder.
@@ -325,6 +328,10 @@ final class SessionClipboard {
             let files = try descriptorList.remoteFileTransferFiles(
                 maximumTotalByteCount: UInt64(sessionMaximumLocalClipboardFileBytes)
             )
+            guard files.count <= sessionMaximumRemoteClipboardFileCount else {
+                onToast("Remote copy has more than 1,000 files", "exclamationmark.triangle")
+                return
+            }
             let downloadDirectory = try makeDownloadDirectory()
             requestFileSize(SessionRemoteClipboardFileTransfer(
                 files: files,
@@ -673,10 +680,16 @@ final class SessionClipboard {
                 streamID: transfer.streamID,
                 fileIndex: currentFile.fileIndex
             )
-            let message = transfer.files.count == 1
-                ? "Downloading \(currentFile.fileName)"
-                : "Downloading file \(transfer.currentFileOffset + 1) of \(transfer.files.count)"
-            onToast(message, "arrow.down.doc")
+            // VoiceOver reads each toast, so a copy of many files says how
+            // far it is once per tenth of them.
+            let offset = transfer.currentFileOffset
+            let fileCount = transfer.files.count
+            if offset == 0 || offset * 10 / fileCount != (offset - 1) * 10 / fileCount {
+                let message = fileCount == 1
+                    ? "Downloading \(currentFile.fileName)"
+                    : "Downloading file \(offset + 1) of \(fileCount)"
+                onToast(message, "arrow.down.doc")
+            }
         } catch {
             failFileTransfer(transfer, message: "Remote file request failed")
         }

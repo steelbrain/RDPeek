@@ -1080,6 +1080,56 @@ final class SessionClipboardTests: XCTestCase {
         XCTAssertEqual(toasts.last, "Remote folders have no files")
     }
 
+    /// Each remote file costs a round trip and a write, and all of them are
+    /// pasted side by side, so a copy of more than 1,000 is refused; its
+    /// folders do not count.
+    func testARemoteCopyOfMoreThan1000FilesIsRefused() {
+        let session = RecordedClipboard()
+        let clipboard = makeClipboard()
+        var toasts: [String] = []
+        clipboard.onToast = { text, _ in toasts.append(text) }
+        clipboard.attach(session)
+
+        clipboard.receiveFileList(makeFileList(fileCount: 1001), copyNumber: session.announceRemoteCopy())
+        XCTAssertEqual(toasts, ["Remote copy has more than 1,000 files"])
+        XCTAssertTrue(session.sizeRequests.isEmpty)
+        XCTAssertEqual(downloadRootContents(), [])
+
+        var descriptors = makeFileList(fileCount: 1000).descriptors
+        descriptors.insert(RDPClipboardFileDescriptorW(
+            flags: 0,
+            fileAttributes: RDPClipboardFileAttributes.directory,
+            fileSize: 0,
+            fileName: "Folder"
+        ), at: 0)
+        clipboard.receiveFileList(
+            RDPClipboardFileGroupDescriptorW(descriptors: descriptors),
+            copyNumber: session.announceRemoteCopy()
+        )
+        XCTAssertEqual(toasts.last, "Downloading file 1 of 1000")
+        XCTAssertEqual(session.sizeRequests.count, 1)
+    }
+
+    /// VoiceOver reads each toast, so a copy of many files says how far it
+    /// is once per tenth of them.
+    func testDownloadingManyRemoteFilesToastsOncePerTenth() throws {
+        let session = RecordedClipboard()
+        let clipboard = makeClipboard()
+        var toasts: [String] = []
+        clipboard.onToast = { text, _ in toasts.append(text) }
+        clipboard.attach(session)
+
+        clipboard.receiveFileList(makeFileList(fileCount: 30), copyNumber: session.announceRemoteCopy())
+        for _ in 0 ..< 30 {
+            try answerSizeRequest(0, to: clipboard, from: session)
+        }
+
+        XCTAssertEqual(
+            toasts,
+            stride(from: 1, through: 28, by: 3).map { "Downloading file \($0) of 30" } + ["30 remote files copied"]
+        )
+    }
+
     /// A Server Redirection, or the server's clipboard restarting, attaches
     /// again without a detach. A download in flight gets no answers there,
     /// so it is dropped then, not failed two minutes later; and only the
@@ -1208,6 +1258,13 @@ final class SessionClipboardTests: XCTestCase {
 
     private func fileExists(_ url: URL) -> Bool {
         FileManager.default.fileExists(atPath: url.path)
+    }
+
+    /// A remote copy of `fileCount` files, their sizes left to ask for.
+    private func makeFileList(fileCount: Int) -> RDPClipboardFileGroupDescriptorW {
+        RDPClipboardFileGroupDescriptorW(descriptors: (0 ..< fileCount).map {
+            RDPClipboardFileDescriptorW(flags: 0, fileAttributes: 0, fileSize: 0, fileName: "\($0).txt")
+        })
     }
 
     /// Offers one remote file of `contents` and answers the size request.
