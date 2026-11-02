@@ -229,6 +229,15 @@ final class DeviceListModel: ObservableObject {
             && snapshot.identity.hasSameConnectionIdentity(as: device.identity)
         if let current, keepsSessionRemember {
             device.rememberPassword = current.rememberPassword
+            // A password the user typed is newer than the session's.
+            if current.rememberPassword,
+               password.isEmpty == false,
+               password != loadedPassword,
+               let key = KeychainCredentialKey(identity: device.identity)
+            {
+                let credentialStore = credentialStore
+                try await KeychainQueue.run { try credentialStore.savePassword(password, for: key) }
+            }
         } else {
             try await applyKeychainChange(
                 from: snapshot,

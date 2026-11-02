@@ -621,6 +621,29 @@ final class DeviceListModelTests: XCTestCase {
         XCTAssertEqual(harness.credentials.passwords[account], "from-session")
     }
 
+    func testSaveKeepsAPasswordTypedAfterASessionTurnedRememberOn() async throws {
+        let device = makeDevice()
+        let harness = try makeHarness(devices: [device])
+        let editor = DeviceEditorState(device: device, isNew: false)
+        // After the sheet opened, a session's sign-in saved the password.
+        let account = try account(for: device)
+        harness.credentials.passwords[account] = "from-session"
+        harness.model.recordCredentialPersistence(deviceID: device.id, identity: device.identity, remembered: true)
+
+        let saved = try await harness.model.save(
+            editor: editor,
+            editedDevice: device,
+            password: "typed",
+            loadedPassword: nil,
+            hadRememberedPassword: false
+        )
+
+        XCTAssertTrue(saved.rememberPassword)
+        XCTAssertEqual(harness.credentials.passwords[account], "typed")
+        XCTAssertEqual(harness.cache.password(for: account), "typed")
+        XCTAssertEqual(harness.credentials.deletedAccounts, [])
+    }
+
     func testSaveKeepsRememberThatASessionTurnedOffWhileEditing() async throws {
         let device = makeDevice(rememberPassword: true)
         let harness = try makeHarness(devices: [device])
