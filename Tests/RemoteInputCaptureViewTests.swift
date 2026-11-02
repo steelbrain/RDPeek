@@ -1001,6 +1001,45 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         }
     }
 
+    func testCommandOrRightOptionPressedWhileShiftIsOnTheServerTapsNothing() {
+        // Shift, then right Option or Command, then Shift released before it: the server saw
+        // Shift go down and up, so releasing the held-back key is no Alt or Win tap.
+        let heldBack: [(keyCode: UInt16, flags: NSEvent.ModifierFlags)] = [
+            (.rightOption, .rightOptionDown),
+            (.leftCommand, .leftCommandDown),
+        ]
+        for key in heldBack {
+            let harness = makeHarness()
+            harness.view.flagsChanged(with: flagsEvent(keyCode: UInt16(kVK_Shift), flags: .leftShiftDown))
+            harness.view.flagsChanged(with: flagsEvent(keyCode: key.keyCode, flags: key.flags.union(.leftShiftDown)))
+            harness.view.flagsChanged(with: flagsEvent(keyCode: UInt16(kVK_Shift), flags: key.flags))
+            harness.view.flagsChanged(with: flagsEvent(keyCode: key.keyCode, flags: []))
+
+            XCTAssertEqual(harness.recorder.events, [
+                .keyboard(scancode: .leftShift, isReleased: false),
+                .keyboard(scancode: .leftShift, isReleased: true),
+            ])
+        }
+    }
+
+    func testCommandPressedDuringADragTapsNoWindowsKey() {
+        // A Win tap mid-drag would open the Start menu and cancel the drag.
+        let harness = makeHarness()
+        harness.view.mouseDown(with: mouseEvent(.leftMouseDown, location: NSPoint(x: 100, y: 50)))
+        harness.view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: 110, y: 50)))
+        harness.view.flagsChanged(with: flagsEvent(keyCode: .leftCommand, flags: .leftCommandDown))
+        harness.view.mouseDragged(with: mouseEvent(.leftMouseDragged, location: NSPoint(x: 120, y: 50), flags: .leftCommandDown))
+        harness.view.flagsChanged(with: flagsEvent(keyCode: .leftCommand, flags: []))
+        harness.view.mouseUp(with: mouseEvent(.leftMouseUp, location: NSPoint(x: 120, y: 50)))
+
+        XCTAssertEqual(harness.recorder.events, [
+            .pointerButton(button: .left, isDown: true, x: 100, y: 50),
+            .pointerMove(x: 110, y: 50),
+            .pointerMove(x: 120, y: 50),
+            .pointerButton(button: .left, isDown: false, x: 120, y: 50),
+        ])
+    }
+
     // MARK: - Command with right Option
 
     func testCommandAndRightOptionReleasedWithNothingBetweenTapNeither() {

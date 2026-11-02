@@ -570,14 +570,17 @@ struct MacRDPDeferredModifierKeys {
         heldScancodes.contains(scancode)
     }
 
-    /// Keys held back together are a chord, and so is a key pressed while another one already
-    /// went to the server, as Command-click sends Win: releasing it sends nothing, rather than a
-    /// Win or Alt tap with that key still down.
+    /// Keys held back together are a chord, and so is a key pressed while a modifier or a button
+    /// is already down on the server: Win that a Command-click sent, Shift, or a button held for
+    /// a drag. Releasing it then sends nothing, rather than a Win or Alt tap with that still down.
     mutating func press(_ scancode: RDPKeyboardScancode, inputState: RDPInputStateTracker) {
         guard heldScancodes.contains(scancode) == false else {
             return
         }
-        if heldScancodes.isEmpty == false || Self.deferredScancodes.contains(where: inputState.isScancodePressed) {
+        if heldScancodes.isEmpty == false
+            || MacRDPModifierKey.all.contains(where: { inputState.isScancodePressed($0.scancode) })
+            || RDPPointerButton.allCases.contains(where: inputState.isPointerButtonPressed)
+        {
             isChordedElsewhere = true
         }
         heldScancodes.append(scancode)
