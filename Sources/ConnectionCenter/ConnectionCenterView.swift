@@ -21,7 +21,14 @@ struct ConnectionCenterView: View {
 
     var body: some View {
         Group {
-            if deviceList.devices.isEmpty {
+            if deviceList.loadFailed {
+                // Not the empty state: its Add PC would fail to save.
+                ContentUnavailableView(
+                    "Saved PCs Can't Be Read",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text("The saved PC list can't be read by this version of RDPeek and is kept unchanged.")
+                )
+            } else if deviceList.devices.isEmpty {
                 ConnectionCenterEmptyState {
                     deviceList.addNewDevice()
                 }

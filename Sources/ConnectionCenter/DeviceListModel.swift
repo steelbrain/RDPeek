@@ -45,6 +45,9 @@ final class DeviceListModel: ObservableObject {
     /// stay in storage unchanged; the Connection Center says so until the
     /// notice is dismissed, which zeroes this for the rest of the run.
     @Published private(set) var unreadableDeviceCount = 0
+    /// Whether the saved list could not be read at all at launch. It stays
+    /// in storage unchanged, and saving fails rather than replace it.
+    @Published private(set) var loadFailed = false
     /// Called after the editor saved a password the user typed, with the
     /// sign-in it is for, so an open session window uses it rather than
     /// one it kept.
@@ -74,6 +77,7 @@ final class DeviceListModel: ObservableObject {
             devices = stored.devices
             unreadableDeviceCount = stored.unreadableCount
         } catch {
+            loadFailed = true
             errorMessage = String(describing: error)
         }
     }

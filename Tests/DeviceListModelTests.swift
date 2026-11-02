@@ -26,6 +26,15 @@ final class DeviceListModelTests: XCTestCase {
         XCTAssertEqual(model.devices, [])
         XCTAssertNotNil(model.errorMessage)
         XCTAssertEqual(model.unreadableDeviceCount, 0)
+        XCTAssertTrue(model.loadFailed)
+    }
+
+    func testInitWithNothingStoredHasNoPCsAndNoFailure() throws {
+        let harness = try makeHarness()
+
+        XCTAssertEqual(harness.model.devices, [])
+        XCTAssertFalse(harness.model.loadFailed)
+        XCTAssertNil(harness.model.errorMessage)
     }
 
     func testInitCountsSavedPCsItCannotReadUntilNoticeIsDismissed() throws {
@@ -46,6 +55,7 @@ final class DeviceListModelTests: XCTestCase {
         XCTAssertEqual(model.devices.map(\.id), [readableID])
         XCTAssertEqual(model.unreadableDeviceCount, 2)
         XCTAssertNil(model.errorMessage)
+        XCTAssertFalse(model.loadFailed)
 
         model.dismissUnreadableDeviceNotice()
 
