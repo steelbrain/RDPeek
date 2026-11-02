@@ -512,7 +512,13 @@ final class RemoteInputMappingTests: XCTestCase {
                 XCTAssertEqual(misplacedLetters.sorted(), [], "\(name) is announced as \(announced)")
             }
         }
-        // Not vacuous: the layouts were found and their letters read.
+        // Not vacuous: the layouts were found and their letters read. macOS installs over 200
+        // Apple layouts, and a list of only the enabled ones would leave most of them unchecked.
+        XCTAssertGreaterThanOrEqual(
+            letterCounts.count,
+            100,
+            "Read only \(letterCounts.count) Apple layouts; TISCreateInputSourceList should list every installed one"
+        )
         XCTAssertEqual(letterCounts["US"], 26, "Found \(letterCounts.count) Apple layouts")
     }
 
