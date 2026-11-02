@@ -42,6 +42,8 @@ final class RemoteInputCaptureNSView: NSView {
     private var wheelAccumulator = RDPScrollWheelAccumulator()
     /// A dead key went to the server as an Alt chord, so macOS composes the next key with its accent.
     private var followsChordedDeadKey = false
+    /// The toggle-key state the server was last synchronized with.
+    private var synchronizedToggleFlags: RDPToggleKeyFlags?
     private var commandKeyUpMonitor: Any?
 
     /// A server that takes no Unicode input gets every key as its scancode, so its own layout
@@ -421,8 +423,15 @@ final class RemoteInputCaptureNSView: NSView {
         return [inputState.keyboard(scancode: scancode, isReleased: true)]
     }
 
+    /// A Caps Lock toggle the view never saw, such as one made while a menu was open, leaves the
+    /// server's Caps Lock stale, and the letters it shifts go as scancodes, so the toggle-key
+    /// state is synchronized first when the event's differs.
     private func syncModifierKeys(with event: NSEvent) {
-        sendInput(modifierSyncEvents(for: event.modifierFlags))
+        let isToggleStateStale = synchronizedToggleFlags.map {
+            $0 != MacRDPKeyboardMapping.toggleFlags(for: event.modifierFlags)
+        } ?? false
+        let toggleKeyEvents = isToggleStateStale ? toggleKeySynchronizationEvents(event.modifierFlags) : []
+        sendInput(toggleKeyEvents + modifierSyncEvents(for: event.modifierFlags))
     }
 
     /// A Command-click on a window in the background reaches the view without making the window
@@ -443,7 +452,9 @@ final class RemoteInputCaptureNSView: NSView {
     }
 
     private func toggleKeySynchronizationEvents(_ modifierFlags: NSEvent.ModifierFlags) -> [RDPSlowPathInputEvent] {
-        inputState.synchronizationEvents(toggleFlags: MacRDPKeyboardMapping.toggleFlags(for: modifierFlags))
+        let toggleFlags = MacRDPKeyboardMapping.toggleFlags(for: modifierFlags)
+        synchronizedToggleFlags = toggleFlags
+        return inputState.synchronizationEvents(toggleFlags: toggleFlags)
     }
 
     /// A drag that leaves the shown area holds the pointer on its nearest shown pixel, so a drag

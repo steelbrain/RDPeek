@@ -506,6 +506,41 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         ])
     }
 
+    func testAKeyShowingACapsLockChangeTheViewMissedSynchronizesFirst() {
+        // Caps Lock toggled while a menu was open never reaches the view, so the server's stays
+        // off and a letter sent as its scancode would type in lower case. The next key shows the
+        // change: the synchronize goes first, then the held Shift again, then the key.
+        let harness = makeHarness()
+        let leftArrow = RDPKeyboardScancode(code: 0x4B, isExtended: true)
+        let aKey = RDPKeyboardScancode(code: 0x1E)
+        harness.view.flagsChanged(with: flagsEvent(keyCode: UInt16(kVK_Shift), flags: .leftShiftDown))
+        harness.recorder.events.removeAll()
+
+        let capsLockedShift = NSEvent.ModifierFlags.leftShiftDown.union(.capsLock)
+        harness.view.keyDown(with: keyEvent(.keyDown, keyCode: UInt16(kVK_LeftArrow), flags: capsLockedShift))
+        harness.view.keyUp(with: keyEvent(.keyUp, keyCode: UInt16(kVK_LeftArrow), flags: capsLockedShift))
+        harness.view.flagsChanged(with: flagsEvent(keyCode: UInt16(kVK_Shift), flags: .capsLock))
+        harness.view.keyDown(with: keyEvent(.keyDown, keyCode: UInt16(kVK_ANSI_A), characters: "A", charactersIgnoringModifiers: "a", flags: .capsLock))
+        harness.view.keyUp(with: keyEvent(.keyUp, keyCode: UInt16(kVK_ANSI_A), characters: "A", charactersIgnoringModifiers: "a", flags: .capsLock))
+        XCTAssertEqual(harness.recorder.events, [
+            .synchronize(toggleFlags: [.numLock, .capsLock]),
+            .keyboard(scancode: .leftShift, isReleased: false),
+            .keyboard(scancode: leftArrow, isReleased: false),
+            .keyboard(scancode: leftArrow, isReleased: true),
+            .keyboard(scancode: .leftShift, isReleased: true),
+            .keyboard(scancode: aKey, isReleased: false),
+            .keyboard(scancode: aKey, isReleased: true),
+        ])
+
+        // Turned off the same way, as a click shows.
+        harness.recorder.events.removeAll()
+        harness.view.mouseDown(with: mouseEvent(.leftMouseDown, location: NSPoint(x: 100, y: 50)))
+        XCTAssertEqual(harness.recorder.events, [
+            .synchronize(toggleFlags: [.numLock]),
+            .pointerButton(button: .left, isDown: true, x: 100, y: 50),
+        ])
+    }
+
     // MARK: - keyUp AppKit withholds while Command is held
 
     func testCommandChordKeyIsReleasedAsItGoesUp() {
@@ -1599,6 +1634,8 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         view.inputSession = recorder
         if isFirstResponder {
             window.makeFirstResponder(view)
+            // The tests type with Caps Lock off, whatever the Mac's is.
+            view.flagsChanged(with: flagsEvent(keyCode: UInt16(kVK_CapsLock), flags: []))
             recorder.events.removeAll()
         }
         return Harness(window: window, view: view, recorder: recorder)
