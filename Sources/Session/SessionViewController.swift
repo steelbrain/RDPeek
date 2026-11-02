@@ -974,9 +974,11 @@ final class SessionViewController: NSViewController {
                 }
             }
             var keyframeRequests = RDPKeyframeRequestThrottle()
-            // The monitors the server reported last, so the main thread
-            // hears of a new layout once, not with every frame.
+            // The monitors and graphics output size the server reported
+            // last, so the main thread hears of a new layout once, not with
+            // every frame.
             var reportedMonitors: [RDPRemoteMonitor] = []
+            var reportedOutputRect: RDPFrameRect?
             // Which remote copy a clipboard handler is called for, so the
             // bridge can drop one that a publish on the main thread
             // replaced before the copy got there.
@@ -1044,9 +1046,13 @@ final class SessionViewController: NSViewController {
                 onGraphicsFrame: { frame in
                     // Posted ahead of the frame, so ahead of the Display
                     // Control RDPKit hands out after the first frame: the
-                    // first resize already knows the server's layout.
-                    if frame.monitors != reportedMonitors {
+                    // first resize already knows the server's layout. A new
+                    // output size counts too: a server that lists no
+                    // monitors answers a resize with that alone.
+                    let outputRect = frame.graphicsOutputRect ?? reportedOutputRect
+                    if frame.monitors != reportedMonitors || outputRect != reportedOutputRect {
                         reportedMonitors = frame.monitors
+                        reportedOutputRect = outputRect
                         let monitors = frame.monitors
                         sink.apply { controller in
                             controller.updateReportedMonitors(monitors)
@@ -1544,8 +1550,9 @@ final class SessionViewController: NSViewController {
         )
     }
 
-    /// The server laid its desktop out anew. Several monitors pause window
-    /// matching; back at one, it resumes without the user doing anything.
+    /// The server laid its desktop out anew: new monitors, or a new size
+    /// with none listed. Several monitors pause window matching; back at
+    /// one, it resumes without the user doing anything.
     private func updateReportedMonitors(_ monitors: [RDPRemoteMonitor]) {
         // The server reset its graphics: for the resize in flight, if any,
         // or for a layout of its own that replaced it.
