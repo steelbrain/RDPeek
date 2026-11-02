@@ -86,7 +86,7 @@ final class SessionViewController: NSViewController {
     /// The Display Control session, the server's monitors, and the size
     /// sent last.
     private var displayControl = SessionDisplayControl()
-    private let clipboard: SessionClipboard
+    private let clipboard: RDPPasteboardClipboard
     private var audioPlaybackEnabled: Bool
     private var remoteAudioPlayer = RDPAudioPlayer()
     private var report: RDPConnectionReport?
@@ -144,11 +144,13 @@ final class SessionViewController: NSViewController {
         self.launchStore = launchStore
         self.credentialStore = credentialStore
         self.credentialCache = credentialCache
-        clipboard = SessionClipboard(isSharingEnabled: draft.clipboardSharingEnabled)
+        clipboard = SessionClipboard.makeBridge(isSharingEnabled: draft.clipboardSharingEnabled)
         audioPlaybackEnabled = draft.audioPlaybackEnabled
         super.init(nibName: nil, bundle: nil)
-        clipboard.onToast = { [weak self] text, systemImage in
-            self?.toast(text, systemImage: systemImage)
+        clipboard.onEvent = { [weak self] event in
+            if let toast = SessionClipboard.toast(for: event) {
+                self?.toast(toast.text, systemImage: toast.systemImage)
+            }
         }
     }
 

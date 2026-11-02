@@ -480,12 +480,12 @@ extension RDPConnectionConfiguration {
             hideCertificateWarnings: hideCertificateWarnings,
             graphicsFrameCaptureLimit: nil,
             desktopSize: desktopSize,
-            // Always join the clipboard channel: SessionClipboard keeps both
-            // directions shut while sharing is off, so turning it on (or a
-            // temporary share) works without reconnecting. The cost: joining
-            // sends the mandatory empty Format List, and Windows empties its
-            // clipboard for it (checked on Windows 11; gnome-remote-desktop
-            // keeps its own).
+            // Always join the clipboard channel: RDPKit's pasteboard bridge
+            // keeps both directions shut while sharing is off, so turning it
+            // on (or a temporary share) works without reconnecting. The
+            // cost: joining sends the mandatory empty Format List, and
+            // Windows empties its clipboard for it (checked on Windows 11;
+            // gnome-remote-desktop keeps its own).
             clipboardEnabled: true,
             // The server's first copy can come before the bridge attaches
             // on the main thread, so nothing is fetched until it applies
