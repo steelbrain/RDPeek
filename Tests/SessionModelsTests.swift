@@ -337,39 +337,22 @@ final class SessionModelsTests: XCTestCase {
 
     // MARK: - Attempt outcomes
 
-    func testUnreachableServerIsRetriedWithinBudget() {
-        let report = makeReport(stage: "x224-rdp-negotiation", failure: .connect(error: RDPSocketError(errno: EHOSTUNREACH)))
-
-        XCTAssertEqual(outcome(after: report, unreachableRetriesSpent: 0), .retry(.networkHiccup))
-        XCTAssertEqual(outcome(after: report, unreachableRetriesSpent: 1), .retry(.networkHiccup))
-        XCTAssertEqual(
-            outcome(after: report, unreachableRetriesSpent: 2),
-            .end(RDPSessionEndReason(
-                kind: .failed,
-                message: "Could not reach “winbox”. Check that it is on. If it is on your local network, "
-                    + "allow RDPeek in System Settings → Privacy & Security → Local Network."
-            ))
-        )
+    func testNoConnectFailureIsRetriedAsRDPKitTriedTheConnectAgain() {
+        // RDPKit tries the TCP connect again within the run while it may
+        // pass; a failure it ends the run with stays.
+        for errno in [EHOSTUNREACH, ENETUNREACH, ETIMEDOUT, nil, ECONNREFUSED, EPERM, EACCES] {
+            let report = makeReport(stage: "x224-rdp-negotiation", failure: .connect(error: RDPSocketError(errno: errno)))
+            XCTAssertEqual(outcome(after: report), .end(endReason(report)), "\(String(describing: errno))")
+        }
     }
 
-    func testOnlyConnectFailuresThatCanPassAreRetried() {
-        func outcome(errno: Int32?) -> SessionAttemptOutcome {
-            self.outcome(after: makeReport(
-                stage: "x224-rdp-negotiation",
-                failure: .connect(error: RDPSocketError(errno: errno))
-            ))
-        }
-
-        for errno in [ENETUNREACH, ETIMEDOUT, nil] {
-            XCTAssertEqual(outcome(errno: errno), .retry(.networkHiccup), "\(String(describing: errno))")
-        }
-        // Nothing listens on the port, or macOS refused the connection:
-        // connecting again a moment later does not change that.
-        for errno in [ECONNREFUSED, EPERM, EACCES] {
-            guard case .end = outcome(errno: errno) else {
-                return XCTFail("errno \(errno) was retried")
-            }
-        }
+    func testRDPKitTriesTheConnectAgainAndTheOverlaySaysWhichTry() {
+        XCTAssertEqual(SessionConnectRetry.attempts, 3)
+        XCTAssertEqual(SessionConnectRetry.delay, 1.3)
+        XCTAssertNil(SessionConnectRetry.statusDetail(connectAttempt: nil))
+        XCTAssertNil(SessionConnectRetry.statusDetail(connectAttempt: 1))
+        XCTAssertEqual(SessionConnectRetry.statusDetail(connectAttempt: 2), "Network hiccup — retrying (2 of 3)…")
+        XCTAssertEqual(SessionConnectRetry.statusDetail(connectAttempt: 3), "Network hiccup — retrying (3 of 3)…")
     }
 
     func testRedirectTargetFailuresBlameThePassingServerAndAreNotRetried() {
@@ -735,46 +718,12 @@ final class SessionModelsTests: XCTestCase {
 
     // MARK: - Attempt budget
 
-    func testUnreachableRetriesEnd() {
-        let unreachable = makeReport(stage: "x224-rdp-negotiation", failure: .connect(error: RDPSocketError(errno: EHOSTUNREACH)))
-        var budget = SessionAttemptBudget()
-        budget.userStarted()
-
-        let retries = retriesUntilTheEnd(of: &budget, feeding: unreachable)
-
-        XCTAssertEqual(retries, SessionAttemptOutcome.maximumUnreachableRetries)
-        // A connection the user starts may retry as often again.
-        budget.userStarted()
-        XCTAssertEqual(retriesUntilTheEnd(of: &budget, feeding: unreachable), retries)
-    }
-
     func testEachAutomaticRetryHappensOnce() {
         let report = makeReport(failure: .noFramePresented(framesReceived: 0, lastNotPresentedReason: nil))
         var budget = SessionAttemptBudget()
         budget.userStarted()
 
         XCTAssertEqual(retriesUntilTheEnd(of: &budget, feeding: report), 1)
-    }
-
-    func testMixedFailuresStillEnd() {
-        let reports = [
-            makeReport(stage: "x224-rdp-negotiation", failure: .connect(error: RDPSocketError(errno: ETIMEDOUT))),
-            makeReport(failure: .noFramePresented(framesReceived: 0, lastNotPresentedReason: nil)),
-        ]
-        var budget = SessionAttemptBudget()
-        budget.userStarted()
-        var attempts = 0
-
-        while attempts < 100 {
-            let outcome = budget.outcome(after: reports[attempts % reports.count], host: "winbox")
-            budget.record(outcome)
-            attempts += 1
-            if case .end = outcome {
-                break
-            }
-        }
-
-        XCTAssertLessThanOrEqual(attempts, SessionAttemptOutcome.maximumUnreachableRetries + 2)
     }
 
     func testTheSignInIsDecidedOnOncePerConnectionTheUserStarts() {
@@ -866,13 +815,11 @@ final class SessionModelsTests: XCTestCase {
     private func outcome(
         after report: RDPConnectionReport,
         host: String = "winbox",
-        unreachableRetriesSpent: Int = 0,
         retriedFirstFrameTimeout: Bool = false
     ) -> SessionAttemptOutcome {
         SessionAttemptOutcome.after(
             report,
             host: host,
-            unreachableRetriesSpent: unreachableRetriesSpent,
             retriedFirstFrameTimeout: retriedFirstFrameTimeout
         )
     }

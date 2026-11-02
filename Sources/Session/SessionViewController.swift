@@ -375,10 +375,7 @@ final class SessionViewController: NSViewController {
             updateOverlayVisibility(for: nextPhase)
             startMetricsOverlayLoopIfNeeded()
         }
-        hudModel.update(
-            \.connectingStatusDetail,
-            to: nextPhase == .connecting ? autoRetryReason?.statusDetail : nil
-        )
+        hudModel.update(\.connectingStatusDetail, to: nextPhase == .connecting ? connectingStatusDetail : nil)
         hudModel.update(\.certificateNotice, to: certificateNoticeState())
         hudModel.update(\.offersLegacyCredSSP, to: legacyCredSSPConsent.isOffered)
         // One command state feeds the HUD and the Session menu, so they
@@ -440,6 +437,15 @@ final class SessionViewController: NSViewController {
             displaySelection: displaySelection,
             isMetricsOverlayVisible: isMetricsOverlayVisible
         )
+    }
+
+    /// Why the session is not yet connected on its first try: RDPKit tries
+    /// the connect again, or the session connects again on its own. Read
+    /// from the live report while an attempt runs, which the clipboard
+    /// poll's render picks up within a second.
+    private var connectingStatusDetail: String? {
+        let connectAttempt = isConnecting ? liveReport?.snapshot?.connectAttempt : nil
+        return SessionConnectRetry.statusDetail(connectAttempt: connectAttempt) ?? autoRetryReason?.statusDetail
     }
 
     private var currentPhase: SessionPhase {
@@ -924,6 +930,10 @@ final class SessionViewController: NSViewController {
             clientName: SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "RDPeek"
         )
         configuration.keyboard = keyboard
+        // While macOS asks to allow local network access, the first
+        // connection into the local network fails as unreachable.
+        configuration.connectAttempts = SessionConnectRetry.attempts
+        configuration.connectRetryDelay = SessionConnectRetry.delay
         return configuration
     }
 

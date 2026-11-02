@@ -423,17 +423,34 @@ extension RDPConnectionReport {
     }
 }
 
+/// RDPKit tries the TCP connect again, a moment apart, while it fails
+/// before the server answers: the host or its network cannot be reached,
+/// or it does not answer in time. The first connection to a host on the
+/// local network often fails while macOS asks to allow local network
+/// access. A refused connection, one macOS does not permit, or a host name
+/// that does not resolve fails at once.
+enum SessionConnectRetry {
+    static let attempts = 3
+    static let delay: TimeInterval = 1.3
+
+    /// What the connecting overlay says while RDPKit tries the connect
+    /// again, from the live report's `connectAttempt`; nothing on the first
+    /// try.
+    static func statusDetail(connectAttempt: Int?) -> String? {
+        guard let connectAttempt, connectAttempt > 1 else {
+            return nil
+        }
+        return "Network hiccup — retrying (\(connectAttempt) of \(attempts))…"
+    }
+}
+
 /// Why a session connects again on its own.
 enum SessionAutoRetryReason: Equatable {
-    /// The server could not be reached.
-    case networkHiccup
     /// The server activated the session but showed no desktop in time.
     case firstFrameTimeout
 
     var statusDetail: String {
         switch self {
-        case .networkHiccup:
-            "Network hiccup — retrying…"
         case .firstFrameTimeout:
             "The desktop is taking too long — reconnecting…"
         }
@@ -450,59 +467,39 @@ enum SessionAttemptOutcome: Equatable {
     /// Show why the session ended.
     case end(RDPSessionEndReason)
 
-    /// Automatic reconnects to a server that could not be reached. The
-    /// first connection to a LAN host often fails while macOS asks for
-    /// local network access.
-    static let maximumUnreachableRetries = 2
-
     /// After a session RDPKit ran ended, with its report, which says
     /// whether it showed the desktop. No attempt that may have been refused
-    /// for its credentials is repeated: a rejected sign-in asks again. The
-    /// automatic attempts are each bounded:
+    /// for its credentials is repeated: a rejected sign-in asks again. A
+    /// session that activated but showed no desktop in time, which RDPKit
+    /// ends with `noFramePresented`, gets one more attempt, with the same
+    /// credentials.
     ///
-    /// - A server that could not be reached is tried again, up to
-    ///   `maximumUnreachableRetries` times. A host name that does not
-    ///   resolve stays wrong, and a server that refused the connection or a
-    ///   connection macOS did not allow is not tried again. Nor is one that
-    ///   took the connection but sent no Connection Confirm
-    ///   (`noConnectionConfirm`): another service, a server at its
-    ///   connection limit or a firewall, which a moment does not change.
-    /// - A session that activated but showed no desktop in time, which
-    ///   RDPKit ends with `noFramePresented`, gets one more attempt, with
-    ///   the same credentials.
+    /// RDPKit already made the other attempts within the run, and a
+    /// failure any of them ends the run with stays:
+    /// - the TCP connect, tried up to `SessionConnectRetry.attempts` times
+    ///   while it fails before the server answers. A redirection's
+    ///   target is tried the same way, as nothing has gone to it then; the
+    ///   session does not start over for a target it cannot reach, which
+    ///   would sign in to the server typed in again.
+    /// - one offering only RSA key exchange to a certificate that refused
+    ///   ECDHE;
+    /// - one without a stored client license the server's licensing
+    ///   refused.
     ///
-    /// RDPKit already made the other attempts within the run: one offering
-    /// only RSA key exchange to a certificate that refused ECDHE, and one
-    /// without a stored client license the server's licensing refused. A
-    /// failure either ends the run with stays.
-    ///
-    /// After a Server Redirection (`redirectionDepth` above 0) the server
-    /// typed in took the sign-in and passed the session on, so a target
-    /// that fails to connect is not retried.
+    /// Nor is a server that took the connection but sent no Connection
+    /// Confirm (`noConnectionConfirm`) tried again: another service, a
+    /// server at its connection limit or a firewall, which a moment does
+    /// not change.
     static func after(
         _ report: RDPConnectionReport,
         host: String,
-        unreachableRetriesSpent: Int = 0,
         retriedFirstFrameTimeout: Bool = false
     ) -> Self {
         let endReason = RDPSessionEndReason(report: report, host: host)
         guard report.showedDesktop == false, let failure = report.failure else {
             return .end(endReason)
         }
-        let isRedirected = report.redirectionDepth > 0
         switch failure {
-        case let .connect(socketError) where isRedirected == false:
-            switch socketError.category {
-            case .hostUnreachable, .networkUnreachable, .timedOut, .other:
-                if unreachableRetriesSpent < maximumUnreachableRetries {
-                    return .retry(.networkHiccup)
-                }
-            case .refused, .notPermitted:
-                break
-            }
-        case .noConnectionConfirm:
-            // The host took the connection, so the network is there.
-            break
         case let .credSSP(status) where RDPSessionEndReason.isWrongCredentials(status):
             return .promptForCredentials(message: RDPSessionEndReason.wrongCredentialsMessage)
         case .credentialsRequired, .negotiation(code: .hybridRequiredByServer):
@@ -529,10 +526,10 @@ enum SessionAttemptOutcome: Equatable {
 /// bounded, so a session never connects again on its own forever, and
 /// the password is kept at most once however often the session activates.
 struct SessionAttemptBudget {
-    /// Retries spent on a server that could not be reached, since the user
-    /// started the connection. A session that showed the desktop is not
-    /// retried, and the next one is one the user starts.
-    private(set) var unreachableRetriesSpent = 0
+    /// The session connected again for a desktop that did not show in
+    /// time, since the user started the connection. Nothing resets it
+    /// sooner: a session that showed the desktop is not retried, and the
+    /// next one is one the user starts.
     private(set) var retriedFirstFrameTimeout = false
     /// The attempt under way sent credentials, which its first activation
     /// decides on.
@@ -560,7 +557,6 @@ struct SessionAttemptBudget {
         SessionAttemptOutcome.after(
             report,
             host: host,
-            unreachableRetriesSpent: unreachableRetriesSpent,
             retriedFirstFrameTimeout: retriedFirstFrameTimeout
         )
     }
@@ -568,8 +564,6 @@ struct SessionAttemptBudget {
     /// Spends the retry `outcome` makes, if any.
     mutating func record(_ outcome: SessionAttemptOutcome) {
         switch outcome {
-        case .retry(.networkHiccup):
-            unreachableRetriesSpent += 1
         case .retry(.firstFrameTimeout):
             retriedFirstFrameTimeout = true
         case .promptForCredentials, .end:
