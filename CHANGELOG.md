@@ -6,7 +6,9 @@
 
 - GNOME Remote Login gets past the system sign-in to the user's
   desktop. A refusal of the sign-in it passes the session on with is
-  explained, not asked about again.
+  explained, not asked about again. If the user's desktop then fails
+  to show, the session ends as Disconnected, rather than starting over
+  at the sign-in screen.
 - Windows 11 sessions no longer end when the server confirms graphics
   with both AVC flags, and Network Level Authentication works with
   certificates signed with RSASSA-PSS and SHA-384 or SHA-512.
@@ -42,8 +44,12 @@
   could check the user name and password, says so, instead of asking
   for them again.
 - While RDPeek tries again to reach a PC that did not answer, the
-  connecting screen says which try it is, such as “retrying (2 of 3)”.
-  A server a session is passed on to is tried again the same way.
+  connecting screen says which try it is, such as “retrying (2 of 3)”,
+  as soon as the one before fails. A server a session is passed on to
+  is tried again the same way.
+- When a load balancer passes the session on without naming the
+  server, and that server fails, the message says “a server” rather
+  than naming the PC itself with a port other than 3389.
 
 ### Remote input
 
