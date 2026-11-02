@@ -1158,6 +1158,40 @@ final class SessionClipboardTests: XCTestCase {
         XCTAssertEqual(toasts.last, "Remote folders have no files")
     }
 
+    /// RDPKit keeps only the last component of a remote file's name, with
+    /// no leading "." to hide it and no bidi override to spell it
+    /// backwards, so each file lands, quarantined and in sight, in the
+    /// download's own folder. This guards against a later RDPKit.
+    func testHostileRemoteFileNamesStayInTheDownloadFolderInSight() throws {
+        let session = RecordedClipboard()
+        let clipboard = makeClipboard()
+        clipboard.attach(session)
+        let names = ["..\\..\\x", "/etc/passwd", ".zshrc", "a\u{202E}fdp.command"]
+
+        clipboard.receiveFileList(RDPClipboardFileGroupDescriptorW(descriptors: names.map {
+            RDPClipboardFileDescriptorW(flags: 0, fileAttributes: 0, fileSize: 0, fileName: $0)
+        }), copyNumber: session.announceRemoteCopy())
+        for _ in names {
+            try answerSizeRequest(1, to: clipboard, from: session)
+            try finishRemoteFileDownload(Data("x".utf8), to: clipboard, from: session)
+        }
+
+        let folders = try FileManager.default.contentsOfDirectory(at: downloadRoot, includingPropertiesForKeys: nil)
+        XCTAssertEqual(folders.count, 1)
+        let folderPath = try XCTUnwrap(folders.first).resolvingSymlinksInPath().path
+        let fileURLs = copiedFileURLs()
+        XCTAssertEqual(fileURLs.count, names.count)
+        for fileURL in fileURLs {
+            let name = fileURL.lastPathComponent
+            XCTAssertEqual(fileURL.deletingLastPathComponent().resolvingSymlinksInPath().path, folderPath, name)
+            XCTAssertFalse(name.hasPrefix("."), name)
+            XCTAssertFalse(name.unicodeScalars.contains("\u{202E}"), name)
+            XCTAssertEqual(try Data(contentsOf: fileURL), Data("x".utf8))
+            let quarantine = try fileURL.resourceValues(forKeys: [.quarantinePropertiesKey]).quarantineProperties
+            XCTAssertEqual(quarantine?[kLSQuarantineAgentNameKey as String] as? String, "RDPeek", name)
+        }
+    }
+
     /// Each remote file costs a round trip and a write, and all of them are
     /// pasted side by side, so a copy of more than 1,000 is refused; its
     /// folders do not count.
