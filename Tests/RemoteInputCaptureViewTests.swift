@@ -1025,7 +1025,7 @@ final class RemoteInputCaptureViewTests: XCTestCase {
         let harness = makeHarness()
         let eKey = UInt16(kVK_ANSI_E)
         harness.view.uncomposedOutput = { keyCode, modifierFlags in
-            keyCode == eKey && modifierFlags.contains(.option) ? "" : nil
+            keyCode == eKey ? (modifierFlags.contains(.option) ? "" : "e") : nil
         }
         harness.view.composedOutput = { keyCode, modifierFlags, deadKeyCode, deadKeyModifierFlags in
             keyCode == eKey && modifierFlags.isEmpty && deadKeyCode == eKey && deadKeyModifierFlags.contains(.option) ? "é" : nil
@@ -1053,6 +1053,52 @@ final class RemoteInputCaptureViewTests: XCTestCase {
             .unicode(codeUnit: 0xE9, isReleased: true),
             .keyboard(scancode: eScancode, isReleased: false),
         ])
+    }
+
+    func testANavigationKeyAfterADeadKeyRightAfterALeftOptionDeadKeyTypesNoAccent() {
+        // The Mac layout types "´" and the key's control code for Left Arrow, Home or Delete
+        // right after Option-E, but AppKit gives these keys their own characters with no text
+        // ahead, so each goes as its scancode alone, as after one dead key.
+        let keys: [(keyCode: Int, characters: String, controlCode: String, scancode: RDPKeyboardScancode)] = [
+            (kVK_LeftArrow, "\u{F702}", "\u{1C}", RDPKeyboardScancode(code: 0x4B, isExtended: true)),
+            (kVK_Home, "\u{F729}", "\u{01}", RDPKeyboardScancode(code: 0x47, isExtended: true)),
+            (kVK_Delete, "\u{7F}", "\u{08}", RDPKeyboardScancode(code: 0x0E)),
+        ]
+        let eKey = UInt16(kVK_ANSI_E)
+        let eScancode = RDPKeyboardScancode(code: 0x12)
+        for key in keys {
+            let harness = makeHarness()
+            harness.view.uncomposedOutput = { keyCode, modifierFlags in
+                switch Int(keyCode) {
+                case kVK_ANSI_E:
+                    modifierFlags.contains(.option) ? "" : "e"
+                case key.keyCode:
+                    key.controlCode
+                default:
+                    nil
+                }
+            }
+            harness.view.composedOutput = { keyCode, _, deadKeyCode, _ in
+                Int(keyCode) == key.keyCode && deadKeyCode == eKey ? "´" + key.controlCode : nil
+            }
+            harness.view.flagsChanged(with: flagsEvent(keyCode: UInt16(kVK_Option), flags: .leftOptionDown))
+            harness.view.keyDown(with: keyEvent(.keyDown, keyCode: eKey, charactersIgnoringModifiers: "e", flags: .leftOptionDown))
+            harness.view.keyUp(with: keyEvent(.keyUp, keyCode: eKey, charactersIgnoringModifiers: "e", flags: .leftOptionDown))
+            harness.view.flagsChanged(with: flagsEvent(keyCode: UInt16(kVK_Option), flags: []))
+            harness.view.flagsChanged(with: flagsEvent(keyCode: .rightOption, flags: .rightOptionDown))
+            harness.view.keyDown(with: keyEvent(.keyDown, keyCode: eKey, characters: "´", charactersIgnoringModifiers: "e", flags: .rightOptionDown))
+            harness.view.keyUp(with: keyEvent(.keyUp, keyCode: eKey, characters: "´", charactersIgnoringModifiers: "e", flags: .rightOptionDown))
+            harness.view.flagsChanged(with: flagsEvent(keyCode: .rightOption, flags: []))
+            harness.view.keyDown(with: keyEvent(.keyDown, keyCode: UInt16(key.keyCode), characters: key.characters))
+
+            XCTAssertEqual(harness.recorder.events, [
+                .keyboard(scancode: .leftAlt, isReleased: false),
+                .keyboard(scancode: eScancode, isReleased: false),
+                .keyboard(scancode: eScancode, isReleased: true),
+                .keyboard(scancode: .leftAlt, isReleased: true),
+                .keyboard(scancode: key.scancode, isReleased: false),
+            ], "\(key.keyCode)")
+        }
     }
 
     func testOptionFoundHeldWithoutSideBitsTypesTheMacCharacter() {

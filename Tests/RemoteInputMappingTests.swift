@@ -369,6 +369,18 @@ final class RemoteInputMappingTests: XCTestCase {
         XCTAssertEqual(characters("á", nil), "á")
     }
 
+    /// A key that types text or nothing on its own is a character key, which a dead key typed
+    /// right after a chorded one composes; Return, Left Arrow, Delete, Forward Delete and F1
+    /// type control characters, and a key the layout data says nothing about is no such key.
+    func testACharacterKeyIsOneThatTypesTextOrNothingOnItsOwn() {
+        for uncomposed in ["a", "¬", " ", ""] {
+            XCTAssertTrue(MacRDPKeyboardMapping.isCharacterKey(uncomposed: uncomposed), uncomposed)
+        }
+        for uncomposed: String? in ["\r", "\u{1C}", "\u{08}", "\u{7F}", "\u{10}", nil] {
+            XCTAssertFalse(MacRDPKeyboardMapping.isCharacterKey(uncomposed: uncomposed), "\(String(describing: uncomposed))")
+        }
+    }
+
     // MARK: - Characters the announced layout types
 
     /// A remote IME commits its candidate with Space, so it goes as its scancode on every layout,

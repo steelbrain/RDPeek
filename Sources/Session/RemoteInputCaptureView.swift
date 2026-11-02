@@ -47,7 +47,8 @@ final class RemoteInputCaptureNSView: NSView {
     /// A dead key went to the server as an Alt chord, so macOS composes the next key with its accent.
     private var followsChordedDeadKey = false
     /// A dead key typed right after one that went as a chord. macOS may spend it on that one's
-    /// accent, which the server never asked for, so the next key is composed with it here.
+    /// accent, which the server never asked for, so the next key, if a character key, is composed
+    /// with it here.
     private var deadKeyAfterChordedDeadKey: (keyCode: UInt16, modifierFlags: NSEvent.ModifierFlags)?
     /// The toggle-key state the server was last synchronized with.
     private var synchronizedToggleFlags: RDPToggleKeyFlags?
@@ -231,7 +232,7 @@ final class RemoteInputCaptureNSView: NSView {
                 afterChordedDeadKey: event.characters,
                 uncomposed: uncomposedOutput(event.keyCode, event.modifierFlags)
             )
-        } else if let deadKey {
+        } else if let deadKey, MacRDPKeyboardMapping.isCharacterKey(uncomposed: uncomposedOutput(event.keyCode, event.modifierFlags)) {
             composedOutput(event.keyCode, event.modifierFlags, deadKey.keyCode, deadKey.modifierFlags) ?? event.characters
         } else {
             event.characters
@@ -782,10 +783,18 @@ enum MacRDPKeyboardMapping {
     /// key with its accent ("a" as "á"), which the server never asked for. `uncomposed` is what
     /// the key types with no dead key pending; a control or function key keeps its own.
     static func characters(afterChordedDeadKey characters: String?, uncomposed: String?) -> String? {
-        guard let uncomposed, uncomposed.isEmpty || isPrintable(uncomposed) else {
-            return characters
+        isCharacterKey(uncomposed: uncomposed) ? uncomposed : characters
+    }
+
+    /// Whether a key types text, or nothing (a dead key), with no dead key pending: `uncomposed`
+    /// is what it types then. A control or function key types a control character, and after a
+    /// dead key the Mac layout puts the accent ahead of it ("´\u{1C}" for Left Arrow), where
+    /// AppKit gives the key its own characters with no text ahead.
+    static func isCharacterKey(uncomposed: String?) -> Bool {
+        guard let uncomposed else {
+            return false
         }
-        return uncomposed
+        return uncomposed.isEmpty || isPrintable(uncomposed)
     }
 
     /// No control characters and none of AppKit's function-key characters.
