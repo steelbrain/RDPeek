@@ -127,6 +127,14 @@ final class SessionClipboard {
     /// `onClipboardReady` turned the session's fetching off until this
     /// applies the sharing choice.
     func attach(_ session: any SessionClipboardSending) {
+        // A Server Redirection, or the server's clipboard restarting,
+        // attaches again without a detach. A download in flight gets no
+        // answers there.
+        discardFileTransfer()
+        // A server redirected to has a clipboard of its own.
+        if session !== self.session {
+            remoteCopyChangeCount = nil
+        }
         self.session = session
         // Joining the channel sent an empty Format List.
         serverHoldsLocalCopy = false

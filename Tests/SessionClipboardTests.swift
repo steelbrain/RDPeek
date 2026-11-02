@@ -1080,6 +1080,39 @@ final class SessionClipboardTests: XCTestCase {
         XCTAssertEqual(toasts.last, "Remote folders have no files")
     }
 
+    /// A Server Redirection, or the server's clipboard restarting, attaches
+    /// again without a detach. A download in flight gets no answers there,
+    /// so it is dropped then, not failed two minutes later; and only the
+    /// server a copy came from clears it by emptying its clipboard.
+    func testAttachingAgainDropsADownloadAndForgetsAnotherServersCopy() throws {
+        let session = RecordedClipboard()
+        let clipboard = makeClipboard()
+        var toasts: [String] = []
+        clipboard.onToast = { text, _ in toasts.append(text) }
+        clipboard.attach(session)
+
+        try startRemoteFileDownload(Data(count: 10), to: clipboard, from: session)
+        clipboard.attach(session)
+        XCTAssertEqual(downloadRootContents(), [])
+        now += 121
+        clipboard.poll()
+        XCTAssertFalse(toasts.contains("Remote file transfer timed out"))
+        try finishRemoteFileDownload(Data(count: 10), to: clipboard, from: session)
+        XCTAssertNil(copiedFileURL())
+
+        // A restarted clipboard is the same server's.
+        clipboard.receiveText("remote", copyNumber: session.announceRemoteCopy())
+        clipboard.attach(session)
+        clipboard.receiveRemoteCopyUnavailable(isEmpty: true, copyNumber: session.announceRemoteCopy())
+        XCTAssertNil(pasteboard.string(forType: .string))
+
+        clipboard.receiveText("remote", copyNumber: session.announceRemoteCopy())
+        let redirected = RecordedClipboard()
+        clipboard.attach(redirected)
+        clipboard.receiveRemoteCopyUnavailable(isEmpty: true, copyNumber: redirected.announceRemoteCopy())
+        XCTAssertEqual(pasteboard.string(forType: .string), "remote")
+    }
+
     // MARK: - Download cleanup
 
     func testFinishedDownloadIsRemovedOnceItLeavesThePasteboard() throws {
@@ -1225,6 +1258,11 @@ final class SessionClipboardTests: XCTestCase {
             ok: true,
             data: contents
         ))
+    }
+
+    /// What the download root holds, nothing when it was never made.
+    private func downloadRootContents() -> [String] {
+        (try? FileManager.default.contentsOfDirectory(atPath: downloadRoot.path)) ?? []
     }
 
     private func makeLocalFile(named fileName: String, contents: Data) throws -> URL {
