@@ -1513,12 +1513,19 @@ final class SessionViewController: NSViewController {
         applyDisplayRequestToActiveSession(displayRequest)
     }
 
+    /// Records the request only once it goes out. Keyframe requests send the
+    /// recorded one again, and one the server's capabilities refused would
+    /// be refused again, so no keyframe would be asked for at all.
     private func applyDisplayRequestToActiveSession(_ request: RDPDisplayRequest) {
         guard let displayControlSession else {
             return
         }
 
-        displayControlSession.send(request)
+        do {
+            try displayControlSession.send(SessionDisplayControlPolicy.monitorLayout(for: request))
+        } catch {
+            return
+        }
         lastRequestedDisplayRequest = request
         requestedDesktopSizeLabel = request.label
     }
