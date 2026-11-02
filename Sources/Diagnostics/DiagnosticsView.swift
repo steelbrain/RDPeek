@@ -2,82 +2,6 @@ import RDPKit
 import RDPKitAppKit
 import SwiftUI
 
-private func metricMilliseconds(_ value: Double?) -> String {
-    guard let value else {
-        return "none"
-    }
-    if value < 1 {
-        return String(format: "%.2f ms", value)
-    }
-    return String(format: "%.1f ms", value)
-}
-
-private func metricTiming(last: Double?, average: Double?) -> String {
-    "last \(metricMilliseconds(last)), avg \(metricMilliseconds(average))"
-}
-
-private func metricBool(_ value: Bool?) -> String {
-    guard let value else {
-        return "unknown"
-    }
-    return value ? "yes" : "no"
-}
-
-private func metricPixelFormat(_ value: UInt32?) -> String {
-    guard let value else {
-        return "unknown"
-    }
-
-    let bytes = [
-        UInt8((value >> 24) & 0xFF),
-        UInt8((value >> 16) & 0xFF),
-        UInt8((value >> 8) & 0xFF),
-        UInt8(value & 0xFF),
-    ]
-    let hex = String(format: "0x%08x", value)
-    guard bytes.allSatisfy({ $0 >= 0x20 && $0 <= 0x7E }),
-          let fourCC = String(bytes: bytes, encoding: .ascii)
-    else {
-        return hex
-    }
-    return "\(fourCC) (\(hex))"
-}
-
-private func metricFramesPerSecond(_ value: Double?) -> String {
-    guard let value else {
-        return "none"
-    }
-    return String(format: "%.1f fps", value)
-}
-
-private func metricHertz(_ value: Double?) -> String {
-    guard let value else {
-        return "none"
-    }
-    if value.rounded() == value {
-        return String(format: "%.0f Hz", value)
-    }
-    return String(format: "%.1f Hz", value)
-}
-
-private func metricMegabitsPerSecond(_ value: Double?) -> String {
-    guard let value else {
-        return "none"
-    }
-    if value < 1 {
-        return String(format: "%.2f Mbps", value)
-    }
-    return String(format: "%.1f Mbps", value)
-}
-
-private func metricRefreshInterval(_ value: TimeInterval?) -> String {
-    metricMilliseconds(value.map { $0 * 1000 })
-}
-
-private func metricBytes(_ value: Int) -> String {
-    ByteCountFormatter.string(fromByteCount: Int64(value), countStyle: .file)
-}
-
 /// The one-line summary the session's performance overlay shows. The rates
 /// are those of the 5 s up to `date`, so they fall once traffic stops.
 func compactViewerMetricsSummary(
@@ -85,37 +9,15 @@ func compactViewerMetricsSummary(
     framePacing: RDPFramePacingState,
     at date: Date
 ) -> String? {
-    var parts: [String] = []
-    let framesPerSecond = metrics.rollingFramesPerSecond(at: date) ?? metrics.averageFramesPerSecond
-    if let framesPerSecond {
-        parts.append(metricFramesPerSecond(framesPerSecond))
-    }
-    if let lastDecodeMilliseconds = metrics.lastDecodeMilliseconds {
-        parts.append("decode \(metricMilliseconds(lastDecodeMilliseconds))")
-    }
-    if let wireMegabitsPerSecond = metrics.rollingWireMegabitsPerSecond(at: date) {
-        parts.append("rx \(metricMegabitsPerSecond(wireMegabitsPerSecond))")
-    }
-    if let displayLinkFramesPerSecond = framePacing.displayLinkFramesPerSecond {
-        parts.append(metricHertz(displayLinkFramesPerSecond))
-    }
+    let parts = RDPDiagnosticText.viewerMetrics(
+        metrics,
+        displayLinkFramesPerSecond: framePacing.displayLinkFramesPerSecond,
+        at: date
+    )
     guard parts.isEmpty == false else {
         return nil
     }
     return parts.joined(separator: "  ·  ")
-}
-
-/// Where the session went: after a Server Redirection, the server the one
-/// typed in passed it on to.
-func connectionTargetSummary(_ report: RDPConnectionReport) -> String {
-    switch report.redirectionDepth {
-    case 0:
-        report.target
-    case 1:
-        "\(report.target), after a server redirection"
-    default:
-        "\(report.target), after \(report.redirectionDepth) server redirections"
-    }
 }
 
 /// Which key exchange TLS offered: only RSA, with no forward secrecy, once
@@ -129,17 +31,6 @@ func keyExchangeSummary(_ report: RDPConnectionReport?) -> String {
     case nil:
         "not negotiated"
     }
-}
-
-/// How the server ended the session, when it said: the Set Error Info
-/// code's name, the Disconnect Provider Ultimatum reason, and RDPKit's
-/// category for them.
-func remoteTerminationSummary(_ termination: RDPRemoteTermination?) -> String {
-    guard let termination else {
-        return "none"
-    }
-    let names = [termination.errorInfoName, termination.disconnectReasonName].compactMap { $0 }
-    return "\(names.joined(separator: ", ")) (\(termination.category.rawValue))"
 }
 
 private struct PerformanceMetricsView: View {
@@ -157,34 +48,34 @@ private struct PerformanceMetricsView: View {
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 24, verticalSpacing: 8) {
                 DiagnosticRow("Presentation Clock", framePacing.clockState)
                 DiagnosticRow("Display", framePacing.screenName)
-                DiagnosticRow("Display Max", metricHertz(framePacing.maximumRefreshRate))
-                DiagnosticRow("Display Link", metricFramesPerSecond(framePacing.displayLinkFramesPerSecond))
+                DiagnosticRow("Display Max", RDPDiagnosticText.hertz(framePacing.maximumRefreshRate))
+                DiagnosticRow("Display Link", RDPDiagnosticText.framesPerSecond(framePacing.displayLinkFramesPerSecond))
                 DiagnosticRow("Refresh Range", refreshRange(framePacing))
-                DiagnosticRow("Wire RX", metricMegabitsPerSecond(rollingWireMegabitsPerSecond))
-                DiagnosticRow("Wire RX Average", metricMegabitsPerSecond(averageWireMegabitsPerSecond))
-                DiagnosticRow("Wire RX Total", metricBytes(metrics.wireByteCount))
-                DiagnosticRow("First Frame Latency", metricMilliseconds(metrics.firstFrameLatencyMilliseconds))
-                DiagnosticRow("Rolling FPS", metricFramesPerSecond(rollingFramesPerSecond))
-                DiagnosticRow("Average FPS", metricFramesPerSecond(metrics.averageFramesPerSecond))
-                DiagnosticRow("Decode Last", metricMilliseconds(metrics.lastDecodeMilliseconds))
-                DiagnosticRow("Decode Average", metricMilliseconds(metrics.averageDecodeMilliseconds))
-                DiagnosticRow("Decode Max", metricMilliseconds(metrics.maxDecodeMilliseconds))
+                DiagnosticRow("Wire RX", RDPDiagnosticText.megabitsPerSecond(rollingWireMegabitsPerSecond))
+                DiagnosticRow("Wire RX Average", RDPDiagnosticText.megabitsPerSecond(averageWireMegabitsPerSecond))
+                DiagnosticRow("Wire RX Total", RDPDiagnosticText.bytes(metrics.wireByteCount))
+                DiagnosticRow("First Frame Latency", RDPDiagnosticText.milliseconds(metrics.firstFrameLatencyMilliseconds))
+                DiagnosticRow("Rolling FPS", RDPDiagnosticText.framesPerSecond(rollingFramesPerSecond))
+                DiagnosticRow("Average FPS", RDPDiagnosticText.framesPerSecond(metrics.averageFramesPerSecond))
+                DiagnosticRow("Decode Last", RDPDiagnosticText.milliseconds(metrics.lastDecodeMilliseconds))
+                DiagnosticRow("Decode Average", RDPDiagnosticText.milliseconds(metrics.averageDecodeMilliseconds))
+                DiagnosticRow("Decode Max", RDPDiagnosticText.milliseconds(metrics.maxDecodeMilliseconds))
                 DiagnosticRow(
                     "Sample Prep",
-                    metricTiming(last: metrics.lastSamplePreparationMilliseconds, average: metrics.averageSamplePreparationMilliseconds)
+                    RDPDiagnosticText.timing(last: metrics.lastSamplePreparationMilliseconds, average: metrics.averageSamplePreparationMilliseconds)
                 )
                 DiagnosticRow(
                     "VideoToolbox",
-                    metricTiming(last: metrics.lastVideoToolboxMilliseconds, average: metrics.averageVideoToolboxMilliseconds)
+                    RDPDiagnosticText.timing(last: metrics.lastVideoToolboxMilliseconds, average: metrics.averageVideoToolboxMilliseconds)
                 )
-                DiagnosticRow("Hardware Decoder", metricBool(metrics.usesHardwareAcceleration))
-                DiagnosticRow("Pixel Format", metricPixelFormat(metrics.decodedPixelFormat))
+                DiagnosticRow("Hardware Decoder", RDPDiagnosticText.yesNo(metrics.usesHardwareAcceleration, missing: "unknown"))
+                DiagnosticRow("Pixel Format", RDPDiagnosticText.pixelFormat(metrics.decodedPixelFormat))
                 DiagnosticRow(
                     "Image Convert",
-                    metricTiming(last: metrics.lastImageConversionMilliseconds, average: metrics.averageImageConversionMilliseconds)
+                    RDPDiagnosticText.timing(last: metrics.lastImageConversionMilliseconds, average: metrics.averageImageConversionMilliseconds)
                 )
                 DiagnosticRow("Decoded Frames", "\(metrics.decodedFrameCount)")
-                DiagnosticRow("Decoded Bytes", metricBytes(metrics.decodedByteCount))
+                DiagnosticRow("Decoded Bytes", RDPDiagnosticText.bytes(metrics.decodedByteCount))
                 DiagnosticRow("Skipped Presentation Frames", "\(metrics.skippedPresentationFrameCount)")
                 DiagnosticRow("Decode Failures", "\(metrics.failedDecodeCount)")
                 if let lastDecodeError = metrics.lastDecodeError {
@@ -195,13 +86,13 @@ private struct PerformanceMetricsView: View {
     }
 
     private func refreshRange(_ framePacing: RDPFramePacingState) -> String {
-        let minimum = metricRefreshInterval(framePacing.minimumRefreshInterval)
-        let maximum = metricRefreshInterval(framePacing.maximumRefreshInterval)
+        let minimum = RDPDiagnosticText.refreshInterval(framePacing.minimumRefreshInterval)
+        let maximum = RDPDiagnosticText.refreshInterval(framePacing.maximumRefreshInterval)
         let granularity: String
         if framePacing.displayUpdateGranularity == 0 {
             granularity = "variable"
         } else {
-            granularity = metricRefreshInterval(framePacing.displayUpdateGranularity)
+            granularity = RDPDiagnosticText.refreshInterval(framePacing.displayUpdateGranularity)
         }
         return "\(minimum)-\(maximum), step \(granularity)"
     }
@@ -275,25 +166,28 @@ struct RemoteSessionDiagnosticsWindowContent: View {
                 }
 
                 Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 24, verticalSpacing: 10) {
-                    DiagnosticRow("Target", snapshot.report.map(connectionTargetSummary) ?? snapshot.title)
+                    DiagnosticRow("Target", snapshot.report.map(RDPDiagnosticText.connectionTarget(of:)) ?? snapshot.title)
                     DiagnosticRow("Client Name", snapshot.clientName ?? "none")
                     DiagnosticRow("Status", statusText(snapshot))
                     DiagnosticRow("Disconnect Reason", disconnectReason(snapshot))
-                    DiagnosticRow("Termination", remoteTerminationSummary(snapshot.report?.remoteTermination))
-                    DiagnosticRow("Warnings", warnings(snapshot.report))
+                    DiagnosticRow("Termination", RDPDiagnosticText.remoteTermination(snapshot.report?.remoteTermination))
+                    // The report records the certificate's warnings before
+                    // the session sees the certificate, so the live report
+                    // has them too.
+                    DiagnosticRow("Warnings", RDPDiagnosticText.warnings(snapshot.report?.warnings))
                     DiagnosticRow("Requested Desktop", snapshot.requestedDesktopSize)
                     DiagnosticRow("Viewer Size", snapshot.viewerPixelSize?.label ?? "unknown")
                     DiagnosticRow("Key Exchange", keyExchangeSummary(snapshot.report))
                     DiagnosticRow("Certificate", certificateState(snapshot))
                     DiagnosticRow("Input", inputState(snapshot))
                     DiagnosticRow("Display Control", snapshot.displayControlReady ? "ready" : "not ready")
-                    DiagnosticRow("Audio Requested", metricBool(snapshot.connectionRequestsAudio))
+                    DiagnosticRow("Audio Requested", RDPDiagnosticText.yesNo(snapshot.connectionRequestsAudio))
                     DiagnosticRow("Clipboard", clipboardState(snapshot))
                     // The frame presented last, or the server's first
                     // frame if none was.
                     DiagnosticRow(
                         "Frame",
-                        frameSummary(
+                        RDPDiagnosticText.frame(
                             snapshot.latestFrame
                                 ?? snapshot.report?.rdpGraphicsFirstFrame.map(RDPFrameMetadata.init)
                         )
@@ -305,43 +199,43 @@ struct RemoteSessionDiagnosticsWindowContent: View {
                         DiagnosticRow("Selected Protocols", report.selectedProtocols?.joined(separator: ", ") ?? "none")
                         DiagnosticRow("TLS", report.tlsProtocol ?? "not negotiated")
                         DiagnosticRow("MCS", report.mcsConnectResult ?? "not exchanged")
-                        DiagnosticRow("I/O Channel", optionalValue(report.mcsIOChannelID))
-                        DiagnosticRow("Message Channel", optionalValue(report.mcsMessageChannelID))
-                        DiagnosticRow("Static Channels", staticChannels(report.mcsStaticChannels))
+                        DiagnosticRow("I/O Channel", RDPDiagnosticText.number(report.mcsIOChannelID))
+                        DiagnosticRow("Message Channel", RDPDiagnosticText.number(report.mcsMessageChannelID))
+                        DiagnosticRow("Static Channels", RDPDiagnosticText.channels(report.mcsStaticChannels))
                         DiagnosticRow("Attach User", report.mcsAttachUserResult ?? "not requested")
-                        DiagnosticRow("User Channel", optionalValue(report.mcsUserChannelID))
-                        DiagnosticRow("Joined", joinedChannels(report.mcsJoinedChannels))
+                        DiagnosticRow("User Channel", RDPDiagnosticText.number(report.mcsUserChannelID))
+                        DiagnosticRow("Joined", RDPDiagnosticText.channels(report.mcsJoinedChannels))
                         DiagnosticRow("Client Info", clientInfoState(report))
-                        DiagnosticRow("Credentials Sent", metricBool(report.rdpClientInfoCredentialsIncluded))
-                        DiagnosticRow("Client Info Bytes", byteCount(report.rdpClientInfoRequestBytes))
+                        DiagnosticRow("Credentials Sent", RDPDiagnosticText.yesNo(report.rdpClientInfoCredentialsIncluded, missing: "unknown"))
+                        DiagnosticRow("Client Info Bytes", RDPDiagnosticText.byteCount(report.rdpClientInfoRequestBytes))
                         DiagnosticRow("Auto-Detect", report.rdpAutoDetectRequestType ?? "not requested")
-                        DiagnosticRow("Auto-Detect Seq", optionalValue(report.rdpAutoDetectSequenceNumber))
+                        DiagnosticRow("Auto-Detect Seq", RDPDiagnosticText.number(report.rdpAutoDetectSequenceNumber))
                         DiagnosticRow("Post Auto-Detect", report.rdpPostAutoDetectResponseType ?? "none")
                         DiagnosticRow("Licensing", licensingSummary(report))
-                        DiagnosticRow("License Code", hexValue(report.rdpLicensingErrorCode))
+                        DiagnosticRow("License Code", RDPDiagnosticText.hex(report.rdpLicensingErrorCode))
                         DiagnosticRow("Post Licensing", report.rdpPostLicensingResponseType ?? "none")
-                        DiagnosticRow("Demand Share", hexValue(report.rdpDemandActiveShareID))
-                        DiagnosticRow("Demand Caps", capabilitySummary(report.rdpDemandActiveCapabilitySets))
-                        DiagnosticRow("Confirm Caps", capabilitySummary(report.rdpConfirmActiveCapabilitySets))
+                        DiagnosticRow("Demand Share", RDPDiagnosticText.hex(report.rdpDemandActiveShareID))
+                        DiagnosticRow("Demand Caps", RDPDiagnosticText.capabilitySets(report.rdpDemandActiveCapabilitySets))
+                        DiagnosticRow("Confirm Caps", RDPDiagnosticText.capabilitySets(report.rdpConfirmActiveCapabilitySets))
                         DiagnosticRow("Post Confirm", report.rdpPostConfirmActiveResponseType ?? "none")
-                        DiagnosticRow("Finalization", attemptedList(report.rdpFinalizationResponseTypes))
-                        DiagnosticRow("Dynamic Channel", attemptedList(report.rdpDynamicChannelRequestTypes))
+                        DiagnosticRow("Finalization", RDPDiagnosticText.list(report.rdpFinalizationResponseTypes))
+                        DiagnosticRow("Dynamic Channel", RDPDiagnosticText.list(report.rdpDynamicChannelRequestTypes))
                         DiagnosticRow("Graphics Channel", report.rdpGraphicsChannelName ?? "not opened")
-                        DiagnosticRow("Graphics Channel ID", optionalValue(report.rdpGraphicsChannelID))
+                        DiagnosticRow("Graphics Channel ID", RDPDiagnosticText.number(report.rdpGraphicsChannelID))
                         DiagnosticRow("Graphics Response", report.rdpGraphicsResponseType ?? "none")
                         DiagnosticRow("Graphics Profile", report.rdpGraphicsCapabilityProfile.rawValue)
-                        DiagnosticRow("Graphics", graphicsCapability(report))
+                        DiagnosticRow("Graphics", RDPDiagnosticText.graphicsCapability(of: report))
                         DiagnosticRow("Graphics Path", RDPGraphicsPathDescription.describe(report: report))
-                        DiagnosticRow("Graphics Updates", graphicsUpdateSummary(report.rdpGraphicsUpdateMessages))
-                        DiagnosticRow("Graphics Failure", graphicsFailureSummary(report))
-                        DiagnosticRow("Update Packets", optionalValue(report.rdpGraphicsUpdateResponseCount))
-                        DiagnosticRow("Display Channel ID", optionalValue(report.rdpDisplayControlChannelID))
-                        DiagnosticRow("Display Caps", displayControlCapability(report))
-                        DiagnosticRow("Audio Channel ID", optionalValue(report.rdpAudioChannelID))
-                        DiagnosticRow("Audio Messages", messageTypes(report.rdpAudioMessages, \.typeName))
-                        DiagnosticRow("Clipboard Channel ID", optionalValue(report.rdpClipboardChannelID))
-                        DiagnosticRow("Clipboard Messages", messageTypes(report.rdpClipboardMessages, \.typeName))
-                        DiagnosticRow("Frame Acks", optionalValue(report.rdpGraphicsFrameAcknowledgeCount))
+                        DiagnosticRow("Graphics Updates", RDPDiagnosticText.graphicsUpdates(report.rdpGraphicsUpdateMessages))
+                        DiagnosticRow("Graphics Failure", RDPDiagnosticText.graphicsFailure(of: report))
+                        DiagnosticRow("Update Packets", RDPDiagnosticText.number(report.rdpGraphicsUpdateResponseCount))
+                        DiagnosticRow("Display Channel ID", RDPDiagnosticText.number(report.rdpDisplayControlChannelID))
+                        DiagnosticRow("Display Caps", RDPDiagnosticText.displayControlCapabilities(report.rdpDisplayControlCaps))
+                        DiagnosticRow("Audio Channel ID", RDPDiagnosticText.number(report.rdpAudioChannelID))
+                        DiagnosticRow("Audio Messages", RDPDiagnosticText.messageTypes(report.rdpAudioMessages?.map(\.typeName)))
+                        DiagnosticRow("Clipboard Channel ID", RDPDiagnosticText.number(report.rdpClipboardChannelID))
+                        DiagnosticRow("Clipboard Messages", RDPDiagnosticText.messageTypes(report.rdpClipboardMessages?.map(\.typeName)))
+                        DiagnosticRow("Frame Acks", RDPDiagnosticText.number(report.rdpGraphicsFrameAcknowledgeCount))
                         DiagnosticRow("Next", report.nextStage ?? "none")
                     }
                 }
@@ -504,8 +398,8 @@ struct RemoteSessionDiagnosticsWindowContent: View {
         [
             statusText(snapshot),
             snapshot.report?.stage,
-            metricFramesPerSecond(snapshot.rollingFramesPerSecond),
-            metricMegabitsPerSecond(snapshot.rollingWireMegabitsPerSecond),
+            RDPDiagnosticText.framesPerSecond(snapshot.rollingFramesPerSecond),
+            RDPDiagnosticText.megabitsPerSecond(snapshot.rollingWireMegabitsPerSecond),
         ]
         .compactMap { $0 }
         .joined(separator: " - ")
@@ -531,17 +425,6 @@ struct RemoteSessionDiagnosticsWindowContent: View {
         return "none"
     }
 
-    /// The report records the certificate's warnings before the session
-    /// sees the certificate, so the live report has them too.
-    private func warnings(_ report: RDPConnectionReport?) -> String {
-        guard let warnings = report?.warnings, warnings.isEmpty == false else {
-            return "none"
-        }
-        return warnings
-            .map { "\($0.code): \($0.message)" }
-            .joined(separator: "\n")
-    }
-
     private func certificateState(_ snapshot: RemoteSessionDiagnosticsSnapshot) -> String {
         if snapshot.certificateTrustedByApp {
             return "trusted for this host"
@@ -565,48 +448,6 @@ struct RemoteSessionDiagnosticsWindowContent: View {
         return report.rdpIssuedClientLicense == nil ? firstMessage : "\(firstMessage), license issued"
     }
 
-    private func graphicsCapability(_ report: RDPConnectionReport?) -> String {
-        guard let version = report?.rdpGraphicsSelectedCapabilityVersion else {
-            return "none"
-        }
-        let flags = report?.rdpGraphicsSelectedCapabilityFlags.map {
-            " flags=0x\(String(format: "%08x", $0))"
-        } ?? ""
-        return "0x\(String(format: "%08x", version))\(flags)"
-    }
-
-    private func optionalValue(_ value: (some CustomStringConvertible)?) -> String {
-        guard let value else {
-            return "none"
-        }
-        return value.description
-    }
-
-    private func hexValue(_ value: UInt32?) -> String {
-        guard let value else {
-            return "none"
-        }
-        return "0x\(String(format: "%08x", value))"
-    }
-
-    private func staticChannels(_ channels: [RDPStaticVirtualChannelAssignment]?) -> String {
-        guard let channels, !channels.isEmpty else {
-            return "none"
-        }
-        return channels
-            .map { "\($0.name)=\($0.channelID)" }
-            .joined(separator: ", ")
-    }
-
-    private func joinedChannels(_ channels: [RDPChannelJoinReport]?) -> String {
-        guard let channels, !channels.isEmpty else {
-            return "none"
-        }
-        return channels
-            .map { "\($0.name)=\($0.channelID)" }
-            .joined(separator: ", ")
-    }
-
     private func clientInfoState(_ report: RDPConnectionReport?) -> String {
         guard let sent = report?.rdpClientInfoSent else {
             return "not attempted"
@@ -614,133 +455,11 @@ struct RemoteSessionDiagnosticsWindowContent: View {
         return sent ? "sent" : "not sent"
     }
 
-    private func byteCount(_ value: Int?) -> String {
-        guard let value else {
-            return "none"
-        }
-        return "\(value) bytes"
-    }
-
-    private func capabilitySummary(_ capabilities: [RDPCapabilitySetSummary]?) -> String {
-        guard let capabilities, !capabilities.isEmpty else {
-            return "none"
-        }
-        return capabilities
-            .map { $0.name }
-            .joined(separator: ", ")
-    }
-
-    private func attemptedList(_ types: [String]?) -> String {
-        guard let types, !types.isEmpty else {
-            return "not attempted"
-        }
-        return types.joined(separator: ", ")
-    }
-
-    private func displayControlCapability(_ report: RDPConnectionReport?) -> String {
-        guard let caps = report?.rdpDisplayControlCaps else {
-            return "none"
-        }
-        return [
-            "max monitors \(caps.maxNumMonitors)",
-            "area \(caps.maxMonitorAreaFactorA)x\(caps.maxMonitorAreaFactorB)",
-        ].joined(separator: ", ")
-    }
-
-    private func messageTypes<Message>(_ messages: [Message]?, _ typeName: KeyPath<Message, String>) -> String {
-        guard let messages, !messages.isEmpty else {
-            return "not observed"
-        }
-        return messages
-            .prefix(4)
-            .map { $0[keyPath: typeName] }
-            .joined(separator: ", ")
-    }
-
-    private func graphicsUpdateSummary(_ messages: [RDPGFXMessageSummary]?) -> String {
-        guard let messages, !messages.isEmpty else {
-            return "not observed"
-        }
-        return messages
-            .prefix(4)
-            .map { message in
-                var parts = [message.typeName]
-                if let surfaceID = message.surfaceID {
-                    parts.append("s\(surfaceID)")
-                }
-                if let width = message.width, let height = message.height {
-                    parts.append("\(width)x\(height)")
-                }
-                if let frameID = message.frameID {
-                    parts.append("f\(frameID)")
-                }
-                if let codecName = message.codecName {
-                    parts.append(codecName)
-                }
-                if let progressiveRegionTileCount = message.progressiveRegionTileCount {
-                    parts.append("tiles \(progressiveRegionTileCount)")
-                }
-                if let progressiveTileFirstCount = message.progressiveTileFirstCount,
-                   progressiveTileFirstCount > 0
-                {
-                    parts.append("first \(progressiveTileFirstCount)")
-                }
-                if let progressiveTileUpgradeCount = message.progressiveTileUpgradeCount,
-                   progressiveTileUpgradeCount > 0
-                {
-                    parts.append("upgrade \(progressiveTileUpgradeCount)")
-                }
-                if let cavideoTileCount = message.cavideoTileCount {
-                    parts.append("rfx tiles \(cavideoTileCount)")
-                }
-                if let entropy = message.cavideoTileSetEntropyAlgorithms?.last {
-                    parts.append(entropy)
-                }
-                if let avc444Layout = message.avc444Layout {
-                    parts.append(avc444Layout)
-                }
-                return parts.joined(separator: " ")
-            }
-            .joined(separator: ", ")
-    }
-
-    private func graphicsFailureSummary(_ report: RDPConnectionReport?) -> String {
-        guard let report,
-              report.rdpGraphicsFailureUpdatePayloadHex != nil
-                || report.rdpGraphicsFailureUpdateResponseHex != nil
-        else {
-            return "none"
-        }
-
-        let index = report.rdpGraphicsFailureUpdateMessageIndex.map { "message \($0)" } ?? "transport"
-        let messages = graphicsUpdateSummary(report.rdpGraphicsFailureUpdateMessages)
-        return messages == "not observed" ? index : "\(index): \(messages)"
-    }
-
     private func clipboardState(_ snapshot: RemoteSessionDiagnosticsSnapshot) -> String {
         guard snapshot.clipboardSharingEnabled else {
             return "disabled"
         }
         return snapshot.clipboardReady ? "ready" : "not ready"
-    }
-
-    private func frameSummary(_ frame: RDPFrameMetadata?) -> String {
-        guard let frame else {
-            return "none"
-        }
-        let codecDescription = frame.contentKind == .video
-            ? "\(frame.codecName)/\(frame.videoCodec.displayName)"
-            : frame.codecName
-        var parts = [
-            codecDescription,
-            "\(frame.width)x\(frame.height)",
-            "\(frame.payloadByteCount) bytes",
-            "\(frame.regionCount) regions",
-        ]
-        if !frame.videoNalUnitTypes.isEmpty {
-            parts.append("nal \(frame.videoNalUnitTypes.map(String.init).joined(separator: "/"))")
-        }
-        return parts.joined(separator: ", ")
     }
 
 }
