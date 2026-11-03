@@ -225,7 +225,7 @@ export default function Home() {
                 <a href={RDPKIT_URL} className="text-link">
                   RDPKit
                 </a>
-                , a pure Swift RDP library for Apple platforms that doesn’t use FreeRDP.
+                , a pure Swift RDP library built on Apple’s media, security and networking frameworks.
               </p>
               <p>
                 What changed in each version is in the{" "}
