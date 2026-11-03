@@ -175,7 +175,7 @@ export default function Home() {
             <Prose>
               <p>
                 Text and files copy both ways between your Mac and the remote computer, files up to 32 MiB. Clipboard
-                sharing is set for each PC, so a machine you don’t trust never sees what you copy.
+                sharing is set for each PC, so you can keep it off for a machine you don’t trust.
               </p>
               <p>
                 With sharing on, the clipboard is shared for the whole session, and Sync Clipboard Now sends your
@@ -194,7 +194,7 @@ export default function Home() {
                 the app’s preferences and never include a password.
               </p>
               <p>
-                When your Mac doesn’t trust a server’s certificate, RDPeek stops before any password is sent and shows
+                When your Mac doesn’t trust a server’s certificate, RDPeek stops before any credentials are sent and shows
                 a warning like the one below. Trust and Connect pins the certificate’s SHA-256 fingerprint to that host
                 and port. If the server later shows a different certificate your Mac doesn’t trust, the connection
                 stops again and says the certificate changed.

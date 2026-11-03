@@ -49,7 +49,7 @@ export function CertificateBanner() {
             </button>
           </>
         ) : (
-          "Nothing has been sent to the server yet when this shows."
+          "RDPeek has connected and received this certificate, but hasn’t sent any credentials."
         )}
       </p>
     </div>
