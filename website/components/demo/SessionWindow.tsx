@@ -45,23 +45,30 @@ type Readout =
  * keys you press are translated the way RDPeek sends them.
  */
 export function SessionWindow() {
-  const { session, reconnect } = useDemo();
+  const { session, devices, reconnect } = useDemo();
+  // As in the app, a session outlives its PC being deleted, but once its
+  // window closes there is nothing left to reconnect to.
+  const deviceDeleted = !devices.some((device) => device.id === session.device.id);
   if (session.phase === "closed") {
     return (
       <div className="grid aspect-[16/11] place-items-center rounded-[12px] border border-dashed border-rule p-6 text-center">
         <div>
           <p className="text-ink-3">The session window is closed.</p>
-          <button type="button" onClick={reconnect} className="text-link mt-2">
-            Connect to {displayName(session.device)} again
-          </button>
+          {deviceDeleted ? (
+            <p className="mt-2 text-ink-3">Double-click a PC at the top of the page to open another.</p>
+          ) : (
+            <button type="button" onClick={reconnect} className="text-link mt-2">
+              Connect to {displayName(session.device)} again
+            </button>
+          )}
         </div>
       </div>
     );
   }
-  return <SessionWindowContent key={session.attempt} session={session} />;
+  return <SessionWindowContent key={session.attempt} session={session} deviceDeleted={deviceDeleted} />;
 }
 
-function SessionWindowContent({ session }: { session: SessionState }) {
+function SessionWindowContent({ session, deviceDeleted }: { session: SessionState; deviceDeleted: boolean }) {
   const demo = useDemo();
   const { device, phase } = session;
   const name = displayName(device);
@@ -319,6 +326,11 @@ function SessionWindowContent({ session }: { session: SessionState }) {
         </div>
       </div>
 
+      {deviceDeleted ? (
+        <p className="mt-3 text-[14px] text-ink-3">
+          {name} was deleted from the grid. As in the app, its session goes on, but RDPeek keeps no password for it.
+        </p>
+      ) : null}
       <div className="mt-3 min-h-[1.75em] text-[14px] text-ink-3" aria-live="polite">
         <KeyReadout phase={phase} focused={focused} readout={readout} name={name} />
       </div>

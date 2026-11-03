@@ -294,6 +294,11 @@ export function ConnectionCenterWindow() {
               }}
               onDelete={() => {
                 demo.deleteDevice(pendingDeletion.id);
+                if (demo.session.phase !== "closed" && demo.session.device.id === pendingDeletion.id) {
+                  setStatus(
+                    `Deleted “${displayName(pendingDeletion)}”. Its session window, under Sessions, stays open, as it does in the app.`,
+                  );
+                }
                 setPendingDeletion(null);
                 setSelectedId(null);
                 gridRef.current?.focus({ preventScroll: true });
