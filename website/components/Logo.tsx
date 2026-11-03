@@ -1,5 +1,6 @@
 /** Inline rendering of Sources/Resources/AppIcon.svg, simplified for small sizes. */
-export function Logo({ size = 28 }: { size?: number }) {
+export function Logo({ size = 28, idPrefix = "logo" }: { size?: number; idPrefix?: string }) {
+  const id = (name: string) => `${idPrefix}-${name}`;
   return (
     <svg
       width={size}
@@ -9,35 +10,35 @@ export function Logo({ size = 28 }: { size?: number }) {
       focusable="false"
     >
       <defs>
-        <linearGradient id="logo-backdrop" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={id("backdrop")} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#6E63F1" />
           <stop offset="0.5" stopColor="#5340DB" />
           <stop offset="1" stopColor="#371DA8" />
         </linearGradient>
-        <linearGradient id="logo-faraway" x1="0" y1="0" x2="0.6" y2="1">
+        <linearGradient id={id("faraway")} x1="0" y1="0" x2="0.6" y2="1">
           <stop offset="0" stopColor="#FFD27A" />
           <stop offset="0.45" stopColor="#FF9457" />
           <stop offset="1" stopColor="#EF5D86" />
         </linearGradient>
-        <linearGradient id="logo-glass" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={id("glass")} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.34" />
           <stop offset="1" stopColor="#FFFFFF" stopOpacity="0.16" />
         </linearGradient>
-        <clipPath id="logo-clip">
+        <clipPath id={id("clip")}>
           <rect x="0" y="0" width="1024" height="1024" rx="229" ry="229" />
         </clipPath>
       </defs>
-      <g clipPath="url(#logo-clip)">
-        <rect width="1024" height="1024" fill="url(#logo-backdrop)" />
+      <g clipPath={`url(#${id("clip")})`}>
+        <rect width="1024" height="1024" fill={`url(#${id("backdrop")})`} />
         <g transform="translate(512 512) scale(1.2427) translate(-512 -512)">
-          <rect x="480" y="288" width="320" height="248" rx="40" fill="url(#logo-faraway)" />
+          <rect x="480" y="288" width="320" height="248" rx="40" fill={`url(#${id("faraway")})`} />
           <rect
             x="244"
             y="416"
             width="372"
             height="292"
             rx="44"
-            fill="url(#logo-glass)"
+            fill={`url(#${id("glass")})`}
             stroke="#FFFFFF"
             strokeOpacity="0.95"
             strokeWidth="16"

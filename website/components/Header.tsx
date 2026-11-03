@@ -1,31 +1,28 @@
+import Link from "next/link";
 import { Logo } from "./Logo";
-import { GitHubIcon } from "./icons";
-import { DOWNLOAD_URL, GITHUB_URL } from "@/lib/links";
+import { CHANGELOG_URL, DOWNLOAD_URL, GITHUB_URL } from "@/lib/links";
 
 export function Header() {
   return (
-    <header className="fixed inset-x-0 top-3 z-50 px-4">
-      <div className="glass mx-auto flex max-w-5xl items-center gap-3 rounded-2xl px-4 py-2.5 shadow-lg shadow-black/5">
-        <a href="#" className="flex items-center gap-2.5 rounded-lg" aria-label="RDPeek home">
-          <Logo size={26} />
-          <span className="text-[15px] font-semibold tracking-tight">RDPeek</span>
+    <header className="mx-auto flex h-16 w-full max-w-[72rem] items-center gap-6 px-5 sm:px-8">
+      <Link href="/" className="flex items-center gap-2.5 text-[17px] font-semibold tracking-[-0.01em]">
+        <Logo size={28} idPrefix="header-logo" />
+        RDPeek
+      </Link>
+      <nav aria-label="Site" className="ml-auto flex items-center gap-5 text-[15px] text-ink-2">
+        <a href={CHANGELOG_URL} className="hover:text-ink max-sm:hidden">
+          Changelog
         </a>
-        <nav className="ml-auto flex items-center gap-2" aria-label="Project links">
-          <a
-            href={GITHUB_URL}
-            className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:text-foreground"
-          >
-            <GitHubIcon className="size-4" />
-            <span className="max-sm:sr-only">GitHub</span>
-          </a>
-          <a
-            href={DOWNLOAD_URL}
-            className="rounded-lg bg-accent px-3.5 py-1.5 text-sm font-medium text-white transition-[filter] hover:brightness-110"
-          >
-            Download
-          </a>
-        </nav>
-      </div>
+        <a href={GITHUB_URL} className="hover:text-ink">
+          GitHub
+        </a>
+        <a
+          href={DOWNLOAD_URL}
+          className="rounded-[8px] bg-brand px-3 py-1.5 font-medium text-white transition-colors hover:bg-brand-hover"
+        >
+          Download
+        </a>
+      </nav>
     </header>
   );
 }

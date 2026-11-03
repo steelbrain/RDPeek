@@ -1,35 +1,24 @@
 import type { ReactNode } from "react";
-import { Reveal } from "./Reveal";
 
-export function Section({
-  id,
-  eyebrow,
-  title,
-  lede,
-  children,
-  className = "",
-}: {
-  id: string;
-  eyebrow: string;
-  title: string;
-  lede: string;
-  children: ReactNode;
-  className?: string;
-}) {
+/** A titled part of the page: the title in a narrow column, the content beside it. */
+export function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section id={id} className={`relative py-20 sm:py-28 ${className}`}>
-      <div className="mx-auto max-w-6xl px-6">
-        <Reveal className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">
-            {eyebrow}
-          </p>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-            {title}
-          </h2>
-          <p className="mt-4 text-pretty text-lg leading-relaxed text-muted">{lede}</p>
-        </Reveal>
-        {children}
+    <section id={id} aria-labelledby={`${id}-title`} className="border-t border-rule">
+      <div className="mx-auto grid max-w-[72rem] gap-x-12 gap-y-5 px-5 py-14 sm:px-8 sm:py-20 md:grid-cols-[10rem_minmax(0,1fr)]">
+        <h2 id={`${id}-title`} className="text-[22px] font-semibold tracking-[-0.01em] md:pt-px md:text-[19px]">
+          {title}
+        </h2>
+        <div className="min-w-0">{children}</div>
       </div>
     </section>
+  );
+}
+
+/** Body copy: a readable measure, paragraphs spaced like a document. */
+export function Prose({ children }: { children: ReactNode }) {
+  return (
+    <div className="max-w-[38rem] space-y-4 text-[17px] leading-[1.6] text-ink-2 [&_strong]:font-semibold [&_strong]:text-ink">
+      {children}
+    </div>
   );
 }

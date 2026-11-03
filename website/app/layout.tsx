@@ -1,27 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
+const title = "RDPeek – Remote Desktop for macOS";
 const description =
-  "A fast, native macOS RDP client in pure Swift. Hardware-decoded video, Mac shortcuts that land on Windows, credentials in your Keychain, and certificate pinning. Free & open source.";
+  "A Remote Desktop client for macOS, written in Swift. Connect to Windows PCs and Linux desktops over RDP, with hardware-decoded video, your Mac's shortcuts on the remote, and passwords in the Keychain. Free and open source.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://rdpeek.com"),
-  title: "RDPeek — Remote desktops, the Mac way",
+  title,
   description,
   alternates: { canonical: "/" },
   openGraph: {
-    title: "RDPeek — Remote desktops, the Mac way",
+    title,
     description,
     url: "/",
     siteName: "RDPeek",
@@ -29,15 +19,15 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "RDPeek — Remote desktops, the Mac way",
+    title,
     description,
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f6f5fa" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b0918" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#141416" },
   ],
 };
 
@@ -47,16 +37,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="flex min-h-full flex-col">
-        <noscript>
-          <style>{`.reveal{opacity:1 !important;transform:none !important}`}</style>
-        </noscript>
-        {children}
-      </body>
+    <html lang="en" className="h-full">
+      <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );
 }

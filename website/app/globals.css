@@ -1,323 +1,327 @@
 @import "tailwindcss";
 
+/*
+ * Two sets of tokens: the page itself (plain, neutral, the app icon's
+ * indigo as its one accent) and the redrawn macOS UI, which follows the
+ * system appearance the way the app does and uses the system blue.
+ */
 :root {
-  --background: #f6f5fa;
-  --foreground: #17132a;
-  --muted: #5f5b78;
-  --edge: rgba(23, 19, 42, 0.1);
-  --surface: rgba(255, 255, 255, 0.72);
-  --glass-bg: rgba(255, 255, 255, 0.6);
-  --glass-border: rgba(23, 19, 42, 0.08);
-  --accent: #5340db;
-  --accent-soft: #6e63f1;
-  --warm-1: #ffd27a;
-  --warm-2: #ff9457;
-  --warm-3: #ef5d86;
-  --mesh-opacity: 0.38;
-  --shadow-window: 0 24px 70px -18px rgba(23, 19, 42, 0.4);
-  --canvas: #e5e1f6;
+  --page: #ffffff;
+  --ink: #1d1d1f;
+  --ink-2: #3c3c43;
+  --ink-3: #6e6e73;
+  --rule: #e5e5ea;
+  --brand: #5340db;
+  --brand-hover: #4733c9;
+  --link: #4f3bd6;
+
+  --mac-window: #ececec;
+  --mac-bar: #e4e4e4;
+  --mac-card: #f8f8f8;
+  --mac-sheet: #f0f0f0;
+  --mac-group: #ffffff;
+  --mac-field: rgba(0, 0, 0, 0.05);
+  --mac-control: #ffffff;
+  --mac-label: rgba(0, 0, 0, 0.85);
+  --mac-label-2: rgba(0, 0, 0, 0.5);
+  --mac-label-3: rgba(0, 0, 0, 0.27);
+  --mac-sep: rgba(0, 0, 0, 0.1);
+  --mac-edge: rgba(0, 0, 0, 0.22);
+  --mac-accent: #007aff;
+  --mac-red: #ff3b30;
+  --mac-menu: rgba(238, 238, 238, 0.86);
+  --mac-menu-edge: rgba(0, 0, 0, 0.14);
+  --mac-hover: rgba(0, 0, 0, 0.06);
+  --mac-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 22px 56px -14px rgba(0, 0, 0, 0.32),
+    0 8px 18px -8px rgba(0, 0, 0, 0.16);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0b0918;
-    --foreground: #f1f0f7;
-    --muted: #a3a0c0;
-    --edge: rgba(241, 240, 247, 0.1);
-    --surface: rgba(255, 255, 255, 0.04);
-    --glass-bg: rgba(22, 18, 46, 0.5);
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --accent: #8b82f5;
-    --accent-soft: #6e63f1;
-    --mesh-opacity: 0.5;
-    --shadow-window: 0 24px 70px -12px rgba(0, 0, 0, 0.65);
-    --canvas: #151029;
+    --page: #141416;
+    --ink: #f5f5f7;
+    --ink-2: #d1d1d6;
+    --ink-3: #98989f;
+    --rule: #2c2c30;
+    --brand: #6457f0;
+    --brand-hover: #7468f3;
+    --link: #a69eff;
+
+    --mac-window: #232325;
+    --mac-bar: #2c2c2e;
+    --mac-card: #2f2f31;
+    --mac-sheet: #29292b;
+    --mac-group: rgba(255, 255, 255, 0.05);
+    --mac-field: rgba(255, 255, 255, 0.08);
+    --mac-control: rgba(255, 255, 255, 0.16);
+    --mac-label: rgba(255, 255, 255, 0.86);
+    --mac-label-2: rgba(255, 255, 255, 0.55);
+    --mac-label-3: rgba(255, 255, 255, 0.26);
+    --mac-sep: rgba(255, 255, 255, 0.1);
+    --mac-edge: rgba(255, 255, 255, 0.16);
+    --mac-accent: #0a84ff;
+    --mac-red: #ff453a;
+    --mac-menu: rgba(42, 42, 44, 0.88);
+    --mac-menu-edge: rgba(255, 255, 255, 0.13);
+    --mac-hover: rgba(255, 255, 255, 0.08);
+    --mac-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.8), 0 22px 56px -12px rgba(0, 0, 0, 0.7),
+      0 8px 18px -8px rgba(0, 0, 0, 0.5);
   }
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-muted: var(--muted);
-  --color-edge: var(--edge);
-  --color-surface: var(--surface);
-  --color-accent: var(--accent);
-  --color-accent-soft: var(--accent-soft);
-  --color-warm-1: var(--warm-1);
-  --color-warm-2: var(--warm-2);
-  --color-warm-3: var(--warm-3);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-page: var(--page);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-link: var(--link);
+
+  --color-mac-window: var(--mac-window);
+  --color-mac-bar: var(--mac-bar);
+  --color-mac-card: var(--mac-card);
+  --color-mac-sheet: var(--mac-sheet);
+  --color-mac-group: var(--mac-group);
+  --color-mac-field: var(--mac-field);
+  --color-mac-control: var(--mac-control);
+  --color-mac-label: var(--mac-label);
+  --color-mac-label-2: var(--mac-label-2);
+  --color-mac-label-3: var(--mac-label-3);
+  --color-mac-sep: var(--mac-sep);
+  --color-mac-edge: var(--mac-edge);
+  --color-mac-accent: var(--mac-accent);
+  --color-mac-red: var(--mac-red);
+  --color-mac-hover: var(--mac-hover);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, system-ui,
+    sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-/* The root background is what browsers paint in the overscroll
-   (rubber-band) area, so it gets a canvas color tuned to the hero's top
-   edge; .canvas-bleed-* gradients land the page's own edges on the same
-   color so the overscroll continues seamlessly. */
-html {
-  background-color: var(--canvas);
-  color-scheme: light dark;
+@layer base {
+  html {
+    background: var(--page);
+    color-scheme: light dark;
+  }
+
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--brand) 24%, transparent);
+  }
+
+  /* Keys named in the copy and the shortcut tables. */
+  kbd {
+    display: inline-block;
+    min-width: 1.6em;
+    padding: 0.05em 0.4em;
+    border: 1px solid var(--rule);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    font-family: var(--font-sans);
+    font-size: 0.9em;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--ink);
+    background: color-mix(in srgb, var(--ink) 3%, var(--page));
+  }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
-}
+@layer components {
+  /* Inline links in prose. */
+  .text-link {
+    color: var(--link);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, var(--link) 40%, transparent);
+  }
 
-.canvas-bleed-top {
-  background: linear-gradient(to bottom, var(--canvas), transparent);
-}
+  .text-link:hover {
+    text-decoration-color: currentColor;
+  }
 
-.canvas-bleed-bottom {
-  background: linear-gradient(to top, var(--canvas), transparent);
-}
+  /* --- Redrawn macOS UI ---------------------------------------------------- */
 
-:focus-visible {
-  outline: 2px solid var(--accent-soft);
-  outline-offset: 2px;
-  border-radius: 2px;
-}
+  .mac {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.3;
+    color: var(--mac-label);
+    -webkit-user-select: none;
+    user-select: none;
+  }
 
-::selection {
-  background: color-mix(in srgb, var(--accent-soft) 30%, transparent);
-}
+  .mac input {
+    -webkit-user-select: text;
+    user-select: text;
+  }
 
-/* Scroll-triggered reveals (driven by components/Reveal.tsx). */
-.reveal {
-  opacity: 0;
-  transform: translateY(26px);
-  transition:
-    opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-}
+  .mac-window {
+    border-radius: 12px;
+    background: var(--mac-window);
+    box-shadow: var(--mac-shadow);
+    outline: 0.5px solid var(--mac-edge);
+    outline-offset: -0.5px;
+  }
 
-.reveal.is-revealed {
-  opacity: 1;
-  transform: none;
-}
+  .mac-menu {
+    background: var(--mac-menu);
+    border: 0.5px solid var(--mac-menu-edge);
+    border-radius: 8px;
+    box-shadow: 0 10px 30px -6px rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+    animation: mac-fade-in 0.12s ease-out;
+  }
 
-@media (prefers-reduced-motion: reduce) {
-  .reveal {
+  .mac-menu-item:not([aria-disabled="true"]):hover,
+  .mac-menu-item:not([aria-disabled="true"]):focus-visible {
+    background: var(--mac-accent);
+    color: #fff;
+    outline: none;
+  }
+
+  .mac-menu-item:not([aria-disabled="true"]):hover .mac-menu-dim,
+  .mac-menu-item:not([aria-disabled="true"]):focus-visible .mac-menu-dim {
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .mac-button {
+    height: 22px;
+    padding: 0 10px;
+    border-radius: 6px;
+    background: var(--mac-control);
+    box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.16), 0 1px 1.5px rgba(0, 0, 0, 0.1);
+    color: var(--mac-label);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .mac-button:disabled {
+    color: var(--mac-label-3);
+  }
+
+  .mac-button-prominent {
+    background: var(--mac-accent);
+    color: #fff;
+    box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 1px 1.5px rgba(0, 0, 0, 0.12);
+  }
+
+  .mac-button-prominent:disabled {
+    background: color-mix(in srgb, var(--mac-label) 14%, transparent);
+    color: var(--mac-label-3);
+  }
+
+  /* Cards in the Connection Center: AppTheme.cardSpring, a 0.32 s spring. */
+  .device-card {
+    transition:
+      transform 0.32s cubic-bezier(0.34, 1.3, 0.64, 1),
+      box-shadow 0.32s cubic-bezier(0.34, 1.3, 0.64, 1);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  }
+
+  .device-card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 14px rgba(0, 0, 0, 0.22);
+  }
+
+  .device-card .connect-badge {
+    opacity: 0;
+    transform: scale(0.7);
+    transition:
+      opacity 0.2s ease-out,
+      transform 0.32s cubic-bezier(0.34, 1.3, 0.64, 1);
+  }
+
+  .device-card:hover .connect-badge {
+    opacity: 1;
     transform: none;
-    transition: opacity 0.3s ease-out;
+  }
+
+  .device-tile-color {
+    transition: background 0.35s ease-out;
   }
 }
 
-/* Links with a warm gradient underline — the tile motif, in miniature. */
-.footer-link {
-  background-image: linear-gradient(90deg, var(--warm-2), var(--warm-3));
-  background-repeat: no-repeat;
-  background-size: 100% 1.5px;
-  background-position: 0 100%;
-  padding-bottom: 2px;
-  transition: color 0.15s ease-out;
+/* The session window's pulsing beacon: three rings, 2.6 s, 0.85 s apart. */
+.beacon-ring {
+  animation: beacon 2.6s ease-out infinite;
 }
 
-/* Frosted glass panel — the app-icon story applied to UI surfaces. */
-.glass {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-  backdrop-filter: blur(18px) saturate(150%);
-}
-
-/* macOS-style window shell around screenshots and the tile-grid demo. */
-.window-shell {
-  border-radius: 12px;
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-window);
-}
-
-/* A section that stays in the app's dark session aesthetic in both color
-   schemes: re-scope the theme tokens so every child utility follows. */
-.dark-band {
-  --background: #0d0a1d;
-  --foreground: #f1f0f7;
-  --muted: #a3a0c0;
-  --edge: rgba(241, 240, 247, 0.1);
-  --surface: rgba(255, 255, 255, 0.04);
-  --glass-bg: rgba(255, 255, 255, 0.06);
-  --glass-border: rgba(255, 255, 255, 0.12);
-  --accent: #8b82f5;
-  background:
-    linear-gradient(180deg, #100c24, #0b0918 60%, #0d0a1d);
-  color: var(--foreground);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* Device tiles: lift and tilt toward the cursor, like the app's cards. */
-.device-tile {
-  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg))
-    translateY(var(--lift, 0px));
-  transition:
-    transform 0.16s ease-out,
-    box-shadow 0.16s ease-out;
-  box-shadow: 0 4px 14px -6px rgba(23, 19, 42, 0.35);
-}
-
-.device-tile:hover,
-.device-tile:focus-visible {
-  --lift: -4px;
-  box-shadow: 0 18px 38px -12px rgba(23, 19, 42, 0.5);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .device-tile {
-    transform: none;
-  }
-
-  .device-tile:hover,
-  .device-tile:focus-visible {
-    --lift: 0px;
-  }
-}
-
-/* Warm gradient text for headline accents. */
-.text-warm-gradient {
-  background: linear-gradient(100deg, #d96f2e, #e0457a 52%, #5340db);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-}
-
-@media (prefers-color-scheme: dark) {
-  .text-warm-gradient {
-    background-image: linear-gradient(100deg, #ffd27a, #ff9457 45%, #ef5d86);
-  }
-}
-
-/* Keycap chips for the shortcut sections. */
-.keycap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2em;
-  padding: 0.2em 0.55em;
-  border-radius: 0.45em;
-  font-family: var(--font-mono), monospace;
-  font-weight: 500;
-  color: var(--foreground);
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--foreground) 3%, var(--background)),
-    color-mix(in srgb, var(--foreground) 9%, var(--background))
-  );
-  border: 1px solid color-mix(in srgb, var(--foreground) 16%, transparent);
-  box-shadow:
-    0 2px 0 color-mix(in srgb, var(--foreground) 22%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--background) 70%, transparent);
-  transition:
-    transform 0.12s ease-out,
-    box-shadow 0.12s ease-out;
-}
-
-.keycap-pressed {
-  transform: translateY(2px);
-  box-shadow:
-    0 0 0 color-mix(in srgb, var(--foreground) 22%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--background) 70%, transparent);
-}
-
-/* Drifting warm gradient mesh behind the hero glass. */
-.mesh-blob {
-  position: absolute;
-  border-radius: 9999px;
-  filter: blur(90px);
-  opacity: var(--mesh-opacity);
-  will-change: transform;
-}
-
-.mesh-a {
-  animation: mesh-a 21s ease-in-out infinite alternate;
-}
-
-.mesh-b {
-  animation: mesh-b 26s ease-in-out infinite alternate;
-}
-
-.mesh-c {
-  animation: mesh-c 31s ease-in-out infinite alternate;
-}
-
-@keyframes mesh-a {
+@keyframes beacon {
   from {
-    transform: translate3d(-4%, -6%, 0) scale(1);
+    transform: scale(1);
+    opacity: 0.7;
   }
   to {
-    transform: translate3d(7%, 9%, 0) scale(1.18);
+    transform: scale(2.1);
+    opacity: 0;
   }
 }
 
-@keyframes mesh-b {
+.sheet-in {
+  animation: sheet-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+@keyframes sheet-in {
   from {
-    transform: translate3d(5%, 3%, 0) scale(1.1);
-  }
-  to {
-    transform: translate3d(-8%, -7%, 0) scale(0.92);
+    transform: translateY(-16px);
+    opacity: 0;
   }
 }
 
-@keyframes mesh-c {
-  from {
-    transform: translate3d(0, 8%, 0) scale(0.95);
-  }
-  to {
-    transform: translate3d(4%, -6%, 0) scale(1.12);
-  }
+.fade-in {
+  animation: mac-fade-in 0.25s ease-out;
 }
 
-/* Load-in reveals for the hero. `backwards` keeps the first frame hidden
-   without JS, so there is nothing to flicker at hydration. */
-.hero-rise {
-  animation: hero-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-
-@keyframes hero-rise {
+@keyframes mac-fade-in {
   from {
     opacity: 0;
-    transform: translateY(22px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
-/* The "peek": the warm desktop slides out from behind the hero glass. */
-.hero-peek {
-  animation: hero-peek 0.9s 0.15s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+.caret {
+  animation: caret 1.05s steps(1) infinite;
 }
 
-@keyframes hero-peek {
-  from {
+@keyframes caret {
+  50% {
     opacity: 0;
-    transform: translateY(40px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mesh-a,
-  .mesh-b,
-  .mesh-c {
-    animation: none;
+  .device-card,
+  .device-card .connect-badge {
+    transition: opacity 0.2s ease-out, box-shadow 0.2s ease-out;
   }
 
-  .hero-rise,
-  .hero-peek {
-    animation: hero-fade 0.4s ease-out backwards;
+  .device-card:hover,
+  .device-card .connect-badge {
+    transform: none;
   }
 
-  @keyframes hero-fade {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
+  .beacon-ring {
+    display: none;
+  }
+
+  .sheet-in {
+    animation: mac-fade-in 0.2s ease-out;
   }
 }

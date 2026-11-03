@@ -25,11 +25,3 @@ export function DownloadIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-
-export function PlayIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M5.5 3.7a.8.8 0 0 1 1.2-.7l6.2 4.3a.8.8 0 0 1 0 1.4L6.7 13a.8.8 0 0 1-1.2-.7V3.7Z" />
-    </svg>
-  );
-}
