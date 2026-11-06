@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+Clipboard files of any size, on RDPKit 0.8.0.
+
+### Clipboard
+
+- Copied files have no size limit either way; it was 32 MiB. Files are
+  read from disk as the remote computer asks for them, and a download
+  writes each piece to disk as it arrives, asking for up to 8 MiB at a
+  time while the server answers quickly. gnome-remote-desktop 51 can't
+  send its files past 2 GiB, which fail with a notice.
+- Files copied while connected to a remote computer that doesn't accept
+  them, such as KRdp, get a notice; they were offered and dropped. A
+  file over 4 GiB, for a server without large-file support, is refused
+  with a notice that names it.
+
 ## 1.3.0
 
 Connecting, input, session, and clipboard fixes, on RDPKit 0.7.0.

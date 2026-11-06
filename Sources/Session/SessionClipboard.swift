@@ -26,9 +26,10 @@ enum SessionClipboard {
 
     /// The bridge for a session window, on the user's clipboard and
     /// `downloadRoot` unless a test passes its own. It has RDPKit's default
-    /// limits: a remote copy may hold 32 MiB and 1,000 files, each request
-    /// answered within two minutes, and the Mac's files sent to the server
-    /// 32 MiB. The toasts word them from the bridge's `downloadLimits` and
+    /// limits: a remote copy may hold 1,000 files of any size, each request
+    /// answered within two minutes, and the Mac's files go to the server
+    /// whatever their size, up to the largest file its clipboard takes. The
+    /// toasts word them from the bridge's `downloadLimits` and
     /// `maximumLocalFileByteCount`. A temporary share lasts
     /// `temporarySharingDuration`. The first bridge in a run clears what
     /// earlier runs left.
@@ -159,7 +160,15 @@ enum SessionClipboard {
         case .unreadable:
             "Local file clipboard could not be read; remote clipboard cleared"
         case .totalByteLimitExceeded:
-            "Local clipboard files exceed \(mebibytes(maximumByteCount)) MiB; remote clipboard cleared"
+            if let limit = mebibytes(maximumByteCount) {
+                "Local clipboard files exceed \(limit) MiB; remote clipboard cleared"
+            } else {
+                "Local clipboard files are too large to share; remote clipboard cleared"
+            }
+        case let .fileTooLarge(url):
+            "\(url.lastPathComponent) is larger than the remote computer accepts; remote clipboard cleared"
+        case .filesNotSupported:
+            "Remote computer doesn't accept files; remote clipboard cleared"
         }
     }
 
@@ -175,7 +184,7 @@ enum SessionClipboard {
         case .invalidFileIndex:
             "Remote file index is not valid"
         case .totalByteLimitExceeded:
-            "Remote files exceed \(mebibytes(limits.maximumTotalByteCount)) MiB"
+            remoteFilesTooLargeMessage(limits: limits)
         case .fileCountLimitExceeded:
             "Remote copy has more than \(grouped(limits.maximumFileCount)) files"
         }
@@ -206,7 +215,7 @@ enum SessionClipboard {
         case .incomplete:
             "Remote file transfer was incomplete"
         case .totalByteLimitExceeded:
-            "Remote files exceed \(mebibytes(limits.maximumTotalByteCount)) MiB"
+            remoteFilesTooLargeMessage(limits: limits)
         case .folderNotCreated:
             "Remote files could not be prepared"
         case .notSaved:
@@ -218,9 +227,18 @@ enum SessionClipboard {
         }
     }
 
-    /// A limit of `byteCount` bytes, in whole MiB.
-    private static func mebibytes<Count: BinaryInteger>(_ byteCount: Count) -> String {
-        grouped(byteCount / (1_024 * 1_024))
+    private static func remoteFilesTooLargeMessage(limits: RDPClipboardDownloadLimits) -> String {
+        guard let limit = mebibytes(limits.maximumTotalByteCount) else {
+            return "Remote files are too large to copy"
+        }
+        return "Remote files exceed \(limit) MiB"
+    }
+
+    /// A limit of `byteCount` bytes in whole MiB, "32", or nil for RDPKit's
+    /// default: the largest count there is, no limit, which only sizes that
+    /// add up past it go over.
+    private static func mebibytes<Count: FixedWidthInteger>(_ byteCount: Count) -> String? {
+        byteCount == Count.max ? nil : grouped(byteCount / (1_024 * 1_024))
     }
 
     /// `number` with its thousands grouped as in English, the toasts'

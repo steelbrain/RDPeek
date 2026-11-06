@@ -49,7 +49,17 @@ final class SessionClipboardTests: XCTestCase {
             (.localFilesNotShared(.notARegularFile(url)), "Local clipboard has non-file items; remote clipboard cleared", warning),
             (.localFilesNotShared(.invalidFileName(url)), "Local file clipboard was not shared", warning),
             (.localFilesNotShared(.unreadable(url)), "Local file clipboard could not be read; remote clipboard cleared", warning),
-            (.localFilesNotShared(.totalByteLimitExceeded), "Local clipboard files exceed 32 MiB; remote clipboard cleared", warning),
+            (
+                .localFilesNotShared(.totalByteLimitExceeded),
+                "Local clipboard files are too large to share; remote clipboard cleared",
+                warning
+            ),
+            (
+                .localFilesNotShared(.fileTooLarge(url)),
+                "notes.txt is larger than the remote computer accepts; remote clipboard cleared",
+                warning
+            ),
+            (.localFilesNotShared(.filesNotSupported), "Remote computer doesn't accept files; remote clipboard cleared", warning),
             (.pasteboardAccessDenied, "Clipboard access is off for RDPeek in System Settings", "hand.raised"),
             (.upToDate, "Clipboard is up to date", synced),
             (.remoteTextCopied, "Remote text copied", copied),
@@ -58,7 +68,7 @@ final class SessionClipboardTests: XCTestCase {
             (.remoteFilesRefused(.emptyFileList), "Remote file clipboard is empty", warning),
             (.remoteFilesRefused(.containsOnlyDirectories), "Remote folders have no files", warning),
             (.remoteFilesRefused(.invalidFileIndex), "Remote file index is not valid", warning),
-            (.remoteFilesRefused(.totalByteLimitExceeded), "Remote files exceed 32 MiB", warning),
+            (.remoteFilesRefused(.totalByteLimitExceeded), "Remote files are too large to copy", warning),
             (.remoteFilesRefused(.fileCountLimitExceeded), "Remote copy has more than 1,000 files", warning),
             (.downloadProgress(progress(file: 0, of: 1, named: "report.pdf")), "Downloading report.pdf", "arrow.down.doc"),
             (.downloadProgress(progress(file: 4, of: 20, named: "4.txt")), "Downloading file 5 of 20", "arrow.down.doc"),
@@ -77,7 +87,7 @@ final class SessionClipboardTests: XCTestCase {
             (.downloadFailed(.timedOut), "Remote file transfer timed out", warning),
             (.downloadFailed(.refused), "Remote file transfer failed", warning),
             (.downloadFailed(.incomplete), "Remote file transfer was incomplete", warning),
-            (.downloadFailed(.totalByteLimitExceeded), "Remote files exceed 32 MiB", warning),
+            (.downloadFailed(.totalByteLimitExceeded), "Remote files are too large to copy", warning),
             (.downloadFailed(.folderNotCreated), "Remote files could not be prepared", warning),
             (.downloadFailed(.notSaved), "Remote file could not be saved", warning),
             (.downloadFailed(.clipboardChanged), "Clipboard changed; remote files were not copied", warning),
@@ -137,6 +147,17 @@ final class SessionClipboardTests: XCTestCase {
             SessionClipboard.temporarySharingTitle(for: bridge.temporarySharingDuration),
             "Share Clipboard for 30 Seconds"
         )
+    }
+
+    /// A window's bridge has RDPKit's defaults: files of any size both
+    /// ways, at most 1,000 in a remote copy. No copy goes over a byte limit
+    /// the toasts could name, so they name none.
+    func testAWindowsBridgeTakesFilesOfAnySize() {
+        let bridge = makeRDPeeksBridge()
+
+        XCTAssertEqual(bridge.downloadLimits.maximumTotalByteCount, .max)
+        XCTAssertEqual(bridge.downloadLimits.maximumFileCount, 1_000)
+        XCTAssertEqual(bridge.maximumLocalFileByteCount, .max)
     }
 
     // MARK: - Earlier runs' downloads
