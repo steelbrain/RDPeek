@@ -22,8 +22,8 @@ lightweight, and Mac-first.
 - **Your keyboard, their shortcuts** — while a session has focus, ⌘ and ⌃
   chords go to the remote desktop (⌘ maps to the Windows key, so ⌘R is
   Win+R), and modifier state survives focus changes without sticking
-- **Clipboard both ways** — text and files (up to 32 MiB), shared for the
-  whole session or for 30 seconds at a time
+- **Clipboard both ways** — text and files, shared for the whole session or
+  for 30 seconds at a time
 - **Remote audio** — optional RDPSND playback
 - **Credentials done right** — passwords live in your Keychain (or in
   memory for the current run only), and sessions that need a password

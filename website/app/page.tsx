@@ -174,8 +174,8 @@ export default function Home() {
           <Section id="clipboard" title="Clipboard">
             <Prose>
               <p>
-                Text and files copy both ways between your Mac and the remote computer, files up to 32 MiB. Clipboard
-                sharing is set for each PC, so you can keep it off for a machine you don’t trust.
+                Text and files copy both ways between your Mac and the remote computer. Clipboard sharing is set for
+                each PC, so you can keep it off for a machine you don’t trust.
               </p>
               <p>
                 With sharing on, the clipboard is shared for the whole session, and Sync Clipboard Now sends your
