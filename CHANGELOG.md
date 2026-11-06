@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.1
 
 Clipboard files of any size, and their paste progress, on RDPKit 0.9.0.
 
