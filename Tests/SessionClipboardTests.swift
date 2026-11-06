@@ -60,6 +60,10 @@ final class SessionClipboardTests: XCTestCase {
                 warning
             ),
             (.localFilesNotShared(.filesNotSupported), "Remote computer doesn't accept files; remote clipboard cleared", warning),
+            (.localFilePasteProgress(paste(file: 0, of: 1, named: "report.pdf")), "Remote is pasting report.pdf", "arrow.up.doc"),
+            (.localFilePasteProgress(paste(file: 4, of: 20, named: "4.txt")), "Remote is pasting file 5 of 20", "arrow.up.doc"),
+            (.localFilesPasted(count: 1), "1 file pasted on remote", synced),
+            (.localFilesPasted(count: 20), "20 files pasted on remote", synced),
             (.pasteboardAccessDenied, "Clipboard access is off for RDPeek in System Settings", "hand.raised"),
             (.upToDate, "Clipboard is up to date", synced),
             (.remoteTextCopied, "Remote text copied", copied),
@@ -209,6 +213,16 @@ final class SessionClipboardTests: XCTestCase {
     /// download root.
     private func makeRDPeeksBridge() -> RDPPasteboardClipboard {
         SessionClipboard.makeBridge(isSharingEnabled: false, pasteboard: pasteboard, downloadRoot: downloadRoot)
+    }
+
+    private func paste(file offset: Int, of count: Int, named fileName: String) -> RDPClipboardLocalFilePasteProgress {
+        RDPClipboardLocalFilePasteProgress(
+            fileOffset: offset,
+            fileCount: count,
+            fileName: fileName,
+            sentByteCount: 4_096,
+            fileByteCount: 8_192
+        )
     }
 
     private func progress(file offset: Int, of count: Int, named fileName: String) -> RDPClipboardDownloadProgress {

@@ -1051,6 +1051,14 @@ final class SessionViewController: NSViewController {
                         controller.render()
                     }
                 },
+                // A report for each range of the Mac's files the server
+                // pastes. The bridge says when a file starts and when the
+                // paste is done; nothing `render()` shows changes.
+                onClipboardLocalFilePasteProgress: { progress in
+                    recipient.deliver { controller in
+                        controller.clipboard.receiveLocalFilePasteProgress(progress)
+                    }
+                },
                 onAudioSample: { sample in
                     recipient.deliver { controller in
                         controller.playAudioSample(sample)

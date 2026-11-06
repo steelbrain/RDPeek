@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Clipboard files of any size, on RDPKit 0.8.0.
+Clipboard files of any size, and their paste progress, on RDPKit 0.9.0.
 
 ### Clipboard
 
@@ -15,6 +15,9 @@ Clipboard files of any size, on RDPKit 0.8.0.
   them, such as KRdp, get a notice; they were offered and dropped. A
   file over 4 GiB, for a server without large-file support, is refused
   with a notice that names it.
+- While the remote computer pastes files copied on the Mac, a notice
+  says which file it is on, for many files once per tenth of them, and
+  another says when it has them all.
 
 ## 1.3.0
 

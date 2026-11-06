@@ -96,6 +96,18 @@ enum SessionClipboard {
                 text: localFilesNotSharedMessage(for: error, maximumByteCount: bridge.maximumLocalFileByteCount),
                 systemImage: "exclamationmark.triangle"
             )
+        case let .localFilePasteProgress(progress):
+            SessionToast(
+                text: progress.fileCount == 1
+                    ? "Remote is pasting \(progress.fileName)"
+                    : "Remote is pasting file \(progress.fileOffset + 1) of \(progress.fileCount)",
+                systemImage: "arrow.up.doc"
+            )
+        case let .localFilesPasted(count):
+            SessionToast(
+                text: count == 1 ? "1 file pasted on remote" : "\(count) files pasted on remote",
+                systemImage: "doc.on.clipboard.fill"
+            )
         case .pasteboardAccessDenied:
             SessionToast(text: "Clipboard access is off for RDPeek in System Settings", systemImage: "hand.raised")
         case .upToDate:
