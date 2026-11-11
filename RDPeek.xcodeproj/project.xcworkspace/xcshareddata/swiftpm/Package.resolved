@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/steelbrain/RDPKit.git",
       "state" : {
-        "revision" : "2346f43bdb517283e861ee2d6974df81927ddb68",
-        "version" : "0.9.0"
+        "revision" : "2ddea175543157ef93347c11a6499ab3820fc1b3",
+        "version" : "0.9.1"
       }
     },
     {

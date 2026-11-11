@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+xrdp connections, on RDPKit 0.9.1.
+
+### Connecting
+
+- xrdp no longer closes the connection early in sign-in: RDPeek sends
+  a flag xrdp requires.
+
 ## 1.3.1
 
 Clipboard files of any size, and their paste progress, on RDPKit 0.9.0.
