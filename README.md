@@ -33,7 +33,13 @@ lightweight, and Mac-first.
 
 ## Install
 
-Download the latest signed and notarized build from
+Install with [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask steelbrain/tap/rdpeek
+```
+
+Or download the latest signed and notarized build from
 [Releases](https://github.com/steelbrain/RDPeek/releases/latest).
 Requires macOS 14.0 or later. Free and open source.
 
