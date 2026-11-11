@@ -48,8 +48,8 @@ targets:
         PRODUCT_NAME: RDPeek
         ENABLE_HARDENED_RUNTIME: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        CURRENT_PROJECT_VERSION: "7"
-        MARKETING_VERSION: "1.3.1"
+        CURRENT_PROJECT_VERSION: "8"
+        MARKETING_VERSION: "1.3.2"
     scheme:
       testTargets:
         - RDPeekTests

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.2
 
 xrdp connections, on RDPKit 0.9.1.
 
