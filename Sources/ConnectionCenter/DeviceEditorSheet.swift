@@ -107,7 +107,7 @@ struct DeviceEditorSheet: View {
             // The item may exist all the same: count it, so turning
             // Remember off still deletes it.
             hadRememberedPassword = true
-            validationMessage = "Password not read from Keychain: \(error)"
+            validationMessage = String(localized: "Password not read from Keychain: \(String(describing: error))")
         }
         isLoadingPassword = false
     }
@@ -128,9 +128,15 @@ struct DeviceEditorSheet: View {
                 Text(verbatim: previewName)
                     .font(.title3.weight(.semibold))
                     .lineLimit(1)
-                Text(editorState.isNew ? "New PC" : "Edit PC")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Group {
+                    if editorState.isNew {
+                        Text("New PC")
+                    } else {
+                        Text("Edit PC")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -146,7 +152,7 @@ struct DeviceEditorSheet: View {
             return trimmedName
         }
         let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedHost.isEmpty ? "New PC" : trimmedHost
+        return trimmedHost.isEmpty ? String(localized: "New PC") : trimmedHost
     }
 
     private var footer: some View {
@@ -219,7 +225,7 @@ struct DeviceEditorSheet: View {
             device.name = name
             device.host = host.trimmingCharacters(in: .whitespacesAndNewlines)
             guard let port = UInt16(portText.trimmingCharacters(in: .whitespaces)), port > 0 else {
-                validationMessage = "Port must be a number between 1 and 65535."
+                validationMessage = String(localized: "Port must be a number between 1 and 65535.")
                 return nil
             }
             device.port = port

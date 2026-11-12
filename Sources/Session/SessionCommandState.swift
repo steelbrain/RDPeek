@@ -58,9 +58,9 @@ struct SessionCommandState: Equatable {
         isMetricsOverlayVisible: Bool
     ) -> SessionCommandState {
         let startTitle = if isConnecting {
-            hasFrame ? "Connected" : "Connecting"
+            hasFrame ? String(localized: "Connected") : String(localized: "Connecting")
         } else {
-            hasReport || hasEndReason ? "Reconnect" : "Connect"
+            hasReport || hasEndReason ? String(localized: "Reconnect") : String(localized: "Connect")
         }
         let reportsSeveralMonitors = SessionDisplayControlPolicy.reportsSeveralMonitors(reportedMonitors)
         return SessionCommandState(

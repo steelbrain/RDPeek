@@ -177,13 +177,15 @@ struct DeviceCardView: View {
     /// "Last used 5 min. ago", or nil for a PC never connected to.
     private var lastUsedText: String? {
         device.lastConnectedAt.map { lastConnectedAt in
-            "Last used \(Self.relativeFormatter.localizedString(for: lastConnectedAt, relativeTo: Date()))"
+            let relative = Self.relativeFormatter.localizedString(for: lastConnectedAt, relativeTo: Date())
+            return String(localized: "Last used \(relative)")
         }
     }
 
     private static let relativeFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
+        formatter.locale = AppLanguage.formattingLocale
         return formatter
     }()
 }

@@ -41,7 +41,8 @@ brew install --cask steelbrain/tap/rdpeek
 
 Or download the latest signed and notarized build from
 [Releases](https://github.com/steelbrain/RDPeek/releases/latest).
-Requires macOS 14.0 or later. Free and open source.
+Requires macOS 14.0 or later. Free and open source. In English and
+Russian; Settings switches between them.
 
 ## Using the App
 

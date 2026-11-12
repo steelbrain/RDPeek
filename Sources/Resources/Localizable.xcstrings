@@ -1,0 +1,3003 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ is larger than the remote computer accepts; remote clipboard cleared" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Файл «%@» больше, чем принимает удалённый компьютер; удалённый буфер обмена очищен"
+          }
+        }
+      }
+    },
+    "%lld files pasted on remote" : {
+      "localizations" : {
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файл вставлен на удалённом компьютере"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файла вставлено на удалённом компьютере"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файлов вставлено на удалённом компьютере"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файла вставлено на удалённом компьютере"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld files shared to remote" : {
+      "localizations" : {
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файл передан на удалённый компьютер"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файла переданы на удалённый компьютер"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файлов передано на удалённый компьютер"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файла передано на удалённый компьютер"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld remote files copied" : {
+      "localizations" : {
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файл с удалённого компьютера скопирован"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файла с удалённого компьютера скопированы"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файлов с удалённого компьютера скопировано"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файла с удалённого компьютера скопировано"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld remote files copied without their folders" : {
+      "localizations" : {
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файл с удалённого компьютера скопирован без папок"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файла с удалённого компьютера скопированы без папок"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файлов с удалённого компьютера скопировано без папок"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld файла с удалённого компьютера скопировано без папок"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld saved PCs can't be read by this version of RDPeek and are kept unchanged." : {
+      "localizations" : {
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Эта версия RDPeek не может прочитать %lld сохранённый ПК, он оставлен без изменений."
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Эта версия RDPeek не может прочитать %lld сохранённых ПК, они оставлены без изменений."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Эта версия RDPeek не может прочитать %lld сохранённых ПК, они оставлены без изменений."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Эта версия RDPeek не может прочитать %lld сохранённых ПК, они оставлены без изменений."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "1 file pasted on remote" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 файл вставлен на удалённом компьютере"
+          }
+        }
+      }
+    },
+    "1 file shared to remote" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 файл передан на удалённый компьютер"
+          }
+        }
+      }
+    },
+    "1 saved PC can't be read by this version of RDPeek and is kept unchanged." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта версия RDPeek не может прочитать 1 сохранённый ПК, он оставлен без изменений."
+          }
+        }
+      }
+    },
+    "A PC that signs in with an outdated version of Network Level Authentication, CredSSP 2 to 4, is refused before any password is sent; use Connect Anyway, for that one connection, only on a network you trust. A server the PC passes the session on to is refused the same way, without Connect Anyway." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ПК, который входит с помощью устаревшей версии Network Level Authentication, CredSSP 2–4, отклоняется до отправки пароля; используйте «Всё равно подключиться» для одного подключения только в доверенной сети. Сервер, на который ПК передаёт сеанс, отклоняется так же, без «Всё равно подключиться»."
+          }
+        }
+      }
+    },
+    "A certificate this Mac does not trust stops the connection before any credential is sent. Trust and Connect pins that certificate for that host and port; a different certificate from that host that this Mac does not trust is then refused until you trust it instead." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сертификат, которому этот Mac не доверяет, останавливает подключение до отправки каких-либо учётных данных. «Доверять и подключиться» закрепляет этот сертификат для данных хоста и порта; другой сертификат от этого хоста, которому этот Mac не доверяет, затем отклоняется, пока вы не добавите его в доверенные."
+          }
+        }
+      }
+    },
+    "A remote desktop with more than one display keeps its own layout instead of following the window. Displays, in the ⋯ menu and the Session menu, shows all of its displays or only those you check, arranged as on the remote. They are numbered by their place in the server's list, so a display with nothing to show leaves a gap, and the numbers may differ from the remote's own." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый рабочий стол с несколькими дисплеями сохраняет собственную раскладку и не следует за окном. Пункт «Дисплеи» в меню «⋯» и в меню «Сеанс» показывает все дисплеи или только отмеченные вами, расположенные так же, как на удалённом ПК. Они пронумерованы по месту в списке сервера, поэтому дисплей, которому нечего показывать, оставляет пропуск, и номера могут отличаться от номеров на удалённом ПК."
+          }
+        }
+      }
+    },
+    "A secure connection to the remote computer could not be set up." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось установить защищённое подключение к удалённому компьютеру."
+          }
+        }
+      }
+    },
+    "A username is required to remember the password in Keychain." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Чтобы запомнить пароль в Связке ключей, нужно указать имя пользователя."
+          }
+        }
+      }
+    },
+    "About RDPeek" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "О программе RDPeek"
+          }
+        }
+      }
+    },
+    "Accept untrusted certificates" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Принимать недоверенные сертификаты"
+          }
+        }
+      }
+    },
+    "Add PC" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавить ПК"
+          }
+        }
+      }
+    },
+    "Add PC…" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавить ПК…"
+          }
+        }
+      }
+    },
+    "Add a PC (⌘N)" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавить ПК (⌘N)"
+          }
+        }
+      }
+    },
+    "Add your first PC to start a remote desktop session." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавьте первый ПК, чтобы начать сеанс удалённого рабочего стола."
+          }
+        }
+      }
+    },
+    "Adding a PC" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавление ПК"
+          }
+        }
+      }
+    },
+    "All Displays" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Все дисплеи"
+          }
+        }
+      }
+    },
+    "An account restriction, such as a blank password, prevents this sign-in." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вход невозможен из-за ограничения учётной записи, например пустого пароля."
+          }
+        }
+      }
+    },
+    "An administrator disconnected the session." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Администратор отключил сеанс."
+          }
+        }
+      }
+    },
+    "An administrator signed you out of the remote computer." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Администратор завершил ваш сеанс на удалённом компьютере."
+          }
+        }
+      }
+    },
+    "Another connection to the remote computer took over the session." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Другое подключение к удалённому компьютеру заняло этот сеанс."
+          }
+        }
+      }
+    },
+    "Arrow keys" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Стрелки"
+          }
+        }
+      }
+    },
+    "Audio starts on the next connection" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Звук включится при следующем подключении"
+          }
+        }
+      }
+    },
+    "Balanced" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Баланс"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отменить"
+          }
+        }
+      }
+    },
+    "Cancel connecting" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отменить подключение"
+          }
+        }
+      }
+    },
+    "Cancelled" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отменено"
+          }
+        }
+      }
+    },
+    "Certificate Changed" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сертификат изменился"
+          }
+        }
+      }
+    },
+    "Choppy video — open Stats for Nerds or the performance overlay from the ⋯ menu to see fps, decode times, and bandwidth." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Прерывистое видео — откройте «Статистику для гиков» или индикатор производительности в меню «⋯», чтобы увидеть частоту кадров, время декодирования и пропускную способность."
+          }
+        }
+      }
+    },
+    "Clipboard access is off for RDPeek in System Settings" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Доступ к буферу обмена для RDPeek выключен в Системных настройках"
+          }
+        }
+      }
+    },
+    "Clipboard changed; remote files were not copied" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Буфер обмена изменился; файлы с удалённого компьютера не скопированы"
+          }
+        }
+      }
+    },
+    "Clipboard has no text or files; remote clipboard cleared" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В буфере обмена нет текста или файлов; удалённый буфер обмена очищен"
+          }
+        }
+      }
+    },
+    "Clipboard is up to date" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Буфер обмена актуален"
+          }
+        }
+      }
+    },
+    "Clipboard sharing can be turned on, or shared for %lld seconds, at any time in a session. To allow that, RDPeek always joins the remote clipboard, so a Windows PC empties its clipboard when you connect, even with sharing off. Nothing is copied either way until you share." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Общий буфер обмена можно включить или включить на %lld с в любой момент во время сеанса. Чтобы это было возможно, RDPeek всегда подключается к удалённому буферу обмена, поэтому ПК с Windows очищает свой буфер обмена при подключении, даже если общий доступ выключен. Ничего не копируется, пока вы не включите общий доступ."
+          }
+        }
+      }
+    },
+    "Clipboard sharing ended" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Общий буфер обмена выключен"
+          }
+        }
+      }
+    },
+    "Clipboard synced" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Буфер обмена синхронизирован"
+          }
+        }
+      }
+    },
+    "Close" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Закрыть"
+          }
+        }
+      }
+    },
+    "Connect" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключиться"
+          }
+        }
+      }
+    },
+    "Connect Anyway" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Всё равно подключиться"
+          }
+        }
+      }
+    },
+    "Connect even when neither this Mac nor RDPeek trusts the server's certificate, and send your credentials without asking. Anyone able to intercept the connection could pose as the server and capture them. A certificate that replaced one you trusted is still refused." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключаться, даже если ни этот Mac, ни RDPeek не доверяют сертификату сервера, и отправлять ваши учётные данные без запроса. Любой, кто может перехватить соединение, способен выдать себя за сервер и получить их. Сертификат, заменивший доверенный вами, по-прежнему отклоняется."
+          }
+        }
+      }
+    },
+    "Connect to the selected PC" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключиться к выбранному ПК"
+          }
+        }
+      }
+    },
+    "Connected" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключено"
+          }
+        }
+      }
+    },
+    "Connecting" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключение"
+          }
+        }
+      }
+    },
+    "Connection" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключение"
+          }
+        }
+      }
+    },
+    "Connection Failed" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось подключиться"
+          }
+        }
+      }
+    },
+    "Connection cancelled by user." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключение отменено пользователем."
+          }
+        }
+      }
+    },
+    "Connection timeout: %llds" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Тайм-аут подключения: %lld с"
+          }
+        }
+      }
+    },
+    "Connects to this PC." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключает к этому ПК."
+          }
+        }
+      }
+    },
+    "Could not find “%@”. Check the host name." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось найти «%@». Проверьте имя хоста."
+          }
+        }
+      }
+    },
+    "Could not reach “%@”. Check that it is on and accepts Remote Desktop connections." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось подключиться к «%@». Проверьте, что он включён и принимает подключения удалённого рабочего стола."
+          }
+        }
+      }
+    },
+    "Could not reach “%@”. Check that it is on. If it is on your local network, allow RDPeek in System Settings → Privacy & Security → Local Network." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось подключиться к «%@». Проверьте, что он включён. Если он находится в вашей локальной сети, разрешите RDPeek в Системных настройках → Конфиденциальность и безопасность → Локальная сеть."
+          }
+        }
+      }
+    },
+    "Credentials" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Учётные данные"
+          }
+        }
+      }
+    },
+    "Defaults for New PCs" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Настройки для новых ПК"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить"
+          }
+        }
+      }
+    },
+    "Delete PC?" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить ПК?"
+          }
+        }
+      }
+    },
+    "Delete the selected PC" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить выбранный ПК"
+          }
+        }
+      }
+    },
+    "Delete “%@”?" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить ПК «%@»?"
+          }
+        }
+      }
+    },
+    "Delete…" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить…"
+          }
+        }
+      }
+    },
+    "Disconnect" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отключиться"
+          }
+        }
+      }
+    },
+    "Disconnected" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отключено"
+          }
+        }
+      }
+    },
+    "Dismiss" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Закрыть"
+          }
+        }
+      }
+    },
+    "Display %lld — %@ × %@" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дисплей %1$lld — %2$@ × %3$@"
+          }
+        }
+      }
+    },
+    "Display %lld — %@ × %@ (Primary)" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дисплей %1$lld — %2$@ × %3$@ (основной)"
+          }
+        }
+      }
+    },
+    "Displays" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дисплеи"
+          }
+        }
+      }
+    },
+    "Domain" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Домен"
+          }
+        }
+      }
+    },
+    "Domain (optional)" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Домен (необязательно)"
+          }
+        }
+      }
+    },
+    "Double-click a card, hover it and press the play button, or select it and press Return. If no password is available, the session window asks you to sign in. A password typed there is kept only when the server checks it before showing the desktop; for servers that ask on their own sign-in screen instead, such as xrdp, save it in the PC's settings." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дважды щёлкните карточку, наведите на неё указатель и нажмите кнопку воспроизведения или выберите её и нажмите Return. Если пароля нет, окно сеанса предложит войти. Введённый там пароль сохраняется, только если сервер проверяет его до показа рабочего стола; для серверов, которые запрашивают пароль на собственном экране входа, например xrdp, сохраните его в настройках ПК."
+          }
+        }
+      }
+    },
+    "Downloading %@" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Загрузка «%@»"
+          }
+        }
+      }
+    },
+    "Downloading file %lld of %lld" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Загрузка файла %lld из %lld"
+          }
+        }
+      }
+    },
+    "Duplicate" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дублировать"
+          }
+        }
+      }
+    },
+    "Duplicate PC" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дублировать ПК"
+          }
+        }
+      }
+    },
+    "Duplicate the selected PC" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дублировать выбранный ПК"
+          }
+        }
+      }
+    },
+    "Edit" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Изменить"
+          }
+        }
+      }
+    },
+    "Edit PC" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Изменить ПК"
+          }
+        }
+      }
+    },
+    "Edit PC…" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Изменить ПК…"
+          }
+        }
+      }
+    },
+    "Edit the selected PC" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Изменить выбранный ПК"
+          }
+        }
+      }
+    },
+    "Edit…" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Изменить…"
+          }
+        }
+      }
+    },
+    "Enter a password to remember, or turn off “Remember password in Keychain”." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Введите пароль, который нужно запомнить, или выключите «Запомнить пароль в Связке ключей»."
+          }
+        }
+      }
+    },
+    "Enter both a user name and a password." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Введите имя пользователя и пароль."
+          }
+        }
+      }
+    },
+    "Failed" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ошибка"
+          }
+        }
+      }
+    },
+    "Fast" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Скорость"
+          }
+        }
+      }
+    },
+    "Fast asks for a smaller remote desktop and scales it up, which suits a slow network; Quality asks for every pixel of the window. It applies to every PC, and matters on a Retina display with a PC that can resize its desktop." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В режиме «Скорость» запрашивается удалённый рабочий стол меньшего размера, который растягивается под окно, — это подходит для медленной сети. В режиме «Качество» запрашивается каждый пиксель окна. Режим действует для всех ПК и заметен на дисплее Retina, если ПК умеет менять размер рабочего стола."
+          }
+        }
+      }
+    },
+    "First connection fails or stalls — answer the macOS local-network permission prompt; RDPeek retries on its own. If you denied it, enable Local Network for RDPeek in System Settings → Privacy & Security." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Первое подключение не удаётся или зависает — ответьте на запрос macOS о разрешении для локальной сети; RDPeek повторит попытку сам. Если вы отклонили запрос, включите «Локальная сеть» для RDPeek в Системных настройках → «Конфиденциальность и безопасность»."
+          }
+        }
+      }
+    },
+    "Host" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Хост"
+          }
+        }
+      }
+    },
+    "In a Session" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Во время сеанса"
+          }
+        }
+      }
+    },
+    "Inside a session, shortcuts with ⌘ or ⌃ are sent to the remote desktop as scancodes, so Windows and Linux shortcuts work. Left ⌥ is Alt; right ⌥ types the character it gives on your Mac, such as @ with ⌥L on a German layout, and is Alt otherwise. The remote desktop is told your Mac's keyboard layout; keys that type the same character there are sent as scancodes, so a remote input method sees them, and other text as Unicode." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Во время сеанса сочетания клавиш с ⌘ или ⌃ отправляются на удалённый рабочий стол как скан-коды, поэтому сочетания Windows и Linux работают. Левая ⌥ — это Alt; правая ⌥ вводит символ, который она даёт на вашем Mac, например @ по ⌥L в немецкой раскладке, и иначе работает как Alt. Удалённому рабочему столу сообщается раскладка клавиатуры вашего Mac; клавиши, вводящие там тот же символ, отправляются как скан-коды, чтобы их видел удалённый метод ввода, а остальной текст — как Unicode."
+          }
+        }
+      }
+    },
+    "Its saved password is removed from your Keychain too, unless another PC remembers the same sign-in. This cannot be undone." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Его сохранённый пароль также удаляется из Связки ключей, если тот же вход не запоминает другой ПК. Это действие нельзя отменить."
+          }
+        }
+      }
+    },
+    "Keyboard Shortcuts" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сочетания клавиш"
+          }
+        }
+      }
+    },
+    "Keychain asks for access — choose Always Allow to skip the prompt on future connections." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Связка ключей запрашивает доступ — выберите «Всегда разрешать», чтобы не видеть запрос при следующих подключениях."
+          }
+        }
+      }
+    },
+    "Keychain error %@: %@" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ошибка Связки ключей %1$@: %2$@"
+          }
+        }
+      }
+    },
+    "Keychain returned OSStatus %@." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Связка ключей вернула OSStatus %@."
+          }
+        }
+      }
+    },
+    "Language" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Язык"
+          }
+        }
+      }
+    },
+    "Last used %@" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Последнее подключение: %@"
+          }
+        }
+      }
+    },
+    "Later" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Позже"
+          }
+        }
+      }
+    },
+    "Letters or shortcuts land on the wrong keys — a remote session keeps the keyboard layout it started with. Sign out of it on the remote computer, not just disconnect, and connect again." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Буквы или сочетания клавиш попадают не на те клавиши — удалённый сеанс сохраняет раскладку клавиатуры, с которой он начался. Выйдите из системы на удалённом компьютере, а не просто отключитесь, и подключитесь снова."
+          }
+        }
+      }
+    },
+    "Local clipboard files are too large to share; remote clipboard cleared" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Файлы в локальном буфере обмена слишком велики для передачи; удалённый буфер обмена очищен"
+          }
+        }
+      }
+    },
+    "Local clipboard files exceed %@ MiB; remote clipboard cleared" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Файлы в локальном буфере обмена превышают %@ МиБ; удалённый буфер обмена очищен"
+          }
+        }
+      }
+    },
+    "Local clipboard has non-file items; remote clipboard cleared" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В локальном буфере обмена есть не только файлы; удалённый буфер обмена очищен"
+          }
+        }
+      }
+    },
+    "Local file clipboard could not be read; remote clipboard cleared" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось прочитать файлы из локального буфера обмена; удалённый буфер обмена очищен"
+          }
+        }
+      }
+    },
+    "Local file clipboard was not shared" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Файлы из локального буфера обмена не переданы"
+          }
+        }
+      }
+    },
+    "Local text is too large to sync; remote clipboard cleared" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Локальный текст слишком велик для синхронизации; удалённый буфер обмена очищен"
+          }
+        }
+      }
+    },
+    "Match Window Size" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "По размеру окна"
+          }
+        }
+      }
+    },
+    "More at" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подробнее на"
+          }
+        }
+      }
+    },
+    "Name" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Имя"
+          }
+        }
+      }
+    },
+    "Negotiation" : {
+      "shouldTranslate" : false
+    },
+    "Neither this Mac nor RDPeek trusts the server's certificate." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ни этот Mac, ни RDPeek не доверяют сертификату сервера."
+          }
+        }
+      }
+    },
+    "Network hiccup — retrying (%lld of %lld)…" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сбой сети — повторная попытка (%lld из %lld)…"
+          }
+        }
+      }
+    },
+    "New PC" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новый ПК"
+          }
+        }
+      }
+    },
+    "No PCs Yet" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ПК пока нет"
+          }
+        }
+      }
+    },
+    "No sound — turn on Remote Audio in the ⋯ menu, or “Play remote audio” on the PC, and reconnect; audio is negotiated when the connection starts." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет звука — включите «Звук удалённого ПК» в меню «⋯» или «Воспроизводить звук удалённого ПК» в параметрах ПК и подключитесь заново; звук согласуется при начале подключения."
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "Only on a network you trust. RDPeek asks again next time." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Только в сети, которой вы доверяете. В следующий раз RDPeek спросит снова."
+          }
+        }
+      }
+    },
+    "Only this PC's own account can be remembered." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запомнить можно только учётную запись самого ПК."
+          }
+        }
+      }
+    },
+    "Optional" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Необязательно"
+          }
+        }
+      }
+    },
+    "Optional, e.g. Build Server" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Необязательно, например Build Server"
+          }
+        }
+      }
+    },
+    "Options" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Параметры"
+          }
+        }
+      }
+    },
+    "PC" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ПК"
+          }
+        }
+      }
+    },
+    "PC profiles live in app preferences and never contain passwords. Passwords are stored in your macOS Keychain, one item per account (user name, domain, host and port), and are removed when you delete the last PC that remembers them or turn off remembering. Trusted certificate fingerprints are pinned per host and port." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Профили ПК хранятся в настройках приложения и никогда не содержат паролей. Пароли хранятся в вашей Связке ключей macOS, по одному элементу на учётную запись (имя пользователя, домен, хост и порт), и удаляются, когда вы удаляете последний ПК, который их запоминает, или выключаете запоминание. Отпечатки доверенных сертификатов закрепляются за хостом и портом."
+          }
+        }
+      }
+    },
+    "Password" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пароль"
+          }
+        }
+      }
+    },
+    "Password not read from Keychain: %@" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось прочитать пароль из Связки ключей: %@"
+          }
+        }
+      }
+    },
+    "Password not remembered: this server doesn't confirm sign-ins. Save it in the PC's settings." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пароль не запомнен: сервер не подтверждает вход. Сохраните его в настройках ПК."
+          }
+        }
+      }
+    },
+    "Password not removed from Keychain" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пароль не удалён из Связки ключей"
+          }
+        }
+      }
+    },
+    "Password not saved to Keychain" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пароль не сохранён в Связке ключей"
+          }
+        }
+      }
+    },
+    "Performance" : {
+      "shouldTranslate" : false
+    },
+    "Performance Overlay" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Индикатор производительности"
+          }
+        }
+      }
+    },
+    "Play remote audio" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Воспроизводить звук удалённого ПК"
+          }
+        }
+      }
+    },
+    "Port" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Порт"
+          }
+        }
+      }
+    },
+    "Port must be a number between 1 and 65535." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Порт должен быть числом от 1 до 65535."
+          }
+        }
+      }
+    },
+    "Press ⌘N or click Add PC. Only the host is required — name, credentials, clipboard, and audio are optional and editable later." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нажмите ⌘N или «Добавить ПК». Обязателен только хост — имя, учётные данные, буфер обмена и звук необязательны, и их можно изменить позже."
+          }
+        }
+      }
+    },
+    "Quality" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Качество"
+          }
+        }
+      }
+    },
+    "Quality, in Settings, sets how sharp a desktop that is. Quality asks for every pixel of the window, Balanced for fewer, and Fast for the window's size at 100%, scaled up to fit: less for a slow network to carry. A change reaches open sessions right away. On a display that is not Retina, the three are the same." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Параметр «Качество» в Настройках определяет чёткость рабочего стола. «Качество» запрашивает каждый пиксель окна, «Баланс» — меньше, а «Скорость» — размер окна при 100%, увеличенный по размеру окна: так передаётся меньше данных, что удобно для медленной сети. Изменение сразу применяется к открытым сеансам. На дисплее без Retina все три варианта одинаковы."
+          }
+        }
+      }
+    },
+    "RDPeek" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RDPeek"
+          }
+        }
+      }
+    },
+    "RDPeek Help" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Справка RDPeek"
+          }
+        }
+      }
+    },
+    "RDPeek Website" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сайт RDPeek"
+          }
+        }
+      }
+    },
+    "RDPeek cannot send these settings to the remote computer. Check that the user name, domain and password are not too long." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RDPeek не может отправить эти настройки на удалённый компьютер. Проверьте, что имя пользователя, домен и пароль не слишком длинные."
+          }
+        }
+      }
+    },
+    "RDPeek could not read the saved password from the Keychain." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RDPeek не удалось прочитать сохранённый пароль из Связки ключей."
+          }
+        }
+      }
+    },
+    "RDPeek could not show the remote desktop." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RDPeek не смог показать удалённый рабочий стол."
+          }
+        }
+      }
+    },
+    "RDPeek failed on this Mac; the remote computer was not at fault." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ошибка RDPeek на этом Mac; удалённый компьютер ни при чём."
+          }
+        }
+      }
+    },
+    "RDPeek shows a new language once it is opened again." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RDPeek перейдёт на новый язык после перезапуска."
+          }
+        }
+      }
+    },
+    "Reading Keychain…" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Чтение Связки ключей…"
+          }
+        }
+      }
+    },
+    "Recently Used" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Недавно использованные"
+          }
+        }
+      }
+    },
+    "Reconnect" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключиться снова"
+          }
+        }
+      }
+    },
+    "Reconnect a session that ended" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Повторно подключить завершённый сеанс"
+          }
+        }
+      }
+    },
+    "Remember in Keychain" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запомнить в Связке ключей"
+          }
+        }
+      }
+    },
+    "Remember password in Keychain" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запомнить пароль в Связке ключей"
+          }
+        }
+      }
+    },
+    "Remote Audio" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Звук удалённого ПК"
+          }
+        }
+      }
+    },
+    "Remote audio cannot play on this Mac" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Звук удалённого ПК нельзя воспроизвести на этом Mac"
+          }
+        }
+      }
+    },
+    "Remote clipboard emptied; cleared on this Mac too" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый буфер обмена очищен; на этом Mac он тоже очищен"
+          }
+        }
+      }
+    },
+    "Remote computer doesn't accept files; remote clipboard cleared" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер не принимает файлы; удалённый буфер обмена очищен"
+          }
+        }
+      }
+    },
+    "Remote copy could not be shared" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось передать копию с удалённого компьютера"
+          }
+        }
+      }
+    },
+    "Remote copy has more than %@ files" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В удалённой копии более %@ файлов"
+          }
+        }
+      }
+    },
+    "Remote desktops, the Mac way." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённые рабочие столы в стиле Mac."
+          }
+        }
+      }
+    },
+    "Remote file clipboard is empty" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый буфер обмена с файлами пуст"
+          }
+        }
+      }
+    },
+    "Remote file copied without its folder: %@" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Файл с удалённого компьютера скопирован без папки: %@"
+          }
+        }
+      }
+    },
+    "Remote file copied: %@" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Файл с удалённого компьютера скопирован: %@"
+          }
+        }
+      }
+    },
+    "Remote file could not be saved" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось сохранить файл с удалённого компьютера"
+          }
+        }
+      }
+    },
+    "Remote file index is not valid" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Недопустимый индекс удалённого файла"
+          }
+        }
+      }
+    },
+    "Remote file transfer failed" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось передать файл с удалённого компьютера"
+          }
+        }
+      }
+    },
+    "Remote file transfer timed out" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Время передачи файла с удалённого компьютера истекло"
+          }
+        }
+      }
+    },
+    "Remote file transfer was incomplete" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Передача файла с удалённого компьютера не завершена"
+          }
+        }
+      }
+    },
+    "Remote files are too large to copy" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Файлы на удалённом компьютере слишком велики для копирования"
+          }
+        }
+      }
+    },
+    "Remote files could not be copied" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось скопировать файлы с удалённого компьютера"
+          }
+        }
+      }
+    },
+    "Remote files could not be prepared" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось подготовить файлы с удалённого компьютера"
+          }
+        }
+      }
+    },
+    "Remote files exceed %@ MiB" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Файлы на удалённом компьютере превышают %@ МиБ"
+          }
+        }
+      }
+    },
+    "Remote folders have no files" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В удалённых папках нет файлов"
+          }
+        }
+      }
+    },
+    "Remote is pasting %@" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер вставляет «%@»"
+          }
+        }
+      }
+    },
+    "Remote is pasting file %lld of %lld" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер вставляет файл %lld из %lld"
+          }
+        }
+      }
+    },
+    "Remote text copied" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Текст с удалённого компьютера скопирован"
+          }
+        }
+      }
+    },
+    "Reopen Now" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перезапустить"
+          }
+        }
+      }
+    },
+    "Reopen RDPeek to Change Its Language?" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перезапустить RDPeek, чтобы сменить язык?"
+          }
+        }
+      }
+    },
+    "Reopening disconnects the sessions that are open." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "При перезапуске открытые сеансы будут отключены."
+          }
+        }
+      }
+    },
+    "SHA-256: %@" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SHA-256: %@"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сохранить"
+          }
+        }
+      }
+    },
+    "Save & Connect" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сохранить и подключиться"
+          }
+        }
+      }
+    },
+    "Saved PCs Can't Be Read" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удаётся прочитать сохранённые ПК"
+          }
+        }
+      }
+    },
+    "Search devices" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поиск устройств"
+          }
+        }
+      }
+    },
+    "Select another PC" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выбрать другой ПК"
+          }
+        }
+      }
+    },
+    "Session" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сеанс"
+          }
+        }
+      }
+    },
+    "Session options" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Параметры сеанса"
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Настройки"
+          }
+        }
+      }
+    },
+    "Share Clipboard" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Общий буфер обмена"
+          }
+        }
+      }
+    },
+    "Share Clipboard for %lld Seconds" : {
+      "localizations" : {
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Общий буфер обмена на %lld секунду"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Общий буфер обмена на %lld секунды"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Общий буфер обмена на %lld секунд"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Общий буфер обмена на %lld секунды"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Share clipboard" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Общий буфер обмена"
+          }
+        }
+      }
+    },
+    "Sharing clipboard for %lld seconds" : {
+      "localizations" : {
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Общий буфер обмена включён на %lld секунду"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Общий буфер обмена включён на %lld секунды"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Общий буфер обмена включён на %lld секунд"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Общий буфер обмена включён на %lld секунды"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Sharing for %llds" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Общий доступ ещё %lld с"
+          }
+        }
+      }
+    },
+    "Showing all displays" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показаны все дисплеи"
+          }
+        }
+      }
+    },
+    "Sign In" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вход"
+          }
+        }
+      }
+    },
+    "Sign in to %@" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вход на «%@»"
+          }
+        }
+      }
+    },
+    "Sign-in fails — RDPeek asks for the user name and password again; on other failures, use “Use different credentials…”. Note that some servers report a wrong password only as a timeout." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удаётся войти — RDPeek снова запросит имя пользователя и пароль; при других сбоях выберите «Использовать другие учётные данные…». Учтите, что некоторые серверы сообщают о неверном пароле только как о тайм-ауте."
+          }
+        }
+      }
+    },
+    "Signs in with the outdated version for this one connection." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вход с устаревшей версией только для этого подключения."
+          }
+        }
+      }
+    },
+    "Something Went Wrong" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Что-то пошло не так"
+          }
+        }
+      }
+    },
+    "Sort" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сортировка"
+          }
+        }
+      }
+    },
+    "Sort By" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сортировка"
+          }
+        }
+      }
+    },
+    "Sort devices" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сортировка устройств"
+          }
+        }
+      }
+    },
+    "Stats for Nerds" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Статистика для гиков"
+          }
+        }
+      }
+    },
+    "Sync Clipboard Now" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Синхронизировать буфер обмена"
+          }
+        }
+      }
+    },
+    "System" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Системный"
+          }
+        }
+      }
+    },
+    "The Keychain item's data was not in the expected format." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Данные элемента Связки ключей имеют неожиданный формат."
+          }
+        }
+      }
+    },
+    "The connection to the remote computer was lost." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключение к удалённому компьютеру потеряно."
+          }
+        }
+      }
+    },
+    "The connection was closed before any credential was sent." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключение было закрыто до отправки учётных данных."
+          }
+        }
+      }
+    },
+    "The desktop is taking too long — reconnecting…" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Рабочий стол загружается слишком долго — подключение заново…"
+          }
+        }
+      }
+    },
+    "The domain is too long to send." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Домен слишком длинный для отправки."
+          }
+        }
+      }
+    },
+    "The password for this account has expired and must be changed." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Срок действия пароля этой учётной записи истёк, его необходимо сменить."
+          }
+        }
+      }
+    },
+    "The password is too long to send." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пароль слишком длинный для отправки."
+          }
+        }
+      }
+    },
+    "The remote computer chose a security protocol RDPeek does not support, such as Standard RDP Security." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер выбрал протокол безопасности, который RDPeek не поддерживает, например Standard RDP Security."
+          }
+        }
+      }
+    },
+    "The remote computer closed the connection." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер закрыл подключение."
+          }
+        }
+      }
+    },
+    "The remote computer could not license this connection." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер не смог лицензировать это подключение."
+          }
+        }
+      }
+    },
+    "The remote computer denied this account access." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер запретил этой учётной записи доступ."
+          }
+        }
+      }
+    },
+    "The remote computer did not accept the sign-in. Check the user name and password." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер не принял вход. Проверьте имя пользователя и пароль."
+          }
+        }
+      }
+    },
+    "The remote computer did not respond in time." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер не ответил вовремя."
+          }
+        }
+      }
+    },
+    "The remote computer did not show the desktop in time." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер не показал рабочий стол вовремя."
+          }
+        }
+      }
+    },
+    "The remote computer ended the session." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер завершил сеанс."
+          }
+        }
+      }
+    },
+    "The remote computer has no certificate for a secure connection." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У удалённого компьютера нет сертификата для защищённого подключения."
+          }
+        }
+      }
+    },
+    "The remote computer is restarting." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер перезагружается."
+          }
+        }
+      }
+    },
+    "The remote computer is shutting down." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер выключается."
+          }
+        }
+      }
+    },
+    "The remote computer only allows Standard RDP Security, which RDPeek does not support." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер разрешает только Standard RDP Security, которую RDPeek не поддерживает."
+          }
+        }
+      }
+    },
+    "The remote computer ran out of memory." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "На удалённом компьютере закончилась память."
+          }
+        }
+      }
+    },
+    "The remote computer refused the connection." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер отклонил подключение."
+          }
+        }
+      }
+    },
+    "The remote computer refused the security RDPeek offered." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер отклонил параметры безопасности, предложенные RDPeek."
+          }
+        }
+      }
+    },
+    "The remote computer refused the sign-in it passed the session on with." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер отклонил вход, с которым ему передали сеанс."
+          }
+        }
+      }
+    },
+    "The remote computer rejected something RDPeek sent." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер отклонил данные, отправленные RDPeek."
+          }
+        }
+      }
+    },
+    "The remote computer rejected the sign-in (status 0x%@)." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер отклонил вход (статус 0x%@)."
+          }
+        }
+      }
+    },
+    "The remote computer requires a client certificate, which RDPeek does not support." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер требует клиентский сертификат, который RDPeek не поддерживает."
+          }
+        }
+      }
+    },
+    "The remote computer requires a user name and password." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер требует имя пользователя и пароль."
+          }
+        }
+      }
+    },
+    "The remote computer requires you to sign in again." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер требует повторного входа."
+          }
+        }
+      }
+    },
+    "The remote computer sent something RDPeek cannot handle." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер прислал данные, которые RDPeek не может обработать."
+          }
+        }
+      }
+    },
+    "The remote computer signs in with CredSSP %lld, an outdated version of Network Level Authentication that someone intercepting the connection could misuse to learn your sign-in. No password was sent." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый компьютер выполняет вход через CredSSP %lld — устаревшую версию Network Level Authentication, которой может воспользоваться тот, кто перехватывает подключение, чтобы узнать ваши данные для входа. Пароль не отправлялся."
+          }
+        }
+      }
+    },
+    "The remote session ended before showing the desktop." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый сеанс завершился, не показав рабочий стол."
+          }
+        }
+      }
+    },
+    "The remote session ended." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый сеанс завершён."
+          }
+        }
+      }
+    },
+    "The saved PC list can't be read by this version of RDPeek and is kept unchanged." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта версия RDPeek не может прочитать список сохранённых ПК, он оставлен без изменений."
+          }
+        }
+      }
+    },
+    "The saved PC list could not be read, so it was left unchanged." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось прочитать список сохранённых ПК, поэтому он оставлен без изменений."
+          }
+        }
+      }
+    },
+    "The server's certificate is not the one trusted for this host." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сертификат сервера не совпадает с тем, которому доверяли для этого хоста."
+          }
+        }
+      }
+    },
+    "The session ended because of an error on the remote computer." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сеанс завершён из-за ошибки на удалённом компьютере."
+          }
+        }
+      }
+    },
+    "The session reached its time limit." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сеанс достиг ограничения по времени."
+          }
+        }
+      }
+    },
+    "The session was disconnected after being idle too long." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сеанс отключён из-за долгого бездействия."
+          }
+        }
+      }
+    },
+    "The session was disconnected from the remote computer." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сеанс отключён от удалённого компьютера."
+          }
+        }
+      }
+    },
+    "The user name is too long to send." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Имя пользователя слишком длинное для отправки."
+          }
+        }
+      }
+    },
+    "The user name or password is incorrect." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Неверное имя пользователя или пароль."
+          }
+        }
+      }
+    },
+    "The ⋯ menu in the titlebar holds Disconnect, clipboard sharing (for the session or for %lld seconds, and Sync Now to send a copy the remote doesn't have yet), remote audio, window size matching, the performance overlay, and Stats for Nerds. While the remote desktop has your keyboard, RDPeek's own ⌘ shortcuts go to it too, so use this menu or the Session menu in the menu bar instead." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В меню «⋯» в заголовке окна находятся: «Отключиться», общий буфер обмена (на сеанс или на %lld с, а также «Синхронизировать», чтобы отправить копию, которой ещё нет на удалённом ПК), звук удалённого ПК, подстройка под размер окна, индикатор производительности и «Статистика для гиков». Пока клавиатура передана удалённому рабочему столу, ему отправляются и собственные сочетания клавиш RDPeek с ⌘, поэтому пользуйтесь этим меню или меню «Сеанс» в строке меню."
+          }
+        }
+      }
+    },
+    "These apply to PCs you add from now on. Existing PCs keep their own settings." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Они применяются к ПК, которые вы добавите позже. У существующих ПК остаются свои настройки."
+          }
+        }
+      }
+    },
+    "This Mac does not trust the server's certificate. Trust it only if you expect it, such as a server's self-signed certificate." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот Mac не доверяет сертификату сервера. Доверяйте ему, только если ожидаете этого, например в случае самоподписанного сертификата сервера."
+          }
+        }
+      }
+    },
+    "This Mac has no route to “%@”. Check your network connection or VPN." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У этого Mac нет маршрута к «%@». Проверьте подключение к сети или VPN."
+          }
+        }
+      }
+    },
+    "This account has expired." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Срок действия этой учётной записи истёк."
+          }
+        }
+      }
+    },
+    "This account is disabled." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта учётная запись отключена."
+          }
+        }
+      }
+    },
+    "This account is locked out." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта учётная запись заблокирована."
+          }
+        }
+      }
+    },
+    "This account is not allowed to connect to the remote computer." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этой учётной записи не разрешено подключаться к удалённому компьютеру."
+          }
+        }
+      }
+    },
+    "This account is not allowed to sign in at this time." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этой учётной записи не разрешён вход в это время."
+          }
+        }
+      }
+    },
+    "This account is not allowed to sign in from this Mac." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этой учётной записи не разрешён вход с этого Mac."
+          }
+        }
+      }
+    },
+    "This account is not allowed to sign in with Remote Desktop." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этой учётной записи не разрешён вход через удалённый рабочий стол."
+          }
+        }
+      }
+    },
+    "Transient network failures — like the first-time local-network permission prompt — retry automatically. Connecting to a PC that already has a session focuses its window, and connects again if that session ended. Changes saved to a PC apply to its open window from the next connection." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Временные сбои сети — например, при первом запросе разрешения для локальной сети — устраняются повторными попытками автоматически. Если подключиться к ПК, у которого уже есть сеанс, откроется его окно, а если сеанс завершён, подключение будет выполнено снова. Изменения, сохранённые для ПК, применяются в его открытом окне со следующего подключения."
+          }
+        }
+      }
+    },
+    "Troubleshooting" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Устранение неполадок"
+          }
+        }
+      }
+    },
+    "Trust and Connect" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Доверять и подключиться"
+          }
+        }
+      }
+    },
+    "Trust the new certificate only if you know why the server's certificate changed." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Доверяйте новому сертификату, только если знаете, почему сертификат сервера изменился."
+          }
+        }
+      }
+    },
+    "Turn on “Remember password in Keychain” to store the password securely. A password typed without remembering is kept in memory only until you quit." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Включите «Запомнить пароль в Связке ключей», чтобы надёжно сохранить пароль. Пароль, введённый без запоминания, хранится только в памяти до выхода из приложения."
+          }
+        }
+      }
+    },
+    "Untrusted Certificate" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Недоверенный сертификат"
+          }
+        }
+      }
+    },
+    "Use different credentials…" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Использовать другие учётные данные…"
+          }
+        }
+      }
+    },
+    "Username" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Имя пользователя"
+          }
+        }
+      }
+    },
+    "With Match Window Size on, as it is by default, the remote desktop follows the window: resize the window and the desktop re-fits a moment later. Turn it off in the ⋯ or Session menu to keep the desktop's size, scaled to fit the window; turning it back on fits the desktop to the window again. Full screen works as a primary full-screen window." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Если включён параметр «По размеру окна» (по умолчанию он включён), удалённый рабочий стол следует за окном: измените размер окна, и через мгновение рабочий стол подстроится. Выключите его в меню «⋯» или «Сеанс», чтобы сохранить размер рабочего стола и масштабировать его по окну; при повторном включении рабочий стол снова подстраивается под окно. Полноэкранный режим работает как основное полноэкранное окно."
+          }
+        }
+      }
+    },
+    "With “%@” on, a PC connects without asking when neither this Mac nor RDPeek trusts the certificate, and sends your credentials. Anyone able to intercept the connection could pose as the server and capture them. A certificate that replaced one you trusted is still refused." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Если включён параметр «%@», ПК подключается без запроса, когда ни этот Mac, ни RDPeek не доверяют сертификату, и отправляет ваши учётные данные. Любой, кто может перехватить соединение, способен выдать себя за сервер и получить их. Сертификат, заменивший доверенный вами, по-прежнему отклоняется."
+          }
+        }
+      }
+    },
+    "You signed out of the remote computer." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вы вышли из учётной записи на удалённом компьютере."
+          }
+        }
+      }
+    },
+    "Your Data" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваши данные"
+          }
+        }
+      }
+    },
+    "hostname or IP address" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "имя хоста или IP-адрес"
+          }
+        }
+      }
+    },
+    "macOS did not allow the connection to “%@”. A firewall or network filter may block it." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS не разрешила подключение к «%@». Возможно, его блокирует брандмауэр или сетевой фильтр."
+          }
+        }
+      }
+    },
+    "rdpeek.com" : {
+      "shouldTranslate" : false
+    },
+    "“%@” did not answer as a Remote Desktop server; check the host and port." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» не ответил как сервер удалённого рабочего стола; проверьте хост и порт."
+          }
+        }
+      }
+    },
+    "“%@” did not answer. Check the host name and port, and that no firewall blocks the connection." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» не отвечает. Проверьте имя хоста и порт, а также что подключение не блокирует брандмауэр."
+          }
+        }
+      }
+    },
+    "“%@” passed the session on to a server that did not answer as a Remote Desktop server." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» передал сеанс серверу, который не ответил как сервер удалённого рабочего стола."
+          }
+        }
+      }
+    },
+    "“%@” passed the session on to a server that signs in with CredSSP %lld, an outdated version of Network Level Authentication that RDPeek refuses before sending it any password." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%1$@» передал сеанс серверу, который выполняет вход через CredSSP %2$lld — устаревшую версию Network Level Authentication, которую RDPeek отклоняет до отправки ему любого пароля."
+          }
+        }
+      }
+    },
+    "“%@” passed the session on to a server that stopped answering before the connection was set up." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» передал сеанс серверу, который перестал отвечать до установки подключения."
+          }
+        }
+      }
+    },
+    "“%@” passed the session on to a server that this Mac could not find." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» передал сеанс серверу, который этот Mac не смог найти."
+          }
+        }
+      }
+    },
+    "“%@” passed the session on to a server that this Mac could not reach." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» передал сеанс серверу, к которому этот Mac не смог подключиться."
+          }
+        }
+      }
+    },
+    "“%@” passed the session on to a server that this Mac could not set up a secure connection with." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» передал сеанс серверу, с которым этот Mac не смог установить защищённое подключение."
+          }
+        }
+      }
+    },
+    "“%@” passed the session on to “%@”, which did not answer as a Remote Desktop server." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%1$@» передал сеанс серверу «%2$@», который не ответил как сервер удалённого рабочего стола."
+          }
+        }
+      }
+    },
+    "“%@” passed the session on to “%@”, which signs in with CredSSP %lld, an outdated version of Network Level Authentication that RDPeek refuses before sending it any password." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%1$@» передал сеанс серверу «%2$@», который выполняет вход через CredSSP %3$lld — устаревшую версию Network Level Authentication, которую RDPeek отклоняет до отправки ему любого пароля."
+          }
+        }
+      }
+    },
+    "“%@” passed the session on to “%@”, which stopped answering before the connection was set up." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%1$@» передал сеанс серверу «%2$@», который перестал отвечать до установки подключения."
+          }
+        }
+      }
+    },
+    "“%@” passed the session on to “%@”, which this Mac could not find." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%1$@» передал сеанс серверу «%2$@», который этот Mac не смог найти."
+          }
+        }
+      }
+    },
+    "“%@” passed the session on to “%@”, which this Mac could not reach." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%1$@» передал сеанс серверу «%2$@», к которому этот Mac не смог подключиться."
+          }
+        }
+      }
+    },
+    "“%@” passed the session on to “%@”, which this Mac could not set up a secure connection with." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%1$@» передал сеанс серверу «%2$@», с которым этот Mac не смог установить защищённое подключение."
+          }
+        }
+      }
+    },
+    "“%@” refused the connection. Check that Remote Desktop is on and the port is right." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» отклонил подключение. Проверьте, что удалённый рабочий стол включён и порт указан верно."
+          }
+        }
+      }
+    },
+    "“%@” stopped answering before the connection was set up; it may be at its connection limit, or a firewall may block Remote Desktop." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» перестал отвечать до установки подключения; возможно, достигнут предел числа подключений или брандмауэр блокирует удалённый рабочий стол."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

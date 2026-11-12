@@ -70,6 +70,17 @@ reference implementation.
   that build log nor the test command's log after it (`> test.log`,
   which compiles `Tests`) may contain Swift `warning:` lines, as CI
   checks: `! grep -E '\.swift:[0-9]+:[0-9]+: warning:' build.log test.log`.
+- Localization: user-visible text is looked up in
+  `Sources/Resources/Localizable.xcstrings` by its English wording, which
+  is the key. SwiftUI literals localize on their own; a `String` shown to
+  the user is built with `String(localized:)`, as one whole sentence per
+  case, never spliced from fragments, and numbers that are not counts
+  (ports, sizes, status codes) are interpolated as `String`s so no locale
+  groups their digits. Add the Russian wording for every new string. Stats
+  for Nerds and text from RDPKit stay in English. The tests run without the
+  catalog, so they see the English keys. A new language needs its
+  translations in both catalogs, `CFBundleLocalizations` in `project.yml`,
+  and a case on `AppLanguage`.
 - App icon: the master artwork is `Sources/Resources/AppIcon.svg`
   (excluded from the app bundle); regenerate the asset catalog with
   `Sources/Resources/build-app-icon.sh`. The glyph is a custom path on
