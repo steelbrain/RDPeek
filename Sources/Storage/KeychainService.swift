@@ -121,12 +121,12 @@ enum KeychainError: Error, CustomStringConvertible {
     var description: String {
         switch self {
         case .invalidItemData:
-            "The Keychain item's data was not in the expected format."
+            String(localized: "The Keychain item's data was not in the expected format.")
         case let .unexpectedStatus(status):
             if let message = SecCopyErrorMessageString(status, nil) as String? {
-                "Keychain error \(status): \(message)"
+                String(localized: "Keychain error \(String(status)): \(message)")
             } else {
-                "Keychain returned OSStatus \(status)."
+                String(localized: "Keychain returned OSStatus \(String(status)).")
             }
         }
     }

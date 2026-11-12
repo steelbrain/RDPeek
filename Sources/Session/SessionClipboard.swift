@@ -75,20 +75,20 @@ enum SessionClipboard {
     ) -> SessionToast? {
         switch event {
         case .localTextShared:
-            SessionToast(text: "Clipboard synced", systemImage: "doc.on.clipboard.fill")
+            SessionToast(text: String(localized: "Clipboard synced"), systemImage: "doc.on.clipboard.fill")
         case .localClipboardEmpty:
             SessionToast(
-                text: "Clipboard has no text or files; remote clipboard cleared",
+                text: String(localized: "Clipboard has no text or files; remote clipboard cleared"),
                 systemImage: "doc.on.clipboard"
             )
         case .localTextTooLarge:
             SessionToast(
-                text: "Local text is too large to sync; remote clipboard cleared",
+                text: String(localized: "Local text is too large to sync; remote clipboard cleared"),
                 systemImage: "exclamationmark.triangle"
             )
         case let .localFilesShared(count):
             SessionToast(
-                text: count == 1 ? "1 file shared to remote" : "\(count) files shared to remote",
+                text: count == 1 ? String(localized: "1 file shared to remote") : String(localized: "\(count) files shared to remote"),
                 systemImage: "doc.on.clipboard.fill"
             )
         case let .localFilesNotShared(error):
@@ -99,28 +99,28 @@ enum SessionClipboard {
         case let .localFilePasteProgress(progress):
             SessionToast(
                 text: progress.fileCount == 1
-                    ? "Remote is pasting \(progress.fileName)"
-                    : "Remote is pasting file \(progress.fileOffset + 1) of \(progress.fileCount)",
+                    ? String(localized: "Remote is pasting \(progress.fileName)")
+                    : String(localized: "Remote is pasting file \(progress.fileOffset + 1) of \(progress.fileCount)"),
                 systemImage: "arrow.up.doc"
             )
         case let .localFilesPasted(count):
             SessionToast(
-                text: count == 1 ? "1 file pasted on remote" : "\(count) files pasted on remote",
+                text: count == 1 ? String(localized: "1 file pasted on remote") : String(localized: "\(count) files pasted on remote"),
                 systemImage: "doc.on.clipboard.fill"
             )
         case .pasteboardAccessDenied:
-            SessionToast(text: "Clipboard access is off for RDPeek in System Settings", systemImage: "hand.raised")
+            SessionToast(text: String(localized: "Clipboard access is off for RDPeek in System Settings"), systemImage: "hand.raised")
         case .upToDate:
-            SessionToast(text: "Clipboard is up to date", systemImage: "doc.on.clipboard.fill")
+            SessionToast(text: String(localized: "Clipboard is up to date"), systemImage: "doc.on.clipboard.fill")
         case .remoteTextCopied:
-            SessionToast(text: "Remote text copied", systemImage: "doc.on.clipboard")
+            SessionToast(text: String(localized: "Remote text copied"), systemImage: "doc.on.clipboard")
         case .remoteCopyUnavailable:
-            SessionToast(text: "Remote copy could not be shared", systemImage: "exclamationmark.triangle")
+            SessionToast(text: String(localized: "Remote copy could not be shared"), systemImage: "exclamationmark.triangle")
         case let .remoteClipboardEmptied(clearedHere):
             // Emptied while the pasteboard holds something else is no news.
             clearedHere
                 ? SessionToast(
-                    text: "Remote clipboard emptied; cleared on this Mac too",
+                    text: String(localized: "Remote clipboard emptied; cleared on this Mac too"),
                     systemImage: "doc.on.clipboard"
                 )
                 : nil
@@ -132,8 +132,8 @@ enum SessionClipboard {
         case let .downloadProgress(progress):
             SessionToast(
                 text: progress.fileCount == 1
-                    ? "Downloading \(progress.fileName)"
-                    : "Downloading file \(progress.fileOffset + 1) of \(progress.fileCount)",
+                    ? String(localized: "Downloading \(progress.fileName)")
+                    : String(localized: "Downloading file \(progress.fileOffset + 1) of \(progress.fileCount)"),
                 systemImage: "arrow.down.doc"
             )
         case let .remoteFilesCopied(download):
@@ -145,17 +145,17 @@ enum SessionClipboard {
             )
         case .temporarySharingStarted:
             SessionToast(
-                text: "Sharing clipboard for \(Int(bridge.temporarySharingDuration)) seconds",
+                text: String(localized: "Sharing clipboard for \(Int(bridge.temporarySharingDuration)) seconds"),
                 systemImage: "clock"
             )
         case .temporarySharingEnded:
-            SessionToast(text: "Clipboard sharing ended", systemImage: "doc.on.clipboard")
+            SessionToast(text: String(localized: "Clipboard sharing ended"), systemImage: "doc.on.clipboard")
         }
     }
 
     /// The ⋯ and Session menus' item for a temporary share of `duration`.
     nonisolated static func temporarySharingTitle(for duration: TimeInterval) -> String {
-        "Share Clipboard for \(Int(duration)) Seconds"
+        String(localized: "Share Clipboard for \(Int(duration)) Seconds")
     }
 
     /// Why the pasteboard's files did not go, for a bridge that sends at most
@@ -166,21 +166,21 @@ enum SessionClipboard {
     ) -> String {
         switch error {
         case .notARegularFile:
-            "Local clipboard has non-file items; remote clipboard cleared"
+            String(localized: "Local clipboard has non-file items; remote clipboard cleared")
         case .invalidFileName:
-            "Local file clipboard was not shared"
+            String(localized: "Local file clipboard was not shared")
         case .unreadable:
-            "Local file clipboard could not be read; remote clipboard cleared"
+            String(localized: "Local file clipboard could not be read; remote clipboard cleared")
         case .totalByteLimitExceeded:
             if let limit = mebibytes(maximumByteCount) {
-                "Local clipboard files exceed \(limit) MiB; remote clipboard cleared"
+                String(localized: "Local clipboard files exceed \(limit) MiB; remote clipboard cleared")
             } else {
-                "Local clipboard files are too large to share; remote clipboard cleared"
+                String(localized: "Local clipboard files are too large to share; remote clipboard cleared")
             }
         case let .fileTooLarge(url):
-            "\(url.lastPathComponent) is larger than the remote computer accepts; remote clipboard cleared"
+            String(localized: "\(url.lastPathComponent) is larger than the remote computer accepts; remote clipboard cleared")
         case .filesNotSupported:
-            "Remote computer doesn't accept files; remote clipboard cleared"
+            String(localized: "Remote computer doesn't accept files; remote clipboard cleared")
         }
     }
 
@@ -190,27 +190,30 @@ enum SessionClipboard {
     ) -> String {
         switch error {
         case .emptyFileList:
-            "Remote file clipboard is empty"
+            String(localized: "Remote file clipboard is empty")
         case .containsOnlyDirectories:
-            "Remote folders have no files"
+            String(localized: "Remote folders have no files")
         case .invalidFileIndex:
-            "Remote file index is not valid"
+            String(localized: "Remote file index is not valid")
         case .totalByteLimitExceeded:
             remoteFilesTooLargeMessage(limits: limits)
         case .fileCountLimitExceeded:
-            "Remote copy has more than \(grouped(limits.maximumFileCount)) files"
+            String(localized: "Remote copy has more than \(grouped(limits.maximumFileCount)) files")
         }
     }
 
     /// RDPKit leaves out folders: entries for them, and those a name
     /// carries.
     private static func remoteFilesCopiedMessage(for download: RDPClipboardDownload) -> String {
-        if download.fileURLs.count == 1, let fileName = download.fileURLs.first?.lastPathComponent {
-            let copied = download.leavesOutFolders ? "Remote file copied without its folder" : "Remote file copied"
-            return "\(copied): \(fileName)"
+        let count = download.fileURLs.count
+        if count == 1, let fileName = download.fileURLs.first?.lastPathComponent {
+            return download.leavesOutFolders
+                ? String(localized: "Remote file copied without its folder: \(fileName)")
+                : String(localized: "Remote file copied: \(fileName)")
         }
-        let folders = download.leavesOutFolders ? " without their folders" : ""
-        return "\(download.fileURLs.count) remote files copied\(folders)"
+        return download.leavesOutFolders
+            ? String(localized: "\(count) remote files copied without their folders")
+            : String(localized: "\(count) remote files copied")
     }
 
     /// Why a download failed. A download a newer copy or the session's end
@@ -221,29 +224,29 @@ enum SessionClipboard {
     ) -> String {
         switch failure {
         case .timedOut:
-            "Remote file transfer timed out"
+            String(localized: "Remote file transfer timed out")
         case .refused:
-            "Remote file transfer failed"
+            String(localized: "Remote file transfer failed")
         case .incomplete:
-            "Remote file transfer was incomplete"
+            String(localized: "Remote file transfer was incomplete")
         case .totalByteLimitExceeded:
             remoteFilesTooLargeMessage(limits: limits)
         case .folderNotCreated:
-            "Remote files could not be prepared"
+            String(localized: "Remote files could not be prepared")
         case .notSaved:
-            "Remote file could not be saved"
+            String(localized: "Remote file could not be saved")
         case .clipboardChanged:
-            "Clipboard changed; remote files were not copied"
+            String(localized: "Clipboard changed; remote files were not copied")
         case .pasteboardRefused:
-            "Remote files could not be copied"
+            String(localized: "Remote files could not be copied")
         }
     }
 
     private static func remoteFilesTooLargeMessage(limits: RDPClipboardDownloadLimits) -> String {
         guard let limit = mebibytes(limits.maximumTotalByteCount) else {
-            return "Remote files are too large to copy"
+            return String(localized: "Remote files are too large to copy")
         }
-        return "Remote files exceed \(limit) MiB"
+        return String(localized: "Remote files exceed \(limit) MiB")
     }
 
     /// A limit of `byteCount` bytes in whole MiB, "32", or nil for RDPKit's
@@ -253,9 +256,9 @@ enum SessionClipboard {
         byteCount == Count.max ? nil : grouped(byteCount / (1_024 * 1_024))
     }
 
-    /// `number` with its thousands grouped as in English, the toasts'
-    /// language, whatever the Mac's region: "1,000".
+    /// `number` with its thousands grouped as in the app's language, the
+    /// toasts' language, whatever the Mac's region: "1,000" in English.
     private static func grouped<Number: BinaryInteger>(_ number: Number) -> String {
-        number.formatted(IntegerFormatStyle<Number>(locale: Locale(identifier: "en_US")))
+        number.formatted(IntegerFormatStyle<Number>(locale: AppLanguage.formattingLocale))
     }
 }

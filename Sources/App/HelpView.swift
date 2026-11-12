@@ -15,104 +15,128 @@ struct HelpView: View {
 
                 HelpSection(title: "Adding a PC", systemImage: "plus.square") {
                     HelpBody(
-                        "Press ⌘N or click Add PC. Only the host is required — name, " +
-                            "credentials, clipboard, and audio are optional and editable later."
+                        """
+                        Press ⌘N or click Add PC. Only the host is required — name, \
+                        credentials, clipboard, and audio are optional and editable later.
+                        """
                     )
                     HelpBody(
-                        "Turn on “Remember password in Keychain” to store the password " +
-                            "securely. A password typed without remembering is kept in " +
-                            "memory only until you quit."
+                        """
+                        Turn on “Remember password in Keychain” to store the password \
+                        securely. A password typed without remembering is kept in \
+                        memory only until you quit.
+                        """
                     )
                 }
 
                 HelpSection(title: "Connecting", systemImage: "play.circle") {
                     HelpBody(
-                        "Double-click a card, hover it and press the play button, or " +
-                            "select it and press Return. If no password is available, the " +
-                            "session window asks you to sign in. A password typed there is " +
-                            "kept only when the server checks it before showing the " +
-                            "desktop; for servers that ask on their own sign-in screen " +
-                            "instead, such as xrdp, save it in the PC's settings."
+                        """
+                        Double-click a card, hover it and press the play button, or \
+                        select it and press Return. If no password is available, the \
+                        session window asks you to sign in. A password typed there is \
+                        kept only when the server checks it before showing the \
+                        desktop; for servers that ask on their own sign-in screen \
+                        instead, such as xrdp, save it in the PC's settings.
+                        """
                     )
                     HelpBody(
-                        "Transient network failures — like the first-time local-network " +
-                            "permission prompt — retry automatically. Connecting to a PC " +
-                            "that already has a session focuses its window, and connects " +
-                            "again if that session ended. Changes saved to a PC apply to " +
-                            "its open window from the next connection."
+                        """
+                        Transient network failures — like the first-time local-network \
+                        permission prompt — retry automatically. Connecting to a PC \
+                        that already has a session focuses its window, and connects \
+                        again if that session ended. Changes saved to a PC apply to \
+                        its open window from the next connection.
+                        """
                     )
                 }
 
                 HelpSection(title: "In a Session", systemImage: "display") {
                     HelpBody(
-                        "With Match Window Size on, as it is by default, the remote " +
-                            "desktop follows the window: resize the window and the desktop " +
-                            "re-fits a moment later. Turn it off in the ⋯ or Session menu " +
-                            "to keep the desktop's size, scaled to fit the window; turning " +
-                            "it back on fits the desktop to the window again. Full screen " +
-                            "works as a primary full-screen window."
+                        """
+                        With Match Window Size on, as it is by default, the remote \
+                        desktop follows the window: resize the window and the desktop \
+                        re-fits a moment later. Turn it off in the ⋯ or Session menu \
+                        to keep the desktop's size, scaled to fit the window; turning \
+                        it back on fits the desktop to the window again. Full screen \
+                        works as a primary full-screen window.
+                        """
                     )
                     HelpBody(
-                        "Quality, in Settings, sets how sharp a desktop that is. Quality " +
-                            "asks for every pixel of the window, Balanced for fewer, and " +
-                            "Fast for the window's size at 100%, scaled up to fit: less " +
-                            "for a slow network to carry. A change reaches open sessions " +
-                            "right away. On a display that is not Retina, the three are " +
-                            "the same."
+                        """
+                        Quality, in Settings, sets how sharp a desktop that is. Quality \
+                        asks for every pixel of the window, Balanced for fewer, and \
+                        Fast for the window's size at 100%, scaled up to fit: less \
+                        for a slow network to carry. A change reaches open sessions \
+                        right away. On a display that is not Retina, the three are \
+                        the same.
+                        """
                     )
                     HelpBody(
-                        "The ⋯ menu in the titlebar holds Disconnect, clipboard sharing " +
-                            "(for the session or for \(temporarySharingSeconds) seconds, " +
-                            "and Sync Now to send a copy the remote doesn't have yet), " +
-                            "remote audio, window size matching, the performance overlay, " +
-                            "and Stats for Nerds. While the remote desktop has your " +
-                            "keyboard, RDPeek's own ⌘ shortcuts go to it too, so use this " +
-                            "menu or the Session menu in the menu bar instead."
+                        """
+                        The ⋯ menu in the titlebar holds Disconnect, clipboard sharing \
+                        (for the session or for \(temporarySharingSeconds) seconds, \
+                        and Sync Now to send a copy the remote doesn't have yet), \
+                        remote audio, window size matching, the performance overlay, \
+                        and Stats for Nerds. While the remote desktop has your \
+                        keyboard, RDPeek's own ⌘ shortcuts go to it too, so use this \
+                        menu or the Session menu in the menu bar instead.
+                        """
                     )
                     HelpBody(
-                        "A remote desktop with more than one display keeps its own " +
-                            "layout instead of following the window. Displays, in the ⋯ " +
-                            "menu and the Session menu, shows all of its displays or only " +
-                            "those you check, arranged as on the remote. They are numbered " +
-                            "by their place in the server's list, so a display with nothing " +
-                            "to show leaves a gap, and the numbers may differ from the " +
-                            "remote's own."
+                        """
+                        A remote desktop with more than one display keeps its own \
+                        layout instead of following the window. Displays, in the ⋯ \
+                        menu and the Session menu, shows all of its displays or only \
+                        those you check, arranged as on the remote. They are numbered \
+                        by their place in the server's list, so a display with nothing \
+                        to show leaves a gap, and the numbers may differ from the \
+                        remote's own.
+                        """
                     )
                     HelpBody(
-                        "Clipboard sharing can be turned on, or shared for " +
-                            "\(temporarySharingSeconds) seconds, at any time in a session. " +
-                            "To allow that, RDPeek always joins the remote clipboard, so a " +
-                            "Windows PC empties its clipboard when you connect, even with " +
-                            "sharing off. Nothing is copied either way until you share."
+                        """
+                        Clipboard sharing can be turned on, or shared for \
+                        \(temporarySharingSeconds) seconds, at any time in a session. \
+                        To allow that, RDPeek always joins the remote clipboard, so a \
+                        Windows PC empties its clipboard when you connect, even with \
+                        sharing off. Nothing is copied either way until you share.
+                        """
                     )
                     HelpBody(
-                        "A certificate this Mac does not trust stops the connection " +
-                            "before any credential is sent. Trust and Connect pins that " +
-                            "certificate for that host and port; a different certificate " +
-                            "from that host that this Mac does not trust is then refused " +
-                            "until you trust it instead."
+                        """
+                        A certificate this Mac does not trust stops the connection \
+                        before any credential is sent. Trust and Connect pins that \
+                        certificate for that host and port; a different certificate \
+                        from that host that this Mac does not trust is then refused \
+                        until you trust it instead.
+                        """
                     )
                     HelpBody(
-                        "With “\(UntrustedCertificatesOption.title)” on, a PC connects " +
-                            "without asking when neither this Mac nor RDPeek trusts the " +
-                            "certificate, and sends your credentials. Anyone able to " +
-                            "intercept the connection could pose as the server and " +
-                            "capture them. A certificate that replaced one you trusted " +
-                            "is still refused."
+                        """
+                        With “\(UntrustedCertificatesOption.title)” on, a PC connects \
+                        without asking when neither this Mac nor RDPeek trusts the \
+                        certificate, and sends your credentials. Anyone able to \
+                        intercept the connection could pose as the server and \
+                        capture them. A certificate that replaced one you trusted \
+                        is still refused.
+                        """
                     )
                     HelpBody(
-                        "A PC that signs in with an outdated version of Network Level " +
-                            "Authentication, CredSSP 2 to 4, is refused before any password " +
-                            "is sent; use Connect Anyway, for that one connection, only on " +
-                            "a network you trust. A server the PC passes the session on to " +
-                            "is refused the same way, without Connect Anyway."
+                        """
+                        A PC that signs in with an outdated version of Network Level \
+                        Authentication, CredSSP 2 to 4, is refused before any password \
+                        is sent; use Connect Anyway, for that one connection, only on \
+                        a network you trust. A server the PC passes the session on to \
+                        is refused the same way, without Connect Anyway.
+                        """
                     )
                 }
 
                 HelpSection(title: "Keyboard Shortcuts", systemImage: "keyboard") {
                     Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 7) {
                         HelpShortcutRow("⌘N", "Add PC")
-                        HelpShortcutRow("Arrow keys", "Select another PC")
+                        HelpShortcutRow(String(localized: "Arrow keys"), "Select another PC")
                         HelpShortcutRow("Return", "Connect to the selected PC")
                         HelpShortcutRow("⌘E", "Edit the selected PC")
                         HelpShortcutRow("⌘D", "Duplicate the selected PC")
@@ -122,56 +146,72 @@ struct HelpView: View {
                         HelpShortcutRow("⌘,", "Settings")
                     }
                     HelpBody(
-                        "Inside a session, shortcuts with ⌘ or ⌃ are sent to the remote " +
-                            "desktop as scancodes, so Windows and Linux shortcuts work. " +
-                            "Left ⌥ is Alt; right ⌥ types the character it gives on your " +
-                            "Mac, such as @ with ⌥L on a German layout, and is Alt otherwise. " +
-                            "The remote desktop is told your Mac's keyboard layout; keys " +
-                            "that type the same character there are sent as scancodes, so " +
-                            "a remote input method sees them, and other text as Unicode."
+                        """
+                        Inside a session, shortcuts with ⌘ or ⌃ are sent to the remote \
+                        desktop as scancodes, so Windows and Linux shortcuts work. \
+                        Left ⌥ is Alt; right ⌥ types the character it gives on your \
+                        Mac, such as @ with ⌥L on a German layout, and is Alt otherwise. \
+                        The remote desktop is told your Mac's keyboard layout; keys \
+                        that type the same character there are sent as scancodes, so \
+                        a remote input method sees them, and other text as Unicode.
+                        """
                     )
                 }
 
                 HelpSection(title: "Your Data", systemImage: "lock") {
                     HelpBody(
-                        "PC profiles live in app preferences and never contain " +
-                            "passwords. Passwords are stored in your macOS Keychain, one " +
-                            "item per account (user name, domain, host and port), and are " +
-                            "removed when you delete the last PC that remembers them or " +
-                            "turn off remembering. Trusted certificate fingerprints are " +
-                            "pinned per host and port."
+                        """
+                        PC profiles live in app preferences and never contain \
+                        passwords. Passwords are stored in your macOS Keychain, one \
+                        item per account (user name, domain, host and port), and are \
+                        removed when you delete the last PC that remembers them or \
+                        turn off remembering. Trusted certificate fingerprints are \
+                        pinned per host and port.
+                        """
                     )
                 }
 
                 HelpSection(title: "Troubleshooting", systemImage: "wrench.adjustable") {
                     HelpBody(
-                        "First connection fails or stalls — answer the macOS local-network " +
-                            "permission prompt; RDPeek retries on its own. If you denied " +
-                            "it, enable Local Network for RDPeek in System Settings → " +
-                            "Privacy & Security."
+                        """
+                        First connection fails or stalls — answer the macOS local-network \
+                        permission prompt; RDPeek retries on its own. If you denied \
+                        it, enable Local Network for RDPeek in System Settings → \
+                        Privacy & Security.
+                        """
                     )
                     HelpBody(
-                        "Keychain asks for access — choose Always Allow to skip the " +
-                            "prompt on future connections."
+                        """
+                        Keychain asks for access — choose Always Allow to skip the \
+                        prompt on future connections.
+                        """
                     )
                     HelpBody(
-                        "Sign-in fails — RDPeek asks for the user name and password " +
-                            "again; on other failures, use “Use different credentials…”. " +
-                            "Note that some servers report a wrong password only as a timeout."
+                        """
+                        Sign-in fails — RDPeek asks for the user name and password \
+                        again; on other failures, use “Use different credentials…”. \
+                        Note that some servers report a wrong password only as a timeout.
+                        """
                     )
                     HelpBody(
-                        "No sound — turn on Remote Audio in the ⋯ menu, or “Play remote " +
-                            "audio” on the PC, and reconnect; audio is negotiated when the " +
-                            "connection starts."
+                        """
+                        No sound — turn on Remote Audio in the ⋯ menu, or “Play remote \
+                        audio” on the PC, and reconnect; audio is negotiated when the \
+                        connection starts.
+                        """
                     )
                     HelpBody(
-                        "Letters or shortcuts land on the wrong keys — a remote session " +
-                            "keeps the keyboard layout it started with. Sign out of it on " +
-                            "the remote computer, not just disconnect, and connect again."
+                        """
+                        Letters or shortcuts land on the wrong keys — a remote session \
+                        keeps the keyboard layout it started with. Sign out of it on \
+                        the remote computer, not just disconnect, and connect again.
+                        """
                     )
                     HelpBody(
-                        "Choppy video — open Stats for Nerds or the performance overlay " +
-                            "from the ⋯ menu to see fps, decode times, and bandwidth."
+                        """
+                        Choppy video — open Stats for Nerds or the performance overlay \
+                        from the ⋯ menu to see fps, decode times, and bandwidth.
+                        """
                     )
                 }
 
@@ -216,14 +256,14 @@ struct HelpView: View {
 }
 
 private struct HelpSection<Content: View>: View {
-    var title: String
+    var title: LocalizedStringKey
     var systemImage: String
     @ViewBuilder var content: Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label {
-                Text(verbatim: title)
+                Text(title)
             } icon: {
                 Image(systemName: systemImage)
                     .foregroundStyle(Color.accentColor)
@@ -239,14 +279,14 @@ private struct HelpSection<Content: View>: View {
 }
 
 private struct HelpBody: View {
-    private var text: String
+    private var text: LocalizedStringKey
 
-    init(_ text: String) {
+    init(_ text: LocalizedStringKey) {
         self.text = text
     }
 
     var body: some View {
-        Text(verbatim: text)
+        Text(text)
             .font(.body)
             .foregroundStyle(.primary.opacity(0.85))
             .fixedSize(horizontal: false, vertical: true)
@@ -255,9 +295,9 @@ private struct HelpBody: View {
 
 private struct HelpShortcutRow: View {
     private var keys: String
-    private var action: String
+    private var action: LocalizedStringKey
 
-    init(_ keys: String, _ action: String) {
+    init(_ keys: String, _ action: LocalizedStringKey) {
         self.keys = keys
         self.action = action
     }
@@ -269,7 +309,7 @@ private struct HelpShortcutRow: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
                 .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 5))
-            Text(verbatim: action)
+            Text(action)
                 .font(.callout)
         }
     }

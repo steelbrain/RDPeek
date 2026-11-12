@@ -22,9 +22,9 @@ enum SessionQualityMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .fast: "Fast"
-        case .balanced: "Balanced"
-        case .quality: "Quality"
+        case .fast: String(localized: "Fast")
+        case .balanced: String(localized: "Balanced")
+        case .quality: String(localized: "Quality")
         }
     }
 

@@ -523,16 +523,15 @@ final class SessionViewController: NSViewController {
         switch certificateRefusal {
         case .changed:
             return SessionCertificateNotice(
-                title: "Certificate Changed",
-                message: "Trust the new certificate only if you know why the server's certificate changed.",
+                title: String(localized: "Certificate Changed"),
+                message: String(localized: "Trust the new certificate only if you know why the server's certificate changed."),
                 canTrust: canTrust
             )
         case .untrusted:
-            let fingerprint = liveCertificate?.sha256.map { " SHA-256: \($0)" } ?? ""
+            let fingerprint = liveCertificate?.sha256.map { " " + String(localized: "SHA-256: \($0)") } ?? ""
             return SessionCertificateNotice(
-                title: "Untrusted Certificate",
-                message: "This Mac does not trust the server's certificate. Trust it only if you expect it, "
-                    + "such as a server's self-signed certificate.\(fingerprint)",
+                title: String(localized: "Untrusted Certificate"),
+                message: String(localized: "This Mac does not trust the server's certificate. Trust it only if you expect it, such as a server's self-signed certificate.") + fingerprint,
                 canTrust: canTrust
             )
         case nil:
@@ -700,15 +699,15 @@ final class SessionViewController: NSViewController {
         do {
             _ = try RDPCredentials.validated(username: username, domain: domain, password: password)
         } catch let RDPCredentialValidationError.fieldTooLong(field) {
-            let name = switch field {
-            case .username: "user name"
-            case .domain: "domain"
-            case .password: "password"
+            let message = switch field {
+            case .username: String(localized: "The user name is too long to send.")
+            case .domain: String(localized: "The domain is too long to send.")
+            case .password: String(localized: "The password is too long to send.")
             }
-            promptForCredentials(errorMessage: "The \(name) is too long to send.")
+            promptForCredentials(errorMessage: message)
             return
         } catch {
-            promptForCredentials(errorMessage: "Enter both a user name and a password.")
+            promptForCredentials(errorMessage: String(localized: "Enter both a user name and a password."))
             return
         }
         // What the user typed applies over the PC's saved changes.
@@ -1238,12 +1237,12 @@ final class SessionViewController: NSViewController {
     private func refuseCertificate(_ refusal: RDPServerCertificateRefusal) {
         certificateRefusal = refusal
         let reason = switch refusal {
-        case .changed: "The server's certificate is not the one trusted for this host."
-        case .untrusted: "Neither this Mac nor RDPeek trusts the server's certificate."
+        case .changed: String(localized: "The server's certificate is not the one trusted for this host.")
+        case .untrusted: String(localized: "Neither this Mac nor RDPeek trusts the server's certificate.")
         }
         sessionEndReason = RDPSessionEndReason(
             kind: .failed,
-            message: reason + " The connection was closed before any credential was sent."
+            message: reason + " " + String(localized: "The connection was closed before any credential was sent.")
         )
         cancelConnection(shouldRecordCancellation: false)
     }
@@ -1382,7 +1381,7 @@ final class SessionViewController: NSViewController {
             lastSelectableLayout: &lastSelectableDisplayLayout
         )
         if keptChoice == false {
-            toast("Showing all displays", systemImage: "display.2")
+            toast(String(localized: "Showing all displays"), systemImage: "display.2")
         }
     }
 
@@ -1546,7 +1545,7 @@ final class SessionViewController: NSViewController {
                 return
             }
             didReportAudioFailure = true
-            toast("Remote audio cannot play on this Mac", systemImage: "speaker.slash")
+            toast(String(localized: "Remote audio cannot play on this Mac"), systemImage: "speaker.slash")
         }
     }
 
@@ -1555,7 +1554,7 @@ final class SessionViewController: NSViewController {
         if !enabled {
             remoteAudioPlayer.reset()
         } else if isConnecting, connectionRequestsAudio == false {
-            toast("Audio starts on the next connection", systemImage: "speaker.wave.2")
+            toast(String(localized: "Audio starts on the next connection"), systemImage: "speaker.wave.2")
         }
         render()
     }
@@ -1655,7 +1654,7 @@ final class SessionViewController: NSViewController {
                 connect(using: credentialSource(remembersPassword: false))
             case .failure:
                 rememberedPassword = nil
-                promptForCredentials(errorMessage: "RDPeek could not read the saved password from the Keychain.")
+                promptForCredentials(errorMessage: String(localized: "RDPeek could not read the saved password from the Keychain."))
             }
         }
     }
@@ -1724,7 +1723,7 @@ final class SessionViewController: NSViewController {
                 persistAcceptedCredentials(.save(key: key, password: draft.password))
             } else {
                 toast(
-                    "Password not remembered: this server doesn't confirm sign-ins. Save it in the PC's settings.",
+                    String(localized: "Password not remembered: this server doesn't confirm sign-ins. Save it in the PC's settings."),
                     systemImage: "key"
                 )
             }
@@ -1786,8 +1785,8 @@ final class SessionViewController: NSViewController {
             }
         case let .failure(error):
             let action = switch request {
-            case .save: "Password not saved to Keychain"
-            case .delete: "Password not removed from Keychain"
+            case .save: String(localized: "Password not saved to Keychain")
+            case .delete: String(localized: "Password not removed from Keychain")
             }
             toast("\(action): \(error)", systemImage: "exclamationmark.triangle")
         }

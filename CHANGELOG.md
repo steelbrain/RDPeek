@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Languages
+
+- RDPeek is in Russian as well as English. It follows the Mac's
+  language; Language in Settings picks one, which shows once RDPeek is
+  opened again. Stats for Nerds stays in English.
+
 ### Display
 
 - Settings has a Quality choice for every PC: Fast, Balanced or
