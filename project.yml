@@ -73,6 +73,7 @@ targets:
       - path: Sources/Session/SessionDisplayControlPolicy.swift
       - path: Sources/Session/SessionHUD.swift
       - path: Sources/Session/SessionModels.swift
+      - path: Sources/Session/SessionQualityMode.swift
       - path: Sources/Session/SessionWindowPlacement.swift
       - path: Sources/Storage/DeviceProfileStore.swift
       - path: Sources/Storage/ClientLicenseStore.swift

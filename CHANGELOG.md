@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Display
+
+- Settings has a Quality choice for every PC: Fast, Balanced or
+  Quality. Quality, as before, asks for the window's full Retina size;
+  Balanced asks for up to one and a half times its size in points, and
+  Fast for its size in points at 100%, scaled up to fit, which is less
+  for a slow network to carry. A change reaches open sessions without
+  reconnecting. Off a Retina display, or with a server that can't
+  resize its desktop, the three are the same.
+
 ## 1.3.2
 
 xrdp connections, on RDPKit 0.9.1.
