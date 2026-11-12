@@ -53,6 +53,14 @@ struct HelpView: View {
                             "works as a primary full-screen window."
                     )
                     HelpBody(
+                        "Quality, in Settings, sets how sharp a desktop that is. Quality " +
+                            "asks for every pixel of the window, Balanced for fewer, and " +
+                            "Fast for the window's size at 100%, scaled up to fit: less " +
+                            "for a slow network to carry. A change reaches open sessions " +
+                            "right away. On a display that is not Retina, the three are " +
+                            "the same."
+                    )
+                    HelpBody(
                         "The ⋯ menu in the titlebar holds Disconnect, clipboard sharing " +
                             "(for the session or for \(temporarySharingSeconds) seconds, " +
                             "and Sync Now to send a copy the remote doesn't have yet), " +
