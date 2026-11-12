@@ -5,6 +5,12 @@
 A Resolution choice for the remote desktop, and Remote Desktop
 Session Host connections, on RDPKit 0.9.2.
 
+### Languages
+
+- RDPeek is in Russian as well as English. It follows the Mac's
+  language; Language in Settings picks one, which shows once RDPeek is
+  opened again. Stats for Nerds stays in English.
+
 ### Connecting
 
 - A Windows Remote Desktop Session Host that licenses the connection no

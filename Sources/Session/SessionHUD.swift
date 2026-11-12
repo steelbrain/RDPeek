@@ -59,7 +59,7 @@ final class SessionHUDModel: ObservableObject {
     @Published var temporaryClipboardSecondsRemaining: Int?
     /// The Session menu's title for starting a connection, so the HUD's
     /// Reconnect controls say the same.
-    @Published var startTitle = "Connect"
+    @Published var startTitle = String(localized: "Connect")
     @Published var canReconnect = false
     @Published var canCancel = false
 
@@ -217,18 +217,20 @@ private struct SessionConnectingOverlay: View {
 private struct ConnectingStatusText: View {
     @State private var dotCount = 1
 
+    private let word = String(localized: "Connecting")
+
     var body: some View {
         // The widest text holds the width, so the centered word stays put
         // while the dots change.
-        Text(verbatim: "Connecting...")
+        Text(verbatim: word + "...")
             .hidden()
             .overlay(alignment: .leading) {
-                Text(verbatim: "Connecting" + String(repeating: ".", count: dotCount))
+                Text(verbatim: word + String(repeating: ".", count: dotCount))
             }
             .font(.body)
             .foregroundStyle(.white.opacity(0.65))
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text(verbatim: "Connecting"))
+            .accessibilityLabel(Text(verbatim: word))
             .task {
                 while Task.isCancelled == false {
                     try? await Task.sleep(nanoseconds: 450_000_000)
@@ -313,7 +315,7 @@ private struct SessionCredentialsOverlay: View {
                         }
                         .padding(.bottom, 10)
 
-                    Text(verbatim: "Sign in to \(model.deviceName)")
+                    Text("Sign in to \(model.deviceName)")
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(.white)
                     Text(verbatim: model.hostLabel)
@@ -807,8 +809,10 @@ struct SessionDisplayMenuItems: View {
     }
 
     private func title(of display: SessionDisplayChoice) -> String {
-        let title = "Display \(display.number) — \(display.width) × \(display.height)"
-        return display.isPrimary ? title + " (Primary)" : title
+        if display.isPrimary {
+            return String(localized: "Display \(display.number) — \(String(display.width)) × \(String(display.height)) (Primary)")
+        }
+        return String(localized: "Display \(display.number) — \(String(display.width)) × \(String(display.height))")
     }
 }
 
@@ -834,11 +838,11 @@ private struct SessionStatusPill: View {
     private var text: String {
         switch phase {
         case .credentials:
-            "Sign In"
+            String(localized: "Sign In")
         case .connecting:
-            "Connecting"
+            String(localized: "Connecting")
         case .active:
-            "Connected"
+            String(localized: "Connected")
         case let .ended(reason):
             reason.statusText
         }

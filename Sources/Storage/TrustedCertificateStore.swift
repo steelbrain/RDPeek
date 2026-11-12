@@ -4,10 +4,14 @@ import RDPKit
 /// The option behind `acceptsUntrusted`, as PC settings and the defaults
 /// for new PCs show it. Profiles save it as `hideCertificateWarnings`.
 enum UntrustedCertificatesOption {
-    static let title = "Accept untrusted certificates"
-    static let help = "Connect even when neither this Mac nor RDPeek trusts the server's certificate, "
-        + "and send your credentials without asking. Anyone able to intercept the connection could "
-        + "pose as the server and capture them. A certificate that replaced one you trusted is still refused."
+    static let title = String(localized: "Accept untrusted certificates")
+    static let help = String(
+        localized: """
+        Connect even when neither this Mac nor RDPeek trusts the server's certificate, \
+        and send your credentials without asking. Anyone able to intercept the connection could \
+        pose as the server and capture them. A certificate that replaced one you trusted is still refused.
+        """
+    )
 }
 
 /// The certificates the user trusted, kept in UserDefaults as the storage

@@ -33,7 +33,7 @@ enum AppTheme {
             .filter { $0.isEmpty == false }
         let initials = words.prefix(2).compactMap(\.first)
         guard initials.isEmpty == false else {
-            return "PC"
+            return String(localized: "PC")
         }
         return String(initials).uppercased()
     }
