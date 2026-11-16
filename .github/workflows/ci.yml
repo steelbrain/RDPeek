@@ -124,3 +124,13 @@ jobs:
       - name: Analyze
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: swiftlint analyze --strict --compiler-log-path build.log --reporter github-actions-logging
+
+      # Every string the compiler extracts has Russian, and neither string
+      # catalog keeps an entry for text or a key that is gone.
+      - name: Localizations
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          Scripts/check-localizations.sh \
+            -clonedSourcePackagesDirPath DerivedData/SourcePackages \
+            -onlyUsePackageVersionsFromResolvedFile \
+            CODE_SIGNING_ALLOWED=NO

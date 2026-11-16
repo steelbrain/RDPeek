@@ -86,7 +86,14 @@ reference implementation.
   its own labels use `Text(verbatim:)` or English literals. The tests
   run without the catalog, so they see the English keys. A new language
   needs its translations in both catalogs, `CFBundleLocalizations` in
-  `project.yml`, and a case on `AppLanguage`.
+  `project.yml`, a case on `AppLanguage`, and the localization gate below
+  checking it as it checks Russian.
+- Localization gate: `Scripts/check-localizations.sh` (after `xcodegen
+  generate`) must pass, as CI checks. It runs Xcode's string export and
+  fails on a string without Russian, an entry for text or an Info.plist
+  key that is gone, or an entry added by hand, then puts the catalogs back
+  as they were: the export re-sorts them, and their committed key order
+  stays. It builds into `DerivedData`, so clean that up as after a build.
 - App icon: the master artwork is `Sources/Resources/AppIcon.svg`
   (excluded from the app bundle); regenerate the asset catalog with
   `Sources/Resources/build-app-icon.sh`. The glyph is a custom path on
@@ -103,8 +110,8 @@ reference implementation.
   (the only tracked file in the generated project); commit the file Xcode
   updates when you bump or resolve packages.
 - CI (`.github/workflows/ci.yml`) runs the lint gate, an unsigned build,
-  the tests and the unused-code gate on pushes to `main` and on pull
-  requests, using only the package versions in `Package.resolved`.
+  the tests, the unused-code gate and the localization gate on pushes to
+  `main` and on pull requests, using only the package versions in `Package.resolved`.
   Releases are produced through Xcode's Archive and notarization flow —
   signing and notarization are intentionally not done in CI or scripts.
 
