@@ -56,8 +56,8 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_EMIT_LOC_STRINGS: YES
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
-        CURRENT_PROJECT_VERSION: "8"
-        MARKETING_VERSION: "1.3.2"
+        CURRENT_PROJECT_VERSION: "9"
+        MARKETING_VERSION: "1.4.0"
     scheme:
       testTargets:
         - RDPeekTests

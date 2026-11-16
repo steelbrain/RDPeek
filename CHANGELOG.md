@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.0
 
 Seven more languages, a Resolution choice for the remote desktop, and
 Remote Desktop Session Host connections, on RDPKit 0.9.2.
