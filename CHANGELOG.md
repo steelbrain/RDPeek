@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+A Quality choice for the remote desktop's size, and Remote Desktop
+Session Host connections, on RDPKit 0.9.2.
+
+### Connecting
+
+- A Windows Remote Desktop Session Host that licenses the connection no
+  longer fails it as a protocol violation: RDPKit reads the RSA key of
+  the server's licensing certificate itself. Thanks to @leros1337, who
+  fixed it in RDPKit.
+
 ### Sessions
 
 - One Quality choice in Settings, Fast, Balanced or Quality, sets for
