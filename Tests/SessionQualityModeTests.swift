@@ -28,6 +28,15 @@ final class SessionQualityModeTests: XCTestCase {
         XCTAssertEqual(SessionQualityMode.current(defaults: defaults), .quality)
     }
 
+    func testAPCsOwnModeIsUsedInsteadOfTheOneInSettings() throws {
+        let defaults = try makeIsolatedDefaults()
+        defaults.set(SessionQualityMode.fast.rawValue, forKey: SessionQualityMode.defaultsKey)
+        XCTAssertEqual(SessionQualityMode.current(for: nil, defaults: defaults), .fast)
+        for mode in SessionQualityMode.allCases {
+            XCTAssertEqual(SessionQualityMode.current(for: mode, defaults: defaults), mode)
+        }
+    }
+
     // MARK: - The scale a mode asks for
 
     func testEachModeCapsTheDisplaysScale() {

@@ -82,9 +82,10 @@ final class SessionViewController: NSViewController {
     private var followsWindowSize = SessionDisplayControlPolicy.followsWindowSizeByDefault
     private var displaySelection = RemoteDisplaySelection.all
     private var pendingDisplayResizeTask: Task<Void, Never>?
-    /// The canvas's size and scale, and the size the quality mode from
-    /// Settings, followed while the window is open, asks for from them.
-    private var viewerSurface = SessionViewerSurface(mode: SessionQualityMode.current())
+    /// The canvas's size and scale, and the size the quality mode asks for
+    /// from them: the PC's own, or the one in Settings while the PC is at
+    /// Default, followed while the window is open.
+    private var viewerSurface: SessionViewerSurface
     private var qualityModeObserver: NSObjectProtocol?
     /// The Display Control session, the server's monitors, and the size
     /// sent last.
@@ -149,6 +150,7 @@ final class SessionViewController: NSViewController {
         self.credentialCache = credentialCache
         clipboard = SessionClipboard.makeBridge(isSharingEnabled: draft.clipboardSharingEnabled)
         audioPlaybackEnabled = draft.audioPlaybackEnabled
+        viewerSurface = SessionViewerSurface(mode: SessionQualityMode.current(for: draft.qualityMode))
         super.init(nibName: nil, bundle: nil)
         // A toast names the limits of the bridge it came from.
         clipboard.onEvent = { [weak self] event in
@@ -174,7 +176,7 @@ final class SessionViewController: NSViewController {
         super.viewDidLoad()
         launchStore?.registerDiagnostics(diagnosticsModel, for: sessionID)
         startClipboardPollingLoop()
-        followQualityMode()
+        observeSettingsQualityMode()
         render()
     }
 
@@ -732,7 +734,8 @@ final class SessionViewController: NSViewController {
 
     // MARK: - Saved PC
 
-    /// The PC was saved, maybe changed. Its name shows at once; the rest
+    /// The PC was saved, maybe changed. Its name shows at once, and its
+    /// Resolution applies at once, as the one in Settings does; the rest
     /// applies from the next connection the user starts, so automatic
     /// retries of this one keep the settings it started with.
     func followSavedDevice(_ saved: RDPConnectionDraft) {
@@ -741,6 +744,10 @@ final class SessionViewController: NSViewController {
         }
         if saved.name != savedDraft.name {
             draft.name = saved.name
+        }
+        if saved.qualityMode != savedDraft.qualityMode {
+            draft.qualityMode = saved.qualityMode
+            followQualityMode()
         }
         savedDraft = saved
         render()
@@ -1395,11 +1402,10 @@ final class SessionViewController: NSViewController {
         }
     }
 
-    /// A mode picked in Settings reaches the open session too: the desktop
-    /// is asked for again at the new scale, without reconnecting. Any
-    /// preference tells; one that leaves the size asked for as it was
-    /// sends nothing.
-    private func followQualityMode() {
+    /// A mode picked in Settings reaches the open session too, while its
+    /// PC is at Default. Any preference tells; one that leaves the size
+    /// asked for as it was sends nothing.
+    private func observeSettingsQualityMode() {
         qualityModeObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
             object: UserDefaults.standard,
@@ -1409,10 +1415,17 @@ final class SessionViewController: NSViewController {
                 guard let self, didClose == false else {
                     return
                 }
-                if viewerSurface.update(mode: SessionQualityMode.current()) {
-                    scheduleAutoDisplaySizeUpdate()
-                }
+                followQualityMode()
             }
+        }
+    }
+
+    /// Takes the mode the PC uses now, the PC's own or the one in Settings:
+    /// the desktop is asked for again at its scale, without reconnecting,
+    /// when that changes the size asked for.
+    private func followQualityMode() {
+        if viewerSurface.update(mode: SessionQualityMode.current(for: draft.qualityMode)) {
+            scheduleAutoDisplaySizeUpdate()
         }
     }
 

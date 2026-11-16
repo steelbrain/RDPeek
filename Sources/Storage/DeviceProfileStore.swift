@@ -27,6 +27,9 @@ struct DeviceProfile: Codable, Equatable, Identifiable, Sendable {
     var timeoutSeconds: Int
     var clipboardSharingEnabled: Bool
     var audioPlaybackEnabled: Bool
+    /// The PC's own Resolution choice; `nil`, its Default, follows the
+    /// one in Settings.
+    var qualityMode: SessionQualityMode?
     var rememberPassword: Bool
     var accentHue: Double
     // Nothing reads these, but releases up to 1.1 require both keys when
@@ -104,6 +107,10 @@ extension DeviceProfile {
             ?? NewDeviceDefaults.clipboardSharingEnabled
         audioPlaybackEnabled = try container.decodeIfPresent(Bool.self, forKey: .audioPlaybackEnabled)
             ?? NewDeviceDefaults.audioPlaybackEnabled
+        // A mode this version doesn't know, saved by a newer one, is
+        // Default here rather than a PC this version cannot read.
+        qualityMode = (try? container.decodeIfPresent(String.self, forKey: .qualityMode))
+            .flatMap(SessionQualityMode.init(rawValue:))
         rememberPassword = try container.decodeIfPresent(Bool.self, forKey: .rememberPassword) ?? false
         // Derived from the id, so a profile without a hue keeps one color.
         accentHue = try container.decodeIfPresent(Double.self, forKey: .accentHue) ?? Double(id.uuid.0) / 256

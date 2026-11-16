@@ -21,6 +21,8 @@ struct RDPConnectionDraft: Equatable, Sendable {
     var timeoutSeconds: Int
     var clipboardSharingEnabled: Bool
     var audioPlaybackEnabled: Bool
+    /// The PC's own Resolution choice, or `nil` for the one in Settings.
+    var qualityMode: SessionQualityMode?
     var rememberPassword: Bool
 
     /// The password stays empty: the session finds it, or asks for it.
@@ -36,6 +38,7 @@ struct RDPConnectionDraft: Equatable, Sendable {
         timeoutSeconds = device.timeoutSeconds
         clipboardSharingEnabled = device.clipboardSharingEnabled
         audioPlaybackEnabled = device.audioPlaybackEnabled
+        qualityMode = device.qualityMode
         rememberPassword = device.rememberPassword
     }
 
@@ -81,6 +84,7 @@ struct RDPConnectionDraft: Equatable, Sendable {
         follow(\.timeoutSeconds)
         follow(\.clipboardSharingEnabled)
         follow(\.audioPlaybackEnabled)
+        follow(\.qualityMode)
         follow(\.rememberPassword)
         if saved.identity.hasSameConnectionIdentity(as: previous.identity) == false,
            next.identity.hasSameConnectionIdentity(as: saved.identity)

@@ -39,7 +39,8 @@ struct HelpView: View {
                             "permission prompt — retry automatically. Connecting to a PC " +
                             "that already has a session focuses its window, and connects " +
                             "again if that session ended. Changes saved to a PC apply to " +
-                            "its open window from the next connection."
+                            "its open window from the next connection, except its " +
+                            "Resolution, which applies at once."
                     )
                 }
 
@@ -53,8 +54,9 @@ struct HelpView: View {
                             "works as a primary full-screen window."
                     )
                     HelpBody(
-                        "The Resolution choice in Settings sets, for all PCs, how sharp a " +
-                            "desktop that follows the window is. Quality, the default, asks " +
+                        "Resolution sets how sharp a desktop that follows the window is: " +
+                            "the choice in Settings for every PC left at Default, or a PC's " +
+                            "own, under Options in its settings. Quality, the default, asks " +
                             "for every pixel of the window. Balanced asks for up to 1.5 times " +
                             "its size in points, and Fast for its size in points at 100%; " +
                             "both are scaled up to fit. On a Retina display, Balanced is a " +

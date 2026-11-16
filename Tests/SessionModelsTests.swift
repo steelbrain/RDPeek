@@ -86,11 +86,19 @@ final class SessionModelsTests: XCTestCase {
         saved.timeoutSeconds = 45
         saved.clipboardSharingEnabled.toggle()
         saved.audioPlaybackEnabled.toggle()
+        saved.qualityMode = .fast
         saved.rememberPassword.toggle()
         var draft = previous
         draft.password = "secret"
 
         XCTAssertEqual(draft.following(saved, previouslySaved: previous), saved)
+    }
+
+    func testADraftTakesThePCsResolution() throws {
+        var device = try DeviceProfile.makeNew(defaults: makeIsolatedDefaults())
+        XCTAssertNil(RDPConnectionDraft(device: device).qualityMode)
+        device.qualityMode = .balanced
+        XCTAssertEqual(RDPConnectionDraft(device: device).qualityMode, .balanced)
     }
 
     func testADraftNowSigningInAsThePCsAccountTakesItsRemember() {

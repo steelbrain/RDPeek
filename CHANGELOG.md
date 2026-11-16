@@ -28,6 +28,10 @@ Session Host connections, on RDPKit 0.9.2.
   Window Size is on and the remote desktop has one display, and
   otherwise once it follows the window again. Stats for Nerds names the
   mode each requested size came from.
+- Each PC has a Resolution choice of its own, under Options in its
+  settings. Default, for new and existing PCs, follows the one in
+  Settings; Fast, Balanced or Quality is used for that PC instead, and
+  a change saved to it applies to its open window at once.
 
 ## 1.3.2
 

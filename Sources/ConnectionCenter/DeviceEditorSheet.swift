@@ -17,6 +17,7 @@ struct DeviceEditorSheet: View {
     @State private var rememberPassword: Bool
     @State private var clipboardSharingEnabled: Bool
     @State private var audioPlaybackEnabled: Bool
+    @State private var qualityMode: SessionQualityMode?
     @State private var hideCertificateWarnings: Bool
     @State private var timeoutSeconds: Int
     @State private var validationMessage: String?
@@ -39,6 +40,7 @@ struct DeviceEditorSheet: View {
         _rememberPassword = State(initialValue: device.rememberPassword)
         _clipboardSharingEnabled = State(initialValue: device.clipboardSharingEnabled)
         _audioPlaybackEnabled = State(initialValue: device.audioPlaybackEnabled)
+        _qualityMode = State(initialValue: device.qualityMode)
         _hideCertificateWarnings = State(initialValue: device.hideCertificateWarnings)
         _timeoutSeconds = State(initialValue: device.timeoutSeconds)
         _isLoadingPassword = State(initialValue: device.rememberPassword)
@@ -70,6 +72,17 @@ struct DeviceEditorSheet: View {
                 Section("Options") {
                     Toggle("Share clipboard", isOn: $clipboardSharingEnabled)
                     Toggle("Play remote audio", isOn: $audioPlaybackEnabled)
+                    Picker("Resolution", selection: $qualityMode) {
+                        Text("Default").tag(SessionQualityMode?.none)
+                        ForEach(SessionQualityMode.allCases) { mode in
+                            Text(verbatim: mode.title).tag(SessionQualityMode?.some(mode))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .help(
+                        "Default follows Resolution in Settings. Fast, Balanced or Quality is this PC's " +
+                            "own, and applies to its open window at once."
+                    )
                     Toggle(UntrustedCertificatesOption.title, isOn: $hideCertificateWarnings)
                         .help(UntrustedCertificatesOption.help)
                     Stepper(
@@ -228,6 +241,7 @@ struct DeviceEditorSheet: View {
             device.rememberPassword = rememberPassword
             device.clipboardSharingEnabled = clipboardSharingEnabled
             device.audioPlaybackEnabled = audioPlaybackEnabled
+            device.qualityMode = qualityMode
             device.hideCertificateWarnings = hideCertificateWarnings
             device.timeoutSeconds = timeoutSeconds
 

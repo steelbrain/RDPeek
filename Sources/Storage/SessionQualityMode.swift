@@ -1,10 +1,11 @@
 import Foundation
 
-/// How sharp a remote desktop the app asks for, for every session, as the
-/// Resolution choice in Settings stores it: fewer pixels are less for the
-/// server to encode and send. What each mode asks the server for is the
-/// session's, in `SessionViewerSurface.swift`.
-enum SessionQualityMode: String, CaseIterable, Identifiable {
+/// How sharp a remote desktop the app asks for, as the Resolution choice in
+/// Settings stores it for every PC, and a PC's own choice, when it has one,
+/// for that PC: fewer pixels are less for the server to encode and send.
+/// What each mode asks the server for is the session's, in
+/// `SessionViewerSurface.swift`.
+enum SessionQualityMode: String, CaseIterable, Codable, Identifiable {
     /// The window's size in points, at 100%: a quarter of a Retina
     /// display's pixels, scaled up in the window.
     case fast
@@ -30,5 +31,11 @@ enum SessionQualityMode: String, CaseIterable, Identifiable {
     /// is stored is no mode.
     static func current(defaults: UserDefaults = .standard) -> SessionQualityMode {
         defaults.string(forKey: defaultsKey).flatMap(SessionQualityMode.init(rawValue:)) ?? standard
+    }
+
+    /// The mode a PC's session uses: the PC's own, or the one chosen in
+    /// Settings while the PC is left at Default (`nil`).
+    static func current(for pcMode: SessionQualityMode?, defaults: UserDefaults = .standard) -> SessionQualityMode {
+        pcMode ?? current(defaults: defaults)
     }
 }

@@ -58,17 +58,49 @@ final class DeviceProfileStoreTests: XCTestCase {
         XCTAssertEqual(fallback.audioPlaybackEnabled, NewDeviceDefaults.audioPlaybackEnabled)
         XCTAssertEqual(fallback.hideCertificateWarnings, NewDeviceDefaults.hideCertificateWarnings)
         XCTAssertEqual(fallback.timeoutSeconds, NewDeviceDefaults.timeoutSeconds)
+        XCTAssertNil(fallback.qualityMode)
 
         defaults.set(false, forKey: NewDeviceDefaults.clipboardSharingKey)
         defaults.set(true, forKey: NewDeviceDefaults.audioPlaybackKey)
         defaults.set(true, forKey: NewDeviceDefaults.hideCertificateWarningsKey)
         defaults.set(30, forKey: NewDeviceDefaults.timeoutSecondsKey)
+        defaults.set(SessionQualityMode.fast.rawValue, forKey: SessionQualityMode.defaultsKey)
         let configured = DeviceProfile.makeNew(defaults: defaults)
 
         XCTAssertFalse(configured.clipboardSharingEnabled)
         XCTAssertTrue(configured.audioPlaybackEnabled)
         XCTAssertTrue(configured.hideCertificateWarnings)
         XCTAssertEqual(configured.timeoutSeconds, 30)
+        // Resolution in Settings is followed, not copied: a new PC starts
+        // at Default.
+        XCTAssertNil(configured.qualityMode)
+    }
+
+    func testAPCsOwnResolutionIsSavedAndReadBack() throws {
+        let store = DeviceProfileStore(defaults: defaults)
+        var device = DeviceProfile.makeNew(defaults: defaults)
+        device.host = "desk.example"
+        device.qualityMode = .balanced
+        try store.save(device)
+        XCTAssertEqual(try store.devices().first?.qualityMode, .balanced)
+
+        device.qualityMode = nil
+        try store.save(device)
+        XCTAssertNil(try store.devices().first?.qualityMode)
+    }
+
+    func testAResolutionThisVersionDoesNotKnowIsDefault() throws {
+        // As a newer release might save one, or a damaged value: the PC
+        // still reads, at Default.
+        let ids = [UUID(), UUID()]
+        storeJSON("""
+        [{"id": "\(ids[0].uuidString)", "host": "a.example", "qualityMode": "ultra"},
+         {"id": "\(ids[1].uuidString)", "host": "b.example", "qualityMode": 2}]
+        """)
+
+        let devices = try DeviceProfileStore(defaults: defaults).devices()
+        XCTAssertEqual(Set(devices.map(\.id)), Set(ids))
+        XCTAssertEqual(devices.map(\.qualityMode), [nil, nil])
     }
 
     func testTouchLastConnectedWithUnknownIDReturnsSortedList() throws {
@@ -128,6 +160,7 @@ final class DeviceProfileStoreTests: XCTestCase {
         XCTAssertEqual(device.timeoutSeconds, NewDeviceDefaults.timeoutSeconds)
         XCTAssertEqual(device.clipboardSharingEnabled, NewDeviceDefaults.clipboardSharingEnabled)
         XCTAssertEqual(device.audioPlaybackEnabled, NewDeviceDefaults.audioPlaybackEnabled)
+        XCTAssertNil(device.qualityMode)
         XCTAssertFalse(device.rememberPassword)
         XCTAssertTrue((0 ..< 1).contains(device.accentHue))
         XCTAssertNil(device.lastConnectedAt)
