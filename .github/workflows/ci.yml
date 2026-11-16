@@ -135,3 +135,28 @@ jobs:
             -clonedSourcePackagesDirPath DerivedData/SourcePackages \
             -onlyUsePackageVersionsFromResolvedFile \
             CODE_SIGNING_ALLOWED=NO
+
+  # The website's strings in every language: none missing, none left over,
+  # and the app's own wording copied from its catalog up to date. See
+  # website/scripts/check-strings.mjs.
+  website-strings:
+    name: Website strings
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Check strings
+        run: npm run check-strings

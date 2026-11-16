@@ -114,6 +114,10 @@ reference implementation.
 - CI (`.github/workflows/ci.yml`) runs the lint gate, an unsigned build,
   the tests, the unused-code gate and the localization gate on pushes to
   `main` and on pull requests, using only the package versions in `Package.resolved`.
+  It also runs the website's strings check (`website/README.md`), which
+  fails when `website/lib/i18n/app-strings.json` no longer matches
+  `Localizable.xcstrings`: after changing text the website shows, run
+  `node website/scripts/extract-app-strings.mjs` and commit the result.
   Releases are produced through Xcode's Archive and notarization flow —
   signing and notarization are intentionally not done in CI or scripts.
 
