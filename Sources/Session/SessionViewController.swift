@@ -82,11 +82,9 @@ final class SessionViewController: NSViewController {
     private var followsWindowSize = SessionDisplayControlPolicy.followsWindowSizeByDefault
     private var displaySelection = RemoteDisplaySelection.all
     private var pendingDisplayResizeTask: Task<Void, Never>?
-    /// The canvas's size in points and its display's scale, which the
-    /// quality mode turns into the size to ask the server for.
-    private var viewerSurface: (pointSize: CGSize, backingScaleFactor: CGFloat)?
-    /// The mode from Settings, followed while the window is open.
-    private var qualityMode = SessionQualityMode.current()
+    /// The canvas's size and scale, and the size the quality mode from
+    /// Settings, followed while the window is open, asks for from them.
+    private var viewerSurface = SessionViewerSurface(mode: SessionQualityMode.current())
     private var qualityModeObserver: NSObjectProtocol?
     /// The Display Control session, the server's monitors, and the size
     /// sent last.
@@ -632,8 +630,7 @@ final class SessionViewController: NSViewController {
             framePacing: framePresenter.timing,
             sessionEndReason: sessionEndReason,
             serverCertificateInfo: liveCertificate,
-            viewerPixelSize: viewerPixelSize,
-            qualityMode: qualityMode,
+            viewerPixelSize: viewerSurface.pixelSize,
             requestedDesktopSize: requestedDesktopSizeLabel,
             clientName: sentClientName,
             inputReady: inputSession != nil,
@@ -1391,37 +1388,17 @@ final class SessionViewController: NSViewController {
 
     /// The canvas reports its size and backing scale together, so the
     /// remote desktop follows the window across displays of other scales.
-    /// A resize is scheduled when the size the quality mode asks for
-    /// changes, not the window's pixel size: RDPKit evens out the width,
-    /// so at 2x a canvas 1001 or 1001.5 points wide is 2002 pixels either
-    /// way, while Fast asks for 1000 or 1002.
+    /// A resize is scheduled when the size asked for changes.
     private func updateViewerSurface(pointSize: CGSize, backingScaleFactor: CGFloat) {
-        let previousRequest = viewerDisplayRequest
-        viewerSurface = (pointSize, backingScaleFactor)
-        if viewerDisplayRequest != previousRequest {
+        if viewerSurface.update(pointSize: pointSize, backingScaleFactor: backingScaleFactor) {
             scheduleAutoDisplaySizeUpdate()
-        }
-    }
-
-    /// The window's own pixel size, which Stats for Nerds shows next to
-    /// the size asked for.
-    private var viewerPixelSize: RDPViewerPixelSize? {
-        viewerSurface.map {
-            RDPViewerPixelSize(pointSize: $0.pointSize, backingScaleFactor: $0.backingScaleFactor)
-        }
-    }
-
-    /// The size the window asks the server for: its own, at the scale the
-    /// quality mode allows.
-    private var viewerDisplayRequest: RDPDisplayRequest? {
-        viewerSurface.map {
-            qualityMode.displayRequest(pointSize: $0.pointSize, backingScaleFactor: $0.backingScaleFactor)
         }
     }
 
     /// A mode picked in Settings reaches the open session too: the desktop
     /// is asked for again at the new scale, without reconnecting. Any
-    /// preference tells; one that leaves the mode as it was sends nothing.
+    /// preference tells; one that leaves the size asked for as it was
+    /// sends nothing.
     private func followQualityMode() {
         qualityModeObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
@@ -1432,13 +1409,9 @@ final class SessionViewController: NSViewController {
                 guard let self, didClose == false else {
                     return
                 }
-                let mode = SessionQualityMode.current()
-                guard mode != qualityMode else {
-                    return
+                if viewerSurface.update(mode: SessionQualityMode.current()) {
+                    scheduleAutoDisplaySizeUpdate()
                 }
-                qualityMode = mode
-                scheduleAutoDisplaySizeUpdate()
-                render()
             }
         }
     }
@@ -1449,7 +1422,7 @@ final class SessionViewController: NSViewController {
         displayControl.isWindowMatchingInEffect(
             followsWindowSize: followsWindowSize,
             isConnecting: isConnecting,
-            hasViewerPixelSize: viewerSurface != nil
+            hasViewerPixelSize: viewerSurface.pixelSize != nil
         )
     }
 
@@ -1469,7 +1442,7 @@ final class SessionViewController: NSViewController {
         // still waiting when matching pauses must not go out.
         pendingDisplayResizeTask?.cancel()
         pendingDisplayResizeTask = nil
-        guard case let .send(displayRequest) = resizeDecision(for: viewerDisplayRequest) else {
+        guard case let .send(displayRequest) = resizeDecision(for: viewerSurface.displayRequest) else {
             return
         }
 
@@ -1498,7 +1471,9 @@ final class SessionViewController: NSViewController {
 
     private func applyDisplayRequestToActiveSession(_ request: RDPDisplayRequest) {
         if displayControl.send(request) {
-            requestedDesktopSizeLabel = request.label
+            // The mode the size came from, as Settings may since have
+            // another that this window has not sent.
+            requestedDesktopSizeLabel = "\(request.label), \(viewerSurface.mode.title) mode"
         }
     }
 

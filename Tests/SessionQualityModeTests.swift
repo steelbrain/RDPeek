@@ -117,17 +117,63 @@ final class SessionQualityModeTests: XCTestCase {
         XCTAssertEqual(balanced.scaleFactors, RDPDisplayScaleFactors(desktopScaleFactor: 150, deviceScaleFactor: 140))
     }
 
-    func testAModesSizeCanChangeWhenTheWindowsPixelSizeDoesNot() {
-        // Display Control widths are even, so at 2x a canvas 1001 or
-        // 1001.5 points wide is 2002 pixels wide either way. The session
-        // reschedules on the size it asks for, which differs here.
+    // MARK: - When a window asks for a new size
+
+    func testACanvasFirstSizeIsANewRequest() {
+        var surface = SessionViewerSurface(mode: .quality)
+        XCTAssertNil(surface.displayRequest)
+        XCTAssertNil(surface.pixelSize)
+        XCTAssertTrue(surface.update(pointSize: window, backingScaleFactor: 2))
+        XCTAssertEqual(surface.displayRequest, RDPDisplayRequest(pointSize: window, backingScaleFactor: 2))
+    }
+
+    func testAWidthOfTheSamePixelsCanBeANewRequestForASmallerMode() {
+        // Display Control widths are even: at 2x, a canvas 1001 or 1001.5
+        // points wide is 2002 pixels either way, while Fast asks for 1000
+        // or 1002.
         let narrower = CGSize(width: 1001, height: 600)
         let wider = CGSize(width: 1001.5, height: 600)
-        XCTAssertEqual(
-            RDPViewerPixelSize(pointSize: narrower, backingScaleFactor: 2),
-            RDPViewerPixelSize(pointSize: wider, backingScaleFactor: 2)
-        )
-        XCTAssertEqual(SessionQualityMode.fast.displayRequest(pointSize: narrower, backingScaleFactor: 2).width, 1000)
-        XCTAssertEqual(SessionQualityMode.fast.displayRequest(pointSize: wider, backingScaleFactor: 2).width, 1002)
+
+        var quality = SessionViewerSurface(mode: .quality)
+        quality.update(pointSize: narrower, backingScaleFactor: 2)
+        XCTAssertFalse(quality.update(pointSize: wider, backingScaleFactor: 2))
+        XCTAssertEqual(quality.displayRequest?.width, 2002)
+
+        var fast = SessionViewerSurface(mode: .fast)
+        fast.update(pointSize: narrower, backingScaleFactor: 2)
+        XCTAssertEqual(fast.displayRequest?.width, 1000)
+        XCTAssertTrue(fast.update(pointSize: wider, backingScaleFactor: 2))
+        XCTAssertEqual(fast.displayRequest?.width, 1002)
+        XCTAssertEqual(fast.pixelSize?.width, 2002)
     }
+
+    func testFastAsksForTheSameDesktopOnDisplaysOfEitherScale() {
+        var fast = SessionViewerSurface(mode: .fast)
+        fast.update(pointSize: window, backingScaleFactor: 2)
+        XCTAssertFalse(fast.update(pointSize: window, backingScaleFactor: 1))
+        XCTAssertEqual(fast.pixelSize?.width, 1440)
+
+        var quality = SessionViewerSurface(mode: .quality)
+        quality.update(pointSize: window, backingScaleFactor: 2)
+        XCTAssertTrue(quality.update(pointSize: window, backingScaleFactor: 1))
+    }
+
+    func testAModeChangeIsANewRequestOnlyWhereTheModesDiffer() {
+        var surface = SessionViewerSurface(mode: .quality)
+        // No canvas size yet: nothing to ask for in any mode.
+        XCTAssertFalse(surface.update(mode: .fast))
+        XCTAssertEqual(surface.mode, .fast)
+
+        surface.update(pointSize: window, backingScaleFactor: 2)
+        XCTAssertFalse(surface.update(mode: .fast))
+        XCTAssertTrue(surface.update(mode: .balanced))
+        XCTAssertEqual(surface.displayRequest?.width, 2160)
+
+        // At 1x every mode asks for the same desktop.
+        surface.update(pointSize: window, backingScaleFactor: 1)
+        XCTAssertFalse(surface.update(mode: .quality))
+        XCTAssertFalse(surface.update(mode: .fast))
+    }
+
+    private let window = CGSize(width: 1440, height: 900)
 }

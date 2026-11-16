@@ -55,13 +55,14 @@ struct HelpView: View {
                     HelpBody(
                         "The Quality choice in Settings sets, for all PCs, how sharp a " +
                             "desktop that follows the window is. Quality, the default, asks " +
-                            "for every pixel of the window, Balanced for up to one and a " +
-                            "half times its size in points, and Fast for its size in points " +
-                            "at 100%, scaled up to fit: on a Retina display, a quarter of " +
-                            "the pixels for the server to encode and send. A change reaches " +
-                            "a session while its desktop follows the window, and otherwise " +
-                            "once it does again. On a display that isn't Retina (HiDPI), or " +
-                            "with a PC that can't resize its desktop, the three are the same."
+                            "for every pixel of the window. Balanced asks for up to 1.5 times " +
+                            "its size in points, and Fast for its size in points at 100%; " +
+                            "both are scaled up to fit. On a Retina display, Balanced is a " +
+                            "little over half the pixels and Fast a quarter, fewer for the " +
+                            "server to encode and send. A change reaches a session while its " +
+                            "desktop follows the window, and otherwise once it does again. On " +
+                            "a display that isn't Retina (HiDPI), or with a PC that can't " +
+                            "resize its desktop, the three are the same."
                     )
                     HelpBody(
                         "The ⋯ menu in the titlebar holds Disconnect, clipboard sharing " +

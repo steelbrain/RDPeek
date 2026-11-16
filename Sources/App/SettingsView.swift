@@ -23,14 +23,14 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
             } header: {
-                Text("All PCs")
+                Text("Remote Desktop")
             } footer: {
                 Text(
-                    "Quality asks for every pixel of the window, Balanced for up to 1.5 times its " +
-                        "size in points, and Fast for its size in points, scaled up to fit: on a " +
-                        "Retina display, a quarter of the pixels for the server to encode and send. " +
-                        "It changes a desktop that follows the window, on a Retina (HiDPI) display " +
-                        "with a PC that can resize its desktop."
+                    "Quality asks for every pixel of the window. Balanced asks for up to 1.5 times " +
+                        "its size in points, and Fast for its size in points; both are scaled up to " +
+                        "fit. On a Retina display, Fast is a quarter of the pixels for the server to " +
+                        "encode and send. This applies to every PC whose desktop follows the window, " +
+                        "on a Retina (HiDPI) display."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
