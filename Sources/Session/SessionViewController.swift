@@ -1485,7 +1485,7 @@ final class SessionViewController: NSViewController {
         if displayControl.send(request) {
             // The mode the size came from, as Settings may since have
             // another that this window has not sent.
-            requestedDesktopSizeLabel = "\(request.label), \(viewerSurface.mode.title) mode"
+            requestedDesktopSizeLabel = "\(request.label), \(viewerSurface.mode.diagnosticName) mode"
         }
     }
 

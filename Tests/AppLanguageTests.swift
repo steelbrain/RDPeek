@@ -37,6 +37,17 @@ final class AppLanguageTests: XCTestCase {
         XCTAssertEqual(defaults.stringArray(forKey: AppLanguage.systemLanguagesKey), ["de"])
     }
 
+    func testALanguageSystemSettingsSetsLaterReplacesThePickedOne() throws {
+        // Picked in RDPeek, then changed for the app in System Settings: the
+        // picker says System, and picking System leaves that choice alone.
+        let defaults = try makeIsolatedDefaults()
+        AppLanguage.russian.store(in: defaults)
+        defaults.set(["de"], forKey: AppLanguage.systemLanguagesKey)
+        XCTAssertEqual(AppLanguage.current(defaults: defaults), .system)
+        AppLanguage.system.store(in: defaults)
+        XCTAssertEqual(defaults.stringArray(forKey: AppLanguage.systemLanguagesKey), ["de"])
+    }
+
     func testAStoredValueThatIsNoLanguageCountsAsTheMacs() throws {
         let defaults = try makeIsolatedDefaults()
         defaults.set("tlh", forKey: AppLanguage.defaultsKey)

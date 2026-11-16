@@ -27,9 +27,16 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     }
 
     /// The language picked in Settings; the Mac's until one is, or when
-    /// what is stored is no language.
+    /// what is stored is no language. A pick counts only while it is still
+    /// what macOS goes by: once System Settings sets another language for
+    /// the app, or removes it, the app follows that, and so does this.
     static func current(defaults: UserDefaults = .standard) -> AppLanguage {
-        defaults.string(forKey: defaultsKey).flatMap(AppLanguage.init(rawValue:)) ?? .system
+        guard let picked = defaults.string(forKey: defaultsKey).flatMap(AppLanguage.init(rawValue:)),
+              defaults.stringArray(forKey: systemLanguagesKey)?.first == picked.rawValue
+        else {
+            return .system
+        }
+        return picked
     }
 
     /// Stores the choice for the next launch.

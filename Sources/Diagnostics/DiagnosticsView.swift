@@ -381,7 +381,8 @@ struct RemoteSessionDiagnosticsWindowContent: View {
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .navigationTitle("Stats for Nerds")
+        // Stats for Nerds stays in English, as its window title does.
+        .navigationTitle(Text(verbatim: "Stats for Nerds"))
     }
 
     private func statusLine(_ snapshot: RemoteSessionDiagnosticsSnapshot) -> String {

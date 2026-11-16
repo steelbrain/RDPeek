@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ Copy" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ копия"
+          }
+        }
+      }
+    },
     "%@ is larger than the remote computer accepts; remote clipboard cleared" : {
       "localizations" : {
         "ru" : {
@@ -226,7 +236,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Сертификат, которому этот Mac не доверяет, останавливает подключение до отправки каких-либо учётных данных. «Доверять и подключиться» закрепляет этот сертификат для данных хоста и порта; другой сертификат от этого хоста, которому этот Mac не доверяет, затем отклоняется, пока вы не добавите его в доверенные."
+            "value" : "Сертификат, которому этот Mac не доверяет, останавливает подключение до отправки каких-либо учётных данных. «Доверять и подключиться» закрепляет этот сертификат для этого хоста и порта; другой сертификат от этого хоста, которому этот Mac не доверяет, затем отклоняется, пока вы не добавите его в доверенные."
           }
         }
       }
@@ -506,7 +516,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Общий буфер обмена можно включить или включить на %lld с в любой момент во время сеанса. Чтобы это было возможно, RDPeek всегда подключается к удалённому буферу обмена, поэтому ПК с Windows очищает свой буфер обмена при подключении, даже если общий доступ выключен. Ничего не копируется, пока вы не включите общий доступ."
+            "value" : "Общий буфер обмена можно включить — на весь сеанс или на %lld с — в любой момент. Чтобы это было возможно, RDPeek всегда подключается к удалённому буферу обмена, поэтому ПК с Windows очищает свой буфер обмена при подключении, даже если общий доступ выключен. Ничего не копируется, пока вы не включите общий доступ."
           }
         }
       }
@@ -601,16 +611,6 @@
         }
       }
     },
-    "Connection" : {
-      "localizations" : {
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Подключение"
-          }
-        }
-      }
-    },
     "Connection Failed" : {
       "localizations" : {
         "ru" : {
@@ -687,6 +687,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Учётные данные"
+          }
+        }
+      }
+    },
+    "Default" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "По умолчанию"
+          }
+        }
+      }
+    },
+    "Default follows Resolution in Settings. Fast, Balanced or Quality is this PC's own, and applies to its open window at once." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«По умолчанию» следует параметру «Разрешение» в Настройках. «Скорость», «Баланс» или «Качество» задаются для этого ПК и сразу применяются к его открытому окну."
           }
         }
       }
@@ -981,16 +1001,6 @@
         }
       }
     },
-    "Fast asks for a smaller remote desktop and scales it up, which suits a slow network; Quality asks for every pixel of the window. It applies to every PC, and matters on a Retina display with a PC that can resize its desktop." : {
-      "localizations" : {
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "В режиме «Скорость» запрашивается удалённый рабочий стол меньшего размера, который растягивается под окно, — это подходит для медленной сети. В режиме «Качество» запрашивается каждый пиксель окна. Режим действует для всех ПК и заметен на дисплее Retina, если ПК умеет менять размер рабочего стола."
-          }
-        }
-      }
-    },
     "First connection fails or stalls — answer the macOS local-network permission prompt; RDPeek retries on its own. If you denied it, enable Local Network for RDPeek in System Settings → Privacy & Security." : {
       "localizations" : {
         "ru" : {
@@ -1269,7 +1279,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "OK"
+            "value" : "ОК"
           }
         }
       }
@@ -1457,12 +1467,12 @@
         }
       }
     },
-    "Quality, in Settings, sets how sharp a desktop that is. Quality asks for every pixel of the window, Balanced for fewer, and Fast for the window's size at 100%, scaled up to fit: less for a slow network to carry. A change reaches open sessions right away. On a display that is not Retina, the three are the same." : {
+    "Quality asks for every pixel of the window. Balanced asks for up to 1.5 times its size in points, and Fast for its size in points; both are scaled up to fit. On a Retina display, Fast is a quarter of the pixels for the server to encode and send. This applies to every PC left at Default in its own settings, while its desktop follows the window on a Retina (HiDPI) display." : {
       "localizations" : {
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Параметр «Качество» в Настройках определяет чёткость рабочего стола. «Качество» запрашивает каждый пиксель окна, «Баланс» — меньше, а «Скорость» — размер окна при 100%, увеличенный по размеру окна: так передаётся меньше данных, что удобно для медленной сети. Изменение сразу применяется к открытым сеансам. На дисплее без Retina все три варианта одинаковы."
+            "value" : "«Качество» запрашивает каждый пиксель окна. «Баланс» — до полутора размеров окна в точках, а «Скорость» — его размер в точках; в обоих случаях изображение растягивается по окну. На дисплее Retina «Скорость» — это четверть пикселей, которые серверу нужно закодировать и отправить. Это действует для каждого ПК, у которого в собственных настройках выбрано «По умолчанию», пока его рабочий стол следует за окном на дисплее Retina (HiDPI)."
           }
         }
       }
@@ -1613,6 +1623,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Звук удалённого ПК"
+          }
+        }
+      }
+    },
+    "Remote Desktop" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый рабочий стол"
           }
         }
       }
@@ -1863,6 +1883,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "При перезапуске открытые сеансы будут отключены."
+          }
+        }
+      }
+    },
+    "Resolution" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Разрешение"
+          }
+        }
+      }
+    },
+    "Resolution sets how sharp a desktop that follows the window is: the choice in Settings for every PC left at Default, or a PC's own, under Options in its settings. Quality, the default, asks for every pixel of the window. Balanced asks for up to 1.5 times its size in points, and Fast for its size in points at 100%; both are scaled up to fit. On a Retina display, Balanced is a little over half the pixels and Fast a quarter, fewer for the server to encode and send. A change reaches a session while its desktop follows the window, and otherwise once it does again. On a display that isn't Retina (HiDPI), or with a PC that can't resize its desktop, the three are the same." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Разрешение определяет чёткость рабочего стола, который следует за окном: для каждого ПК, оставленного на «По умолчанию», действует выбор в Настройках, а у ПК может быть и собственный — в разделе «Параметры» его настроек. «Качество» (по умолчанию) запрашивает каждый пиксель окна. «Баланс» — до полутора размеров окна в точках, а «Скорость» — его размер в точках при 100%; в обоих случаях изображение растягивается по окну. На дисплее Retina «Баланс» — это чуть больше половины пикселей, а «Скорость» — четверть, так что серверу нужно меньше кодировать и отправлять. Изменение доходит до сеанса, пока его рабочий стол следует за окном, а иначе — как только он снова начнёт за ним следовать. На дисплее без Retina (HiDPI) или с ПК, который не может менять размер рабочего стола, все три варианта одинаковы."
           }
         }
       }
@@ -2695,12 +2735,12 @@
         }
       }
     },
-    "Transient network failures — like the first-time local-network permission prompt — retry automatically. Connecting to a PC that already has a session focuses its window, and connects again if that session ended. Changes saved to a PC apply to its open window from the next connection." : {
+    "Transient network failures — like the first-time local-network permission prompt — retry automatically. Connecting to a PC that already has a session focuses its window, and connects again if that session ended. Changes saved to a PC apply to its open window from the next connection, except its Resolution, which applies at once." : {
       "localizations" : {
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Временные сбои сети — например, при первом запросе разрешения для локальной сети — устраняются повторными попытками автоматически. Если подключиться к ПК, у которого уже есть сеанс, откроется его окно, а если сеанс завершён, подключение будет выполнено снова. Изменения, сохранённые для ПК, применяются в его открытом окне со следующего подключения."
+            "value" : "Временные сбои сети — например, при первом запросе разрешения для локальной сети — устраняются повторными попытками автоматически. Если подключиться к ПК, у которого уже есть сеанс, откроется его окно, а если сеанс завершён, подключение будет выполнено снова. Изменения, сохранённые для ПК, применяются в его открытом окне со следующего подключения, кроме разрешения, которое применяется сразу."
           }
         }
       }

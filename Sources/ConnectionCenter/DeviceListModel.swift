@@ -154,7 +154,7 @@ final class DeviceListModel: ObservableObject {
     func duplicate(_ device: DeviceProfile) {
         var copy = device
         copy.id = UUID()
-        copy.name = device.displayName + " Copy"
+        copy.name = String(localized: "\(device.displayName) Copy")
         copy.accentHue = Double.random(in: 0 ..< 1)
         copy.createdAt = Date()
         copy.updatedAt = Date()

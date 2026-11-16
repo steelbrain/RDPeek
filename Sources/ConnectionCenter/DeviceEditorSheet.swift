@@ -79,10 +79,10 @@ struct DeviceEditorSheet: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .help(
-                        "Default follows Resolution in Settings. Fast, Balanced or Quality is this PC's " +
-                            "own, and applies to its open window at once."
-                    )
+                    .help("""
+                    Default follows Resolution in Settings. Fast, Balanced or Quality is this PC's \
+                    own, and applies to its open window at once.
+                    """)
                     Toggle(UntrustedCertificatesOption.title, isOn: $hideCertificateWarnings)
                         .help(UntrustedCertificatesOption.help)
                     Stepper(

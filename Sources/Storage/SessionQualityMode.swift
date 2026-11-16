@@ -27,6 +27,15 @@ enum SessionQualityMode: String, CaseIterable, Codable, Identifiable {
         }
     }
 
+    /// The mode's English name, for Stats for Nerds, which stays in English.
+    var diagnosticName: String {
+        switch self {
+        case .fast: "Fast"
+        case .balanced: "Balanced"
+        case .quality: "Quality"
+        }
+    }
+
     /// The mode chosen in Settings; `standard` until one is, or when what
     /// is stored is no mode.
     static func current(defaults: UserDefaults = .standard) -> SessionQualityMode {

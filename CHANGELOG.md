@@ -2,14 +2,17 @@
 
 ## Unreleased
 
-A Resolution choice for the remote desktop, and Remote Desktop
-Session Host connections, on RDPKit 0.9.2.
+Russian, a Resolution choice for the remote desktop, and Remote
+Desktop Session Host connections, on RDPKit 0.9.2.
 
 ### Languages
 
 - RDPeek is in Russian as well as English. It follows the Mac's
   language; Language in Settings picks one, which shows once RDPeek is
-  opened again. Stats for Nerds stays in English.
+  opened again, and a language set for RDPeek in System Settings later
+  takes over from it. Stats for Nerds stays in English, apart from a
+  session's status and why it ended. Thanks to @leros1337 for the
+  translation and the Language setting (#10).
 
 ### Connecting
 
