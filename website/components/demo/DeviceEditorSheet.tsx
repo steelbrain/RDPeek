@@ -1,8 +1,20 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
-import { TIMEOUT_RANGE, deviceGradient, monogram, type DeviceDraft } from "@/lib/devices";
-import { Switch } from "./MacUI";
+import { useId, useState } from "react";
+import { RESOLUTIONS, TIMEOUT_RANGE, deviceGradient, monogram, type DeviceDraft, type Resolution } from "@/lib/devices";
+import { FormSection, PopUpRow, Row, StepperRow, SwitchRow } from "./MacForm";
+
+/** The PC's Resolution picker: Default (nil), then each mode. */
+const RESOLUTION_OPTIONS: { value: Resolution | "default"; title: string }[] = [
+  { value: "default", title: "Default" },
+  ...RESOLUTIONS.map(({ mode, title }) => ({ value: mode, title })),
+];
+
+const RESOLUTION_HELP =
+  "Default follows Resolution in Settings. Fast, Balanced or Quality is this PC's own, and applies to its open window at once.";
+
+const UNTRUSTED_CERTIFICATES_HELP =
+  "Connect even when neither this Mac nor RDPeek trusts the server's certificate, and send your credentials without asking. Anyone able to intercept the connection could pose as the server and capture them. A certificate that replaced one you trusted is still refused.";
 
 /**
  * The Add PC / Edit PC sheet, after DeviceEditorSheet.swift: the same
@@ -35,6 +47,7 @@ export function DeviceEditorSheet({
   const [rememberPassword, setRememberPassword] = useState(initial.rememberPassword);
   const [clipboard, setClipboard] = useState(initial.clipboard);
   const [audio, setAudio] = useState(initial.audio);
+  const [resolution, setResolution] = useState(initial.resolution);
   const [acceptUntrusted, setAcceptUntrusted] = useState(initial.acceptUntrusted);
   const [timeout, setTimeoutSeconds] = useState(initial.timeout);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
@@ -60,6 +73,7 @@ export function DeviceEditorSheet({
       audio,
       acceptUntrusted,
       timeout,
+      resolution,
     };
   }
 
@@ -116,30 +130,27 @@ export function DeviceEditorSheet({
         <FormSection title="Options">
           <SwitchRow label="Share clipboard" checked={clipboard} onChange={setClipboard} />
           <SwitchRow label="Play remote audio" checked={audio} onChange={setAudio} />
-          <SwitchRow label="Accept untrusted certificates" checked={acceptUntrusted} onChange={setAcceptUntrusted} />
-          <Row>
-            <span>Connection timeout: {timeout}s</span>
-            <span className="flex h-[22px] w-[15px] flex-col overflow-hidden rounded-[5px] bg-mac-control shadow-[0_0_0_0.5px_rgba(0,0,0,0.16),0_1px_1.5px_rgba(0,0,0,0.1)]">
-              <button
-                type="button"
-                aria-label="Increase connection timeout"
-                disabled={timeout >= TIMEOUT_RANGE[1]}
-                onClick={() => setTimeoutSeconds((value) => Math.min(TIMEOUT_RANGE[1], value + 1))}
-                className="grid flex-1 place-items-center text-[7px] leading-none text-mac-label-2 active:bg-mac-hover disabled:text-mac-label-3"
-              >
-                ▲
-              </button>
-              <button
-                type="button"
-                aria-label="Decrease connection timeout"
-                disabled={timeout <= TIMEOUT_RANGE[0]}
-                onClick={() => setTimeoutSeconds((value) => Math.max(TIMEOUT_RANGE[0], value - 1))}
-                className="grid flex-1 place-items-center text-[7px] leading-none text-mac-label-2 active:bg-mac-hover disabled:text-mac-label-3"
-              >
-                ▼
-              </button>
-            </span>
-          </Row>
+          <PopUpRow
+            label="Resolution"
+            value={resolution ?? "default"}
+            options={RESOLUTION_OPTIONS}
+            onChange={(value) => setResolution(value === "default" ? null : value)}
+            help={RESOLUTION_HELP}
+          />
+          <SwitchRow
+            label="Accept untrusted certificates"
+            checked={acceptUntrusted}
+            onChange={setAcceptUntrusted}
+            help={UNTRUSTED_CERTIFICATES_HELP}
+          />
+          <StepperRow
+            label={`Connection timeout: ${timeout}s`}
+            value={timeout}
+            range={TIMEOUT_RANGE}
+            onChange={setTimeoutSeconds}
+            increaseLabel="Increase connection timeout"
+            decreaseLabel="Decrease connection timeout"
+          />
         </FormSection>
       </div>
 
@@ -167,21 +178,6 @@ export function DeviceEditorSheet({
       </div>
     </div>
   );
-}
-
-function FormSection({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="mt-3">
-      <h3 className="mb-1.5 px-[10px] text-[13px] font-semibold">{title}</h3>
-      <div className="divide-y divide-mac-sep rounded-[8px] bg-mac-group shadow-[0_0_0_0.5px_var(--mac-sep)]">
-        {children}
-      </div>
-    </section>
-  );
-}
-
-function Row({ children }: { children: ReactNode }) {
-  return <div className="flex min-h-[34px] items-center justify-between gap-4 px-[10px] py-1">{children}</div>;
 }
 
 function TextRow({
@@ -220,23 +216,6 @@ function TextRow({
         data-lpignore="true"
         className="min-w-0 flex-1 bg-transparent text-right text-[13px] text-mac-label placeholder:text-mac-label-3 focus:outline-none"
       />
-    </Row>
-  );
-}
-
-function SwitchRow({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <Row>
-      <span>{label}</span>
-      <Switch label={label} checked={checked} onChange={onChange} />
     </Row>
   );
 }

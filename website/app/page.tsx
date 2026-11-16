@@ -1,3 +1,4 @@
+import { BrewCommand } from "@/components/BrewCommand";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { Logo } from "@/components/Logo";
@@ -7,8 +8,9 @@ import { CertificateBanner } from "@/components/demo/CertificateBanner";
 import { ConnectionCenterWindow } from "@/components/demo/ConnectionCenterWindow";
 import { DemoProvider } from "@/components/demo/DemoState";
 import { SessionWindow } from "@/components/demo/SessionWindow";
+import { SettingsWindow } from "@/components/demo/SettingsWindow";
 import { DownloadIcon, GitHubIcon } from "@/components/icons";
-import { CHANGELOG_URL, DOWNLOAD_URL, GITHUB_URL, LICENSE_URL, RDPKIT_URL } from "@/lib/links";
+import { CHANGELOG_URL, DOWNLOAD_URL, GITHUB_URL, HOMEBREW_URL, LICENSE_URL, RDPKIT_URL } from "@/lib/links";
 
 const keyMap: { mac: string; remote: string }[] = [
   { mac: "⌘ Command", remote: "Windows key" },
@@ -67,8 +69,22 @@ export default function Home() {
                 Source on GitHub
               </a>
             </div>
+            <p className="mt-6 text-[14px] text-ink-3">
+              Or install it with{" "}
+              <a href={HOMEBREW_URL} className="text-link">
+                Homebrew
+              </a>
+              :
+            </p>
+            <div className="mt-2 flex">
+              <BrewCommand />
+            </div>
             <p className="mt-4 text-[14px] text-ink-3">
-              Requires macOS 14 or later. Free and open source under the MIT license.
+              Requires macOS 14 or later. In English and{" "}
+              <a href="#languages" className="text-link">
+                seven other languages
+              </a>
+              . Free and open source under the MIT license.
             </p>
 
             <div className="mt-14">
@@ -107,12 +123,40 @@ export default function Home() {
                 Office Desktop, in the grid above, has two.
               </p>
               <p>
+                Resolution sets how sharp a desktop that follows the window is. Quality, the default, asks the server
+                for every pixel of the window. Balanced asks for up to 1.5 times the window’s size in points, and Fast
+                for its size in points; RDPeek scales either up to fit. On a Retina display, that is a little over half
+                the pixels with Balanced and a quarter with Fast, so the server has fewer to encode and send.
+              </p>
+              <p>
+                Choose it for all PCs in Settings, shown under Languages below, or for one PC under Options in its
+                settings. A change reaches an open session without reconnecting once its desktop follows the window. On
+                a display that isn’t Retina, or with a PC that can’t resize its desktop, the three are the same.
+              </p>
+              <p>
                 Video arrives as H.264, in AVC420 or AVC444, and is decoded in hardware by VideoToolbox. Frames are
                 presented on the display link, in time with your screen’s refresh.
               </p>
             </Prose>
             <div className="mt-8">
               <SessionWindow />
+            </div>
+          </Section>
+
+          <Section id="languages" title="Languages">
+            <Prose>
+              <p>
+                RDPeek is in English, French, Italian, Japanese, Portuguese (Brazil), Russian, Simplified Chinese and
+                Spanish. It follows your Mac’s language. Language, in Settings, picks one for RDPeek alone, which shows
+                once RDPeek is opened again; a language you later set for RDPeek in System Settings takes over from it.
+                Stats for Nerds stays in English, apart from a session’s status and why it ended.
+              </p>
+              <p>
+                Settings also holds Resolution and the defaults for PCs you add. In the app, press <kbd>⌘,</kbd>.
+              </p>
+            </Prose>
+            <div className="mt-8">
+              <SettingsWindow />
             </div>
           </Section>
 

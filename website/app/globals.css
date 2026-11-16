@@ -32,6 +32,7 @@
   --mac-menu: rgba(238, 238, 238, 0.86);
   --mac-menu-edge: rgba(0, 0, 0, 0.14);
   --mac-hover: rgba(0, 0, 0, 0.06);
+  --mac-segment: #ffffff;
   --mac-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 22px 56px -14px rgba(0, 0, 0, 0.32),
     0 8px 18px -8px rgba(0, 0, 0, 0.16);
 }
@@ -64,6 +65,7 @@
     --mac-menu: rgba(42, 42, 44, 0.88);
     --mac-menu-edge: rgba(255, 255, 255, 0.13);
     --mac-hover: rgba(255, 255, 255, 0.08);
+    --mac-segment: rgba(255, 255, 255, 0.24);
     --mac-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.8), 0 22px 56px -12px rgba(0, 0, 0, 0.7),
       0 8px 18px -8px rgba(0, 0, 0, 0.5);
   }
@@ -94,6 +96,7 @@
   --color-mac-accent: var(--mac-accent);
   --color-mac-red: var(--mac-red);
   --color-mac-hover: var(--mac-hover);
+  --color-mac-segment: var(--mac-segment);
 
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;

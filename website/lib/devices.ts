@@ -10,6 +10,19 @@ export interface RemoteDisplay {
   primary: boolean;
 }
 
+/** SessionQualityMode: what a desktop that follows the window asks the server for. */
+export type Resolution = "fast" | "balanced" | "quality";
+
+/** The modes in the app's order (SessionQualityMode.allCases), with their titles. */
+export const RESOLUTIONS: { mode: Resolution; title: string }[] = [
+  { mode: "fast", title: "Fast" },
+  { mode: "balanced", title: "Balanced" },
+  { mode: "quality", title: "Quality" },
+];
+
+/** SessionQualityMode.standard, the choice in Settings until one is made. */
+export const DEFAULT_RESOLUTION: Resolution = "quality";
+
 export interface DemoDevice {
   id: string;
   name: string;
@@ -25,6 +38,8 @@ export interface DemoDevice {
   audio: boolean;
   acceptUntrusted: boolean;
   timeout: number;
+  /** The PC's own Resolution choice; null, its Default, follows the one in Settings. */
+  resolution: Resolution | null;
   displays: RemoteDisplay[];
 }
 
@@ -40,11 +55,27 @@ export type DeviceDraft = Pick<
   | "audio"
   | "acceptUntrusted"
   | "timeout"
+  | "resolution"
 >;
 
 export const DEFAULT_PORT = 3389;
 export const DEFAULT_TIMEOUT = 10;
 export const TIMEOUT_RANGE = [3, 60] as const;
+
+/** A new PC's fields before anything is typed (NewDeviceDefaults). */
+export const EMPTY_DRAFT: DeviceDraft = {
+  name: "",
+  host: "",
+  port: DEFAULT_PORT,
+  username: "",
+  domain: "",
+  rememberPassword: true,
+  clipboard: true,
+  audio: false,
+  acceptUntrusted: false,
+  timeout: DEFAULT_TIMEOUT,
+  resolution: null,
+};
 
 const laptopDisplay: RemoteDisplay[] = [{ number: 1, width: 2560, height: 1600, primary: true }];
 const desktopDisplay: RemoteDisplay[] = [{ number: 1, width: 1920, height: 1080, primary: true }];
@@ -64,6 +95,7 @@ function device(fields: Partial<DemoDevice> & Pick<DemoDevice, "id" | "name" | "
     audio: false,
     acceptUntrusted: false,
     timeout: DEFAULT_TIMEOUT,
+    resolution: null,
     displays: desktopDisplay,
     ...fields,
   };

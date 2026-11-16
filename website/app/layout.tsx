@@ -3,7 +3,7 @@ import "./globals.css";
 
 const title = "RDPeek – Remote Desktop for macOS";
 const description =
-  "A Remote Desktop client for macOS, written in Swift. Connect to Windows PCs and Linux desktops over RDP, with hardware-decoded video, your Mac's shortcuts on the remote, and passwords in the Keychain. Free and open source.";
+  "A Remote Desktop client for macOS, written in Swift. Connect to Windows PCs and Linux desktops over RDP, with hardware-decoded video, your Mac's shortcuts on the remote, and passwords in the Keychain. In eight languages. Free and open source.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://rdpeek.com"),

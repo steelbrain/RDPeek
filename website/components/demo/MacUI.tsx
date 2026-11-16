@@ -76,6 +76,12 @@ export const ChevronRightIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const ChevronUpDownIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m5 6 3-3 3 3M5 10l3 3 3-3" strokeWidth="1.6" />
+  </Svg>
+);
+
 export const ArrowClockwiseIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M13 8a5 5 0 1 1-1.6-3.7" />

@@ -1,22 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { DEFAULT_PORT, DEFAULT_TIMEOUT, displayName, type DeviceDraft } from "@/lib/devices";
+import { EMPTY_DRAFT, displayName } from "@/lib/devices";
 import { DeviceEditorSheet } from "./DeviceEditorSheet";
 import { useDemo } from "./DemoState";
-
-const emptyDraft: DeviceDraft = {
-  name: "",
-  host: "",
-  port: DEFAULT_PORT,
-  username: "",
-  domain: "",
-  rememberPassword: true,
-  clipboard: true,
-  audio: false,
-  acceptUntrusted: false,
-  timeout: DEFAULT_TIMEOUT,
-};
 
 /** The Add PC sheet on its own; what it saves joins the grid at the top of the page. */
 export function AddPCDemo() {
@@ -32,7 +19,7 @@ export function AddPCDemo() {
     <div>
       <DeviceEditorSheet
         key={form.key}
-        initial={emptyDraft}
+        initial={EMPTY_DRAFT}
         hue={form.hue}
         isNew
         onCancel={() => {

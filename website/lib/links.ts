@@ -4,3 +4,5 @@ export const CHANGELOG_URL =
   "https://github.com/steelbrain/RDPeek/blob/main/CHANGELOG.md";
 export const RDPKIT_URL = "https://github.com/steelbrain/RDPKit";
 export const LICENSE_URL = "https://github.com/steelbrain/RDPeek/blob/main/LICENSE";
+export const HOMEBREW_URL = "https://brew.sh";
+export const BREW_COMMAND = "brew install --cask steelbrain/tap/rdpeek";

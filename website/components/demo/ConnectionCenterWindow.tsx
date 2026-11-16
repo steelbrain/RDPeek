@@ -2,15 +2,13 @@
 
 import { useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import {
-  DEFAULT_PORT,
-  DEFAULT_TIMEOUT,
+  EMPTY_DRAFT,
   deviceGradient,
   displayName,
   lastUsedText,
   monogram,
   subtitle,
   type DemoDevice,
-  type DeviceDraft,
 } from "@/lib/devices";
 import { Logo } from "../Logo";
 import { DeviceEditorSheet } from "./DeviceEditorSheet";
@@ -29,19 +27,6 @@ import {
 type SortOrder = "name" | "recent";
 
 type EditorState = { mode: "new"; hue: number; key: number } | { mode: "edit"; id: string; key: number };
-
-const emptyDraft: DeviceDraft = {
-  name: "",
-  host: "",
-  port: DEFAULT_PORT,
-  username: "",
-  domain: "",
-  rememberPassword: true,
-  clipboard: true,
-  audio: false,
-  acceptUntrusted: false,
-  timeout: DEFAULT_TIMEOUT,
-};
 
 /**
  * The Connection Center, redrawn: the toolbar's Add PC, sort menu and
@@ -265,7 +250,7 @@ export function ConnectionCenterWindow() {
               <DeviceEditorSheet
                 key={editor.key}
                 className="sheet-in rounded-t-none"
-                initial={editedDevice ?? emptyDraft}
+                initial={editedDevice ?? EMPTY_DRAFT}
                 hue={editor.mode === "new" ? editor.hue : (editedDevice?.hue ?? 0)}
                 isNew={editor.mode === "new"}
                 onCancel={() => setEditor(null)}

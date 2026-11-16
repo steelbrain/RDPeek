@@ -24,21 +24,23 @@ app/layout.tsx            Metadata and the root layout
 app/globals.css           Color tokens, the macOS UI styles, keyframes
 app/opengraph-image.tsx   The social card, drawn at build time
 app/icon.svg              The app icon (a copy of Sources/Resources/AppIcon.svg)
-components/               Header, Footer, Section, Logo, icons
+components/               Header, Footer, Section, Logo, icons, the Homebrew
+                          command
 components/demo/          The app's UI, redrawn in HTML
 lib/devices.ts            The demo PCs, and the app's tile color, monogram and
                           subtitle rules
-lib/links.ts              Download, GitHub, changelog and license URLs
+lib/links.ts              Download, GitHub, changelog and license URLs, and
+                          the Homebrew command
 ```
 
 ## The demos
 
 The page shows the app by redrawing its UI in HTML instead of using
 screenshots, and the redraws work: the Connection Center grid, the Add PC
-sheet, a session window with its ⋯ menu, Stats for Nerds, and the
-certificate warning. They share one state (`components/demo/DemoState.tsx`),
-so a PC added in the sheet joins the grid, and double-clicking a tile
-connects it in the session window.
+sheet, a session window with its ⋯ menu, Stats for Nerds, the certificate
+warning, and the Settings window. The first four share one state
+(`components/demo/DemoState.tsx`), so a PC added in the sheet joins the
+grid, and double-clicking a tile connects it in the session window.
 
 Keep the redraws true to the app. Their strings, sizes and behavior come
 from the Swift sources, so check these when you change one:
@@ -50,10 +52,14 @@ from the Swift sources, so check these when you change one:
 | `SessionWindow` | `Sources/Session/SessionHUD.swift` (titlebar, ⋯ menu, overlays) |
 | Stats for Nerds, in `SessionWindow` | `Sources/Diagnostics/DiagnosticsView.swift` |
 | `CertificateBanner` | `Sources/Session/SessionHUD.swift`, its text in `SessionViewController.swift` |
-| `lib/devices.ts` | `Sources/App/AppTheme.swift`, `Sources/Storage/DeviceProfileStore.swift` |
+| `SettingsWindow` | `Sources/App/SettingsView.swift`, `Sources/App/AppLanguage.swift` |
+| `MacForm` (the sheet's and Settings' rows) | `.formStyle(.grouped)` in the two views above |
+| `lib/devices.ts` | `Sources/App/AppTheme.swift`, `Sources/Storage/DeviceProfileStore.swift`, `Sources/Storage/SessionQualityMode.swift` |
 
-The one liberty they take on purpose: clicking a tile gives it a new
-color. In the app, a PC's color is picked once, when you add it.
+The liberties they take on purpose: clicking a tile gives it a new
+color, where in the app a PC's color is picked once, when you add it. And
+Reopen Now, in the Settings window's language alert, only says what the
+app would do; the page assumes a Mac set to English and stays in English.
 
 ## Conventions
 
