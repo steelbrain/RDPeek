@@ -291,6 +291,34 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
         XCTAssertEqual(server.sentLayouts, [])
     }
 
+    // MARK: - Quality mode
+
+    func testAModeChangedWhileMatchingIsOffGoesOutWhenItResumes() {
+        let fast = SessionQualityMode.fast.displayRequest(
+            pointSize: CGSize(width: 1440, height: 900),
+            backingScaleFactor: 2
+        )
+        XCTAssertEqual(resizeDecision(isInEffect: false, viewerRequest: fast, lastSent: retinaRequest), .cancel)
+        XCTAssertEqual(resizeDecision(viewerRequest: fast, lastSent: retinaRequest, resends: true), .send(fast))
+    }
+
+    func testAModeChangeSendsTheNewModesSizeToTheServer() async throws {
+        let server = try await displayControlServer()
+        server.resetGraphics(monitors: [monitor(0, 0, 1440, 900)])
+        var displayControl = SessionDisplayControl()
+        displayControl.ready(server.session)
+        XCTAssertTrue(displayControl.send(retinaRequest))
+
+        let balanced = SessionQualityMode.balanced.displayRequest(
+            pointSize: CGSize(width: 1440, height: 900),
+            backingScaleFactor: 2
+        )
+        XCTAssertEqual(windowResize(displayControl, viewerRequest: balanced), .send(balanced))
+        XCTAssertTrue(displayControl.send(balanced))
+        XCTAssertEqual(windowResize(displayControl, viewerRequest: balanced), .skip)
+        XCTAssertEqual(server.sentLayouts, [retinaRequest.monitorLayout, balanced.monitorLayout])
+    }
+
     // MARK: - Helpers
 
     private func isWindowMatchingInEffect(
@@ -329,15 +357,19 @@ final class SessionDisplayControlPolicyTests: XCTestCase {
     }
 
     /// What `displayControl` does with a 1440x900-point Retina window,
-    /// matching on, while connected.
-    private func windowResize(_ displayControl: SessionDisplayControl) -> SessionResizeDecision {
+    /// matching on, while connected: by default the window asks for its
+    /// pixel size, as in the Quality mode.
+    private func windowResize(
+        _ displayControl: SessionDisplayControl,
+        viewerRequest: RDPDisplayRequest? = nil
+    ) -> SessionResizeDecision {
         displayControl.resizeDecision(
             isWindowMatchingInEffect: displayControl.isWindowMatchingInEffect(
                 followsWindowSize: true,
                 isConnecting: true,
                 hasViewerPixelSize: true
             ),
-            viewerRequest: retinaRequest
+            viewerRequest: viewerRequest ?? retinaRequest
         )
     }
 

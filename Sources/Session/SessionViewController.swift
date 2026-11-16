@@ -82,7 +82,6 @@ final class SessionViewController: NSViewController {
     private var followsWindowSize = SessionDisplayControlPolicy.followsWindowSizeByDefault
     private var displaySelection = RemoteDisplaySelection.all
     private var pendingDisplayResizeTask: Task<Void, Never>?
-    private var viewerPixelSize: RDPViewerPixelSize?
     /// The canvas's size in points and its display's scale, which the
     /// quality mode turns into the size to ask the server for.
     private var viewerSurface: (pointSize: CGSize, backingScaleFactor: CGFloat)?
@@ -634,6 +633,7 @@ final class SessionViewController: NSViewController {
             sessionEndReason: sessionEndReason,
             serverCertificateInfo: liveCertificate,
             viewerPixelSize: viewerPixelSize,
+            qualityMode: qualityMode,
             requestedDesktopSize: requestedDesktopSizeLabel,
             clientName: sentClientName,
             inputReady: inputSession != nil,
@@ -657,10 +657,11 @@ final class SessionViewController: NSViewController {
         sentClientName = configuration.clientName
     }
 
-    /// The user never picks a resolution: the remote desktop starts at the
-    /// canvas size in points. Servers without Display Control keep it, at
-    /// 100% scale — a desktop of Retina pixels at 100% would be tiny. Display
-    /// Control servers get the pixel size and scale once their channel opens.
+    /// The user never picks a resolution, only a quality mode: the remote
+    /// desktop starts at the canvas size in points. Servers without Display
+    /// Control keep it, at 100% scale — a desktop of Retina pixels at 100%
+    /// would be tiny. Display Control servers get the size and scale the
+    /// mode asks for once their channel opens.
     /// RDPKit rounds it as Display Control rounds that layout, so on a 1x
     /// display the layout matches the desktop and resizes nothing.
     private func initialDesktopSize() -> RDPDesktopSize {
@@ -1390,12 +1391,23 @@ final class SessionViewController: NSViewController {
 
     /// The canvas reports its size and backing scale together, so the
     /// remote desktop follows the window across displays of other scales.
+    /// A resize is scheduled when the size the quality mode asks for
+    /// changes, not the window's pixel size: RDPKit evens out the width,
+    /// so at 2x a canvas 1001 or 1001.5 points wide is 2002 pixels either
+    /// way, while Fast asks for 1000 or 1002.
     private func updateViewerSurface(pointSize: CGSize, backingScaleFactor: CGFloat) {
-        let nextSize = RDPViewerPixelSize(pointSize: pointSize, backingScaleFactor: backingScaleFactor)
+        let previousRequest = viewerDisplayRequest
         viewerSurface = (pointSize, backingScaleFactor)
-        if viewerPixelSize != nextSize {
-            viewerPixelSize = nextSize
+        if viewerDisplayRequest != previousRequest {
             scheduleAutoDisplaySizeUpdate()
+        }
+    }
+
+    /// The window's own pixel size, which Stats for Nerds shows next to
+    /// the size asked for.
+    private var viewerPixelSize: RDPViewerPixelSize? {
+        viewerSurface.map {
+            RDPViewerPixelSize(pointSize: $0.pointSize, backingScaleFactor: $0.backingScaleFactor)
         }
     }
 
@@ -1426,6 +1438,7 @@ final class SessionViewController: NSViewController {
                 }
                 qualityMode = mode
                 scheduleAutoDisplaySizeUpdate()
+                render()
             }
         }
     }
@@ -1436,7 +1449,7 @@ final class SessionViewController: NSViewController {
         displayControl.isWindowMatchingInEffect(
             followsWindowSize: followsWindowSize,
             isConnecting: isConnecting,
-            hasViewerPixelSize: viewerPixelSize != nil
+            hasViewerPixelSize: viewerSurface != nil
         )
     }
 

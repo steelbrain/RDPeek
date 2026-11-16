@@ -79,10 +79,55 @@ final class SessionQualityModeTests: XCTestCase {
 
     func testOnADisplayOfScaleOneEveryModeAsksForTheSame() {
         let window = CGSize(width: 1280, height: 800)
-        let requests = SessionQualityMode.allCases.map {
-            $0.displayRequest(pointSize: window, backingScaleFactor: 1)
+        let expected = RDPDisplayRequest(pointSize: window, backingScaleFactor: 1)
+        for mode in SessionQualityMode.allCases {
+            XCTAssertEqual(mode.displayRequest(pointSize: window, backingScaleFactor: 1), expected, "\(mode)")
         }
-        XCTAssertEqual(Set(requests.map(\.width)), [1280])
-        XCTAssertEqual(Set(requests.map(\.height)), [800])
+        XCTAssertEqual(expected.width, 1280)
+        XCTAssertEqual(expected.height, 800)
+    }
+
+    func testQualityAsksForWhatSessionsAskedForBeforeModes() {
+        // Before modes, a session asked for its viewer's pixel size.
+        let windows = [
+            CGSize(width: 1440, height: 900),
+            CGSize(width: 1001, height: 601),
+            CGSize(width: 1001.5, height: 600.5),
+            CGSize(width: 250, height: 180),
+            CGSize(width: 5000, height: 3000)
+        ]
+        for window in windows {
+            for scale: CGFloat in [1, 1.5, 2, 3] {
+                XCTAssertEqual(
+                    SessionQualityMode.quality.displayRequest(pointSize: window, backingScaleFactor: scale),
+                    RDPViewerPixelSize(pointSize: window, backingScaleFactor: scale).displayRequest,
+                    "\(window) at \(scale)x"
+                )
+            }
+        }
+    }
+
+    func testBalancedIsRoundedAsDisplayControlRoundsIt() {
+        // 1501.5x901.5 pixels round to whole ones, and 150% has the
+        // device scale nearest to it.
+        let window = CGSize(width: 1001, height: 601)
+        let balanced = SessionQualityMode.balanced.displayRequest(pointSize: window, backingScaleFactor: 2)
+        XCTAssertEqual(balanced.width, 1502)
+        XCTAssertEqual(balanced.height, 902)
+        XCTAssertEqual(balanced.scaleFactors, RDPDisplayScaleFactors(desktopScaleFactor: 150, deviceScaleFactor: 140))
+    }
+
+    func testAModesSizeCanChangeWhenTheWindowsPixelSizeDoesNot() {
+        // Display Control widths are even, so at 2x a canvas 1001 or
+        // 1001.5 points wide is 2002 pixels wide either way. The session
+        // reschedules on the size it asks for, which differs here.
+        let narrower = CGSize(width: 1001, height: 600)
+        let wider = CGSize(width: 1001.5, height: 600)
+        XCTAssertEqual(
+            RDPViewerPixelSize(pointSize: narrower, backingScaleFactor: 2),
+            RDPViewerPixelSize(pointSize: wider, backingScaleFactor: 2)
+        )
+        XCTAssertEqual(SessionQualityMode.fast.displayRequest(pointSize: narrower, backingScaleFactor: 2).width, 1000)
+        XCTAssertEqual(SessionQualityMode.fast.displayRequest(pointSize: wider, backingScaleFactor: 2).width, 1002)
     }
 }

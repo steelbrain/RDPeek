@@ -2,15 +2,20 @@
 
 ## Unreleased
 
-### Display
+### Sessions
 
-- Settings has a Quality choice for every PC: Fast, Balanced or
-  Quality. Quality, as before, asks for the window's full Retina size;
-  Balanced asks for up to one and a half times its size in points, and
-  Fast for its size in points at 100%, scaled up to fit, which is less
-  for a slow network to carry. A change reaches open sessions without
-  reconnecting. Off a Retina display, or with a server that can't
-  resize its desktop, the three are the same.
+- One Quality choice in Settings, Fast, Balanced or Quality, sets for
+  all PCs the size a desktop that follows the window asks for. Quality,
+  the default, asks for every pixel of the window, as before; Balanced
+  for up to one and a half times its size in points; Fast for its size
+  in points at 100%, scaled up to fit. On a Retina display, Balanced
+  asks for a little over half the pixels and Fast for a quarter, fewer
+  for the server to encode and send. A change reaches an open session
+  without reconnecting while Match Window Size is on and the remote
+  desktop has one display, and otherwise once it follows the window
+  again. On a display that isn't Retina (HiDPI), or with a PC that
+  can't resize its desktop, the three are the same. Stats for Nerds
+  shows the choice. Thanks to @leros1337 for the feature (#9).
 
 ## 1.3.2
 

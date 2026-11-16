@@ -100,6 +100,9 @@ struct RemoteSessionDiagnosticsSnapshot: Equatable {
     var sessionEndReason: RDPSessionEndReason?
     var serverCertificateInfo: RDPServerCertificateInfo?
     var viewerPixelSize: RDPViewerPixelSize?
+    /// The mode in Settings, which caps the scale of the desktop the
+    /// window asks for.
+    var qualityMode = SessionQualityMode.standard
     var requestedDesktopSize = "unknown"
     /// The name this connection gave servers for the Mac.
     var clientName: String?
@@ -165,6 +168,7 @@ struct RemoteSessionDiagnosticsWindowContent: View {
                     DiagnosticRow("Warnings", RDPDiagnosticText.warnings(snapshot.report?.warnings))
                     DiagnosticRow("Requested Desktop", snapshot.requestedDesktopSize)
                     DiagnosticRow("Viewer Size", snapshot.viewerPixelSize?.label ?? "unknown")
+                    DiagnosticRow("Quality", snapshot.qualityMode.title)
                     DiagnosticRow("Key Exchange", keyExchangeSummary(snapshot.report))
                     DiagnosticRow("Certificate", certificateState(snapshot))
                     DiagnosticRow("Input", inputState(snapshot))

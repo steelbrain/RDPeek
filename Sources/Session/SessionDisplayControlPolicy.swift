@@ -5,8 +5,9 @@ import RDPKit
 /// the server for a keyframe itself, with a layout that keeps its desktop.
 enum SessionDisplayControlPolicy {
     /// Match Window Size starts on, as in 1.2.0: the desktop then switches
-    /// to full Retina resolution once Display Control is ready, and follows
-    /// the window from there.
+    /// to the size the quality mode asks for once Display Control is ready,
+    /// full Retina resolution in the default mode, and follows the window
+    /// from there.
     static let followsWindowSizeByDefault = true
 
     /// Whether the server lays its desktop out on more than one monitor.
