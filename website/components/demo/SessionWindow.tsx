@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { displayName, hostLabel, type RemoteDisplay } from "@/lib/devices";
+import { fill, rich } from "@/lib/i18n/format";
+import { useI18n } from "../I18n";
 import { useDemo, type SessionPhase, type SessionState } from "./DemoState";
 import {
   ArrowClockwiseIcon,
@@ -46,6 +48,7 @@ type Readout =
  */
 export function SessionWindow() {
   const { session, devices, reconnect } = useDemo();
+  const { demo: text } = useI18n();
   // As in the app, a session outlives its PC being deleted, but once its
   // window closes there is nothing left to reconnect to.
   const deviceDeleted = !devices.some((device) => device.id === session.device.id);
@@ -53,12 +56,12 @@ export function SessionWindow() {
     return (
       <div className="grid aspect-[16/11] place-items-center rounded-[12px] border border-dashed border-rule p-6 text-center">
         <div>
-          <p className="text-ink-3">The session window is closed.</p>
+          <p className="text-ink-3">{text.session.closed}</p>
           {deviceDeleted ? (
-            <p className="mt-2 text-ink-3">Double-click a PC at the top of the page to open another.</p>
+            <p className="mt-2 text-ink-3">{text.session.openAnother}</p>
           ) : (
             <button type="button" onClick={reconnect} className="text-link mt-2">
-              Connect to {displayName(session.device)} again
+              {fill(text.session.connectAgain, { name: displayName(session.device) })}
             </button>
           )}
         </div>
@@ -70,6 +73,7 @@ export function SessionWindow() {
 
 function SessionWindowContent({ session, deviceDeleted }: { session: SessionState; deviceDeleted: boolean }) {
   const demo = useDemo();
+  const { ui, demo: text } = useI18n();
   const { device, phase } = session;
   const name = displayName(device);
   const severalDisplays = device.displays.length > 1;
@@ -121,35 +125,41 @@ function SessionWindowContent({ session, deviceDeleted }: { session: SessionStat
   const temporarySharing = sharingSecondsLeft !== null && sharingSecondsLeft > 0 && isActive;
 
   const visibleDisplays = device.displays.filter((display) => !hiddenDisplays.includes(display.number));
+  // Sizes go in as text, as the app writes them, so no locale groups their digits.
   const displayTitle = (display: RemoteDisplay) =>
-    `Display ${display.number} — ${display.width} × ${display.height}${display.primary ? " (Primary)" : ""}`;
+    display.primary
+      ? ui("Display %lld — %@ × %@ (Primary)", display.number, String(display.width), String(display.height))
+      : ui("Display %lld — %@ × %@", display.number, String(display.width), String(display.height));
 
-  const startTitle = phase === "connecting" ? "Connecting" : phase === "active" ? "Connected" : "Reconnect";
+  const startTitle =
+    phase === "connecting" ? ui("Connecting") : phase === "active" ? ui("Connected") : ui("Reconnect");
   const menuEntries: MenuEntry[] = [
     { type: "item", label: startTitle, disabled: phase !== "ended", onSelect: demo.reconnect },
-    { type: "item", label: "Disconnect", disabled: phase === "ended", onSelect: demo.cancelSession },
+    { type: "item", label: ui("Disconnect"), disabled: phase === "ended", onSelect: demo.cancelSession },
     { type: "separator" },
     {
       type: "item",
-      label: "Share Clipboard",
+      label: ui("Share Clipboard"),
       checked: clipboard,
       onSelect: () => {
         setClipboard((on) => !on);
         setTemporarySharingEnds(null);
       },
     },
-    { type: "item", label: "Sync Clipboard Now", disabled: !(clipboard && isActive) },
+    { type: "item", label: ui("Sync Clipboard Now"), disabled: !(clipboard && isActive) },
     {
       type: "item",
-      label: temporarySharing ? `Sharing for ${sharingSecondsLeft}s` : `Share Clipboard for ${TEMPORARY_SHARING_SECONDS} Seconds`,
+      label: temporarySharing
+        ? ui("Sharing for %llds", sharingSecondsLeft ?? 0)
+        : ui("Share Clipboard for %lld Seconds", TEMPORARY_SHARING_SECONDS),
       disabled: clipboard || !isActive || temporarySharing,
       onSelect: () => setTemporarySharingEnds(Date.now() + TEMPORARY_SHARING_SECONDS * 1000),
     },
     { type: "separator" },
-    { type: "item", label: "Remote Audio", checked: audio, onSelect: () => setAudio((on) => !on) },
+    { type: "item", label: ui("Remote Audio"), checked: audio, onSelect: () => setAudio((on) => !on) },
     {
       type: "item",
-      label: "Match Window Size",
+      label: ui("Match Window Size"),
       checked: matchWindowSize && !severalDisplays,
       disabled: severalDisplays,
       onSelect: () => setMatchWindowSize((on) => !on),
@@ -158,11 +168,11 @@ function SessionWindowContent({ session, deviceDeleted }: { session: SessionStat
       ? ([
           {
             type: "item",
-            label: "Displays",
+            label: ui("Displays"),
             submenu: [
               {
                 type: "item",
-                label: "All Displays",
+                label: ui("All Displays"),
                 checked: hiddenDisplays.length === 0,
                 onSelect: () => setHiddenDisplays([]),
               },
@@ -186,8 +196,8 @@ function SessionWindowContent({ session, deviceDeleted }: { session: SessionStat
         ] satisfies MenuEntry[])
       : []),
     { type: "separator" },
-    { type: "item", label: "Performance Overlay", checked: overlay, onSelect: () => setOverlay((on) => !on) },
-    { type: "item", label: "Stats for Nerds", onSelect: () => setStatsOpen(true) },
+    { type: "item", label: ui("Performance Overlay"), checked: overlay, onSelect: () => setOverlay((on) => !on) },
+    { type: "item", label: ui("Stats for Nerds"), onSelect: () => setStatsOpen(true) },
   ];
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -238,7 +248,7 @@ function SessionWindowContent({ session, deviceDeleted }: { session: SessionStat
     if (heldKeys.current.size > 0) {
       setReadout({
         kind: "note",
-        text: "The window lost focus with keys held down, so RDPeek let go of them on the remote.",
+        text: text.session.keysReleased,
       });
     }
     heldKeys.current.clear();
@@ -248,15 +258,15 @@ function SessionWindowContent({ session, deviceDeleted }: { session: SessionStat
     <div>
       <div className="mac mac-window relative z-10">
         <div className="flex h-[32px] items-center gap-3 rounded-t-[12px] border-b border-black/60 bg-[#1e1e23] pl-[12px] pr-[10px] text-white">
-          <TrafficLights onClose={demo.closeSession} closeLabel="Close session window" />
+          <TrafficLights onClose={demo.closeSession} closeLabel={text.session.closeWindow} />
           <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-white/85">{name}</span>
           <StatusPill phase={phase} />
           <div className="relative">
             <button
               ref={menuButtonRef}
               type="button"
-              title="Session options"
-              aria-label="Session options"
+              title={ui("Session options")}
+              aria-label={ui("Session options")}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
@@ -268,7 +278,7 @@ function SessionWindowContent({ session, deviceDeleted }: { session: SessionStat
             </button>
             {menuOpen ? (
               <MacMenu
-                label="Session options"
+                label={ui("Session options")}
                 entries={menuEntries}
                 anchorRef={menuButtonRef}
                 onClose={() => setMenuOpen(false)}
@@ -286,7 +296,7 @@ function SessionWindowContent({ session, deviceDeleted }: { session: SessionStat
           {phase === "active" ? (
             <div
               role="application"
-              aria-label={`${name} remote desktop. Keys you press here go to the remote.`}
+              aria-label={fill(text.session.desktop, { name })}
               tabIndex={0}
               onKeyDown={handleKeyDown}
               onKeyUp={(event) => heldKeys.current.delete(event.code)}
@@ -328,7 +338,7 @@ function SessionWindowContent({ session, deviceDeleted }: { session: SessionStat
 
       {deviceDeleted ? (
         <p className="mt-3 text-[14px] text-ink-3">
-          {name} was deleted from the grid. As in the app, its session goes on, but RDPeek keeps no password for it.
+          {fill(text.session.deviceDeleted, { name })}
         </p>
       ) : null}
       <div className="mt-3 min-h-[1.75em] text-[14px] text-ink-3" aria-live="polite">
@@ -339,12 +349,13 @@ function SessionWindowContent({ session, deviceDeleted }: { session: SessionStat
 }
 
 function StatusPill({ phase }: { phase: SessionPhase }) {
+  const { ui } = useI18n();
   const { text, color } =
     phase === "connecting"
-      ? { text: "Connecting", color: "#ffd60a" }
+      ? { text: ui("Connecting"), color: "#ffd60a" }
       : phase === "active"
-        ? { text: "Connected", color: "#30d158" }
-        : { text: "Cancelled", color: "rgba(255,255,255,0.35)" };
+        ? { text: ui("Connected"), color: "#30d158" }
+        : { text: ui("Cancelled"), color: "rgba(255,255,255,0.35)" };
   return (
     <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/[0.06] px-[9px] py-[3px]">
       <span className="size-[7px] rounded-full" style={{ background: color, boxShadow: `0 0 3px ${color}` }} />
@@ -354,6 +365,8 @@ function StatusPill({ phase }: { phase: SessionPhase }) {
 }
 
 function ConnectingOverlay({ name, host, onCancel }: { name: string; host: string; onCancel: () => void }) {
+  const { ui } = useI18n();
+  const word = ui("Connecting");
   const [dots, setDots] = useState(1);
   useEffect(() => {
     const timer = window.setInterval(() => setDots((count) => (count % 3) + 1), 450);
@@ -377,8 +390,11 @@ function ConnectingOverlay({ name, host, onCancel }: { name: string; host: strin
         <div className="space-y-1.5 max-sm:space-y-0.5">
           <p className="text-[17px] font-semibold text-white max-sm:text-[14px]">{name}</p>
           <p className="relative text-white/65 max-sm:text-[11px]">
-            <span className="invisible">Connecting...</span>
-            <span className="absolute inset-y-0 left-0">Connecting{".".repeat(dots)}</span>
+            <span className="invisible">{word}...</span>
+            <span className="absolute inset-y-0 left-0">
+              {word}
+              {".".repeat(dots)}
+            </span>
           </p>
           <p className="text-[12px] text-white/40 max-sm:text-[10px]">{host}</p>
         </div>
@@ -387,7 +403,7 @@ function ConnectingOverlay({ name, host, onCancel }: { name: string; host: strin
           onClick={onCancel}
           className="h-[28px] min-w-[84px] rounded-[7px] bg-white/15 px-4 text-white hover:bg-white/20 max-sm:h-[22px]"
         >
-          Cancel
+          {ui("Cancel")}
         </button>
       </div>
     </div>
@@ -395,6 +411,7 @@ function ConnectingOverlay({ name, host, onCancel }: { name: string; host: strin
 }
 
 function EndedOverlay({ onClose, onReconnect }: { onClose: () => void; onReconnect: () => void }) {
+  const { ui } = useI18n();
   return (
     <div className="fade-in absolute inset-0 grid place-items-center p-4 text-center">
       <div className="flex flex-col items-center gap-6 max-sm:gap-3">
@@ -402,8 +419,8 @@ function EndedOverlay({ onClose, onReconnect }: { onClose: () => void; onReconne
           <XmarkCircleIcon className="size-10 text-white/85 [stroke-width:1] max-sm:size-6" />
         </span>
         <div className="space-y-2 max-sm:space-y-0.5">
-          <p className="text-[17px] font-semibold text-white max-sm:text-[14px]">Disconnected</p>
-          <p className="text-white/60 max-sm:text-[11px]">Connection cancelled by user.</p>
+          <p className="text-[17px] font-semibold text-white max-sm:text-[14px]">{ui("Disconnected")}</p>
+          <p className="text-white/60 max-sm:text-[11px]">{ui("Connection cancelled by user.")}</p>
         </div>
         <div className="flex gap-3">
           <button
@@ -411,7 +428,7 @@ function EndedOverlay({ onClose, onReconnect }: { onClose: () => void; onReconne
             onClick={onClose}
             className="h-[28px] min-w-[84px] rounded-[7px] bg-white/15 px-4 text-white hover:bg-white/20 max-sm:h-[22px]"
           >
-            Close
+            {ui("Close")}
           </button>
           <button
             type="button"
@@ -419,7 +436,7 @@ function EndedOverlay({ onClose, onReconnect }: { onClose: () => void; onReconne
             className="flex h-[28px] min-w-[110px] items-center justify-center gap-1.5 rounded-[7px] bg-mac-accent px-4 text-white max-sm:h-[22px]"
           >
             <ArrowClockwiseIcon className="size-[13px]" />
-            Reconnect
+            {ui("Reconnect")}
           </button>
         </div>
       </div>
@@ -438,12 +455,14 @@ function StatsWindow({
   metrics: Metrics;
   onClose: () => void;
 }) {
+  const { ui, demo: text } = useI18n();
   const receiving = phase === "active";
+  // Stats for Nerds stays in English, apart from why a session ended.
   const status = receiving
     ? `Receiving - ${metrics.fps.toFixed(1)} fps - ${metrics.rxMbps.toFixed(1)} Mbps`
     : phase === "connecting"
       ? "Connecting"
-      : "Cancelled";
+      : ui("Cancelled");
   const rows: [string, string][] = [
     ["Presentation Clock", "window display link"],
     ["Display", "Built-in Retina Display"],
@@ -475,7 +494,7 @@ function StatsWindow({
       }}
     >
       <div className="flex h-[28px] shrink-0 items-center gap-2.5 border-b border-mac-sep bg-mac-bar px-[10px]">
-        <TrafficLights onClose={onClose} closeLabel="Close Stats for Nerds" />
+        <TrafficLights onClose={onClose} closeLabel={text.session.closeStats} />
         <span className="truncate text-[12px] font-semibold text-mac-label-2">{name} Stats for Nerds</span>
       </div>
       <div className="min-h-0 overflow-y-auto p-3 text-[11px]">
@@ -516,20 +535,22 @@ function KeyReadout({
   readout: Readout | null;
   name: string;
 }): ReactNode {
-  if (phase !== "active") return "Keys reach the remote desktop once it’s connected.";
+  const { demo: text } = useI18n();
+  if (phase !== "active") return text.session.keysWaiting;
   if (readout?.kind === "note") return readout.text;
   if (readout?.kind === "keys") {
     return (
-      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span>You pressed</span>
-        <kbd>{readout.mac}</kbd>
-        <span>and {name} got</span>
-        <kbd>{readout.remote}</kbd>
+      <span className="leading-[1.9]">
+        {rich(
+          text.session.keysPressed,
+          { kbd: (children) => <kbd className="mx-0.5">{children}</kbd> },
+          { mac: readout.mac, remote: readout.remote, name },
+        )}
       </span>
     );
   }
-  if (focused) return "The remote desktop has your keyboard. Press ⌘R, or type something.";
-  return "Click the remote desktop and press a shortcut, such as ⌘R, to see what the remote computer receives.";
+  if (focused) return text.session.keysFocused;
+  return text.session.keysHint;
 }
 
 const MODIFIER_CODES = new Set([

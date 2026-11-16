@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { BREW_COMMAND } from "@/lib/links";
 
 /** The Homebrew install command, with a button that copies it. */
-export function BrewCommand() {
+export function BrewCommand({ copyLabel, copiedLabel }: { copyLabel: string; copiedLabel: string }) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export function BrewCommand() {
         }}
         className="mr-1 shrink-0 rounded-[7px] px-2.5 py-1 text-[13px] font-medium text-ink-2 transition-colors hover:bg-ink/[0.05] hover:text-ink"
       >
-        <span aria-live="polite">{copied ? "Copied" : "Copy"}</span>
+        <span aria-live="polite">{copied ? copiedLabel : copyLabel}</span>
       </button>
     </div>
   );

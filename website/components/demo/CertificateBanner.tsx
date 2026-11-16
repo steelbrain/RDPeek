@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "../I18n";
 import { LockWarningIcon, TrafficLights } from "./MacUI";
 
 const FINGERPRINT =
@@ -8,6 +9,7 @@ const FINGERPRINT =
 
 /** The session's certificate banner, after SessionCertificateBanner in SessionHUD.swift. */
 export function CertificateBanner() {
+  const { ui, demo: text } = useI18n();
   const [trusted, setTrusted] = useState(false);
   return (
     <div>
@@ -18,15 +20,17 @@ export function CertificateBanner() {
         </div>
         <div className="flex min-h-[200px] justify-center bg-[linear-gradient(to_bottom,rgb(23,26,38),rgb(10,10,18))] px-3 pb-8 pt-[14px]">
           {trusted ? (
-            <p className="fade-in self-center text-center text-[13px] text-white/60">Connecting…</p>
+            <p className="fade-in self-center text-center text-[13px] text-white/60">{ui("Connecting")}…</p>
           ) : (
             <div className="fade-in flex h-fit min-w-0 items-center gap-3 rounded-[12px] border border-white/10 bg-[var(--mac-menu)] px-4 py-2.5 shadow-[0_6px_28px_rgba(0,0,0,0.35)] backdrop-blur-xl max-sm:flex-wrap">
               <LockWarningIcon className="size-[22px] shrink-0 text-[#ffcc00]" />
               <div className="min-w-0 max-w-[380px] flex-1 max-sm:basis-[calc(100%-40px)]">
-                <p className="text-[12px] font-semibold">Untrusted Certificate</p>
+                <p className="text-[12px] font-semibold">{ui("Untrusted Certificate")}</p>
                 <p className="mt-0.5 line-clamp-4 text-[11px] [overflow-wrap:anywhere] text-mac-label-2 [-webkit-user-select:text] [user-select:text]">
-                  This Mac does not trust the server&apos;s certificate. Trust it only if you expect it, such as a
-                  server&apos;s self-signed certificate. SHA-256: {FINGERPRINT}
+                  {ui(
+                    "This Mac does not trust the server's certificate. Trust it only if you expect it, such as a server's self-signed certificate.",
+                  )}{" "}
+                  {ui("SHA-256: %@", FINGERPRINT)}
                 </p>
               </div>
               <button
@@ -34,7 +38,7 @@ export function CertificateBanner() {
                 onClick={() => setTrusted(true)}
                 className="mac-button mac-button-prominent h-[20px] shrink-0 px-2 text-[11px] max-sm:ml-auto"
               >
-                Trust and Connect
+                {ui("Trust and Connect")}
               </button>
             </div>
           )}
@@ -43,13 +47,13 @@ export function CertificateBanner() {
       <p className="mt-3 text-[14px] text-ink-3" aria-live="polite">
         {trusted ? (
           <>
-            Trusted: the fingerprint is now pinned to windows-laptop.local, port 3389.{" "}
+            {text.certificate.trusted}{" "}
             <button type="button" className="text-link" onClick={() => setTrusted(false)}>
-              Show the warning again
+              {text.certificate.showAgain}
             </button>
           </>
         ) : (
-          "RDPeek has connected and received this certificate, but hasn’t sent any credentials."
+          text.certificate.caption
         )}
       </p>
     </div>

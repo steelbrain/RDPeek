@@ -1,0 +1,943 @@
+{
+  "%@ Copy": {
+    "en": "%@ Copy",
+    "es": "%@ copia",
+    "fr": "%@ copie",
+    "it": "%@ copia",
+    "ja": "%@ のコピー",
+    "pt-BR": "%@ cópia",
+    "ru": "%@ копия",
+    "zh-Hans": "%@ 副本"
+  },
+  "Accept untrusted certificates": {
+    "en": "Accept untrusted certificates",
+    "es": "Aceptar certificados no fiables",
+    "fr": "Accepter les certificats non fiables",
+    "it": "Accetta certificati non attendibili",
+    "ja": "信頼されていない証明書を受け入れる",
+    "pt-BR": "Aceitar certificados não confiáveis",
+    "ru": "Принимать недоверенные сертификаты",
+    "zh-Hans": "接受不受信任的证书"
+  },
+  "Add PC": {
+    "en": "Add PC",
+    "es": "Añadir PC",
+    "fr": "Ajouter un PC",
+    "it": "Aggiungi PC",
+    "ja": "PCを追加",
+    "pt-BR": "Adicionar PC",
+    "ru": "Добавить ПК",
+    "zh-Hans": "添加电脑"
+  },
+  "Add your first PC to start a remote desktop session.": {
+    "en": "Add your first PC to start a remote desktop session.",
+    "es": "Añade tu primer PC para iniciar una sesión de escritorio remoto.",
+    "fr": "Ajoutez votre premier PC pour démarrer une session de bureau distant.",
+    "it": "Aggiungi il tuo primo PC per avviare una sessione di desktop remoto.",
+    "ja": "リモートデスクトップセッションを開始するには、最初のPCを追加してください。",
+    "pt-BR": "Adicione seu primeiro PC para iniciar uma sessão de área de trabalho remota.",
+    "ru": "Добавьте первый ПК, чтобы начать сеанс удалённого рабочего стола.",
+    "zh-Hans": "添加你的第一台电脑以开始远程桌面会话。"
+  },
+  "All Displays": {
+    "en": "All Displays",
+    "es": "Todas las pantallas",
+    "fr": "Tous les écrans",
+    "it": "Tutti i monitor",
+    "ja": "すべてのディスプレイ",
+    "pt-BR": "Todos os Monitores",
+    "ru": "Все дисплеи",
+    "zh-Hans": "所有显示器"
+  },
+  "Arrow keys": {
+    "en": "Arrow keys",
+    "es": "Teclas de flecha",
+    "fr": "Touches fléchées",
+    "it": "Tasti freccia",
+    "ja": "矢印キー",
+    "pt-BR": "Teclas de seta",
+    "ru": "Стрелки",
+    "zh-Hans": "方向键"
+  },
+  "Balanced": {
+    "en": "Balanced",
+    "es": "Equilibrada",
+    "fr": "Équilibré",
+    "it": "Bilanciata",
+    "ja": "バランス",
+    "pt-BR": "Equilibrada",
+    "ru": "Баланс",
+    "zh-Hans": "均衡"
+  },
+  "Cancel": {
+    "en": "Cancel",
+    "es": "Cancelar",
+    "fr": "Annuler",
+    "it": "Annulla",
+    "ja": "キャンセル",
+    "pt-BR": "Cancelar",
+    "ru": "Отменить",
+    "zh-Hans": "取消"
+  },
+  "Cancel connecting": {
+    "en": "Cancel connecting",
+    "es": "Cancelar la conexión",
+    "fr": "Annuler la connexion",
+    "it": "Annulla la connessione",
+    "ja": "接続をキャンセル",
+    "pt-BR": "Cancelar a conexão",
+    "ru": "Отменить подключение",
+    "zh-Hans": "取消连接"
+  },
+  "Cancelled": {
+    "en": "Cancelled",
+    "es": "Cancelado",
+    "fr": "Annulé",
+    "it": "Annullato",
+    "ja": "キャンセル済み",
+    "pt-BR": "Cancelado",
+    "ru": "Отменено",
+    "zh-Hans": "已取消"
+  },
+  "Close": {
+    "en": "Close",
+    "es": "Cerrar",
+    "fr": "Fermer",
+    "it": "Chiudi",
+    "ja": "閉じる",
+    "pt-BR": "Fechar",
+    "ru": "Закрыть",
+    "zh-Hans": "关闭"
+  },
+  "Connect": {
+    "en": "Connect",
+    "es": "Conectar",
+    "fr": "Se connecter",
+    "it": "Connetti",
+    "ja": "接続",
+    "pt-BR": "Conectar",
+    "ru": "Подключиться",
+    "zh-Hans": "连接"
+  },
+  "Connect even when neither this Mac nor RDPeek trusts the server's certificate, and send your credentials without asking. Anyone able to intercept the connection could pose as the server and capture them. A certificate that replaced one you trusted is still refused.": {
+    "en": "Connect even when neither this Mac nor RDPeek trusts the server's certificate, and send your credentials without asking. Anyone able to intercept the connection could pose as the server and capture them. A certificate that replaced one you trusted is still refused.",
+    "es": "Conectar incluso cuando ni este Mac ni RDPeek confían en el certificado del servidor, y enviar tus credenciales sin preguntar. Cualquiera que pueda interceptar la conexión podría hacerse pasar por el servidor y capturarlas. Un certificado que haya sustituido a uno en el que confiabas se sigue rechazando.",
+    "fr": "Se connecter même si ni ce Mac ni RDPeek ne font confiance au certificat du serveur, et envoyer vos identifiants sans demander confirmation. Toute personne capable d’intercepter la connexion pourrait se faire passer pour le serveur et les capturer. Un certificat qui en a remplacé un auquel vous faisiez confiance reste refusé.",
+    "it": "Connettersi anche quando né questo Mac né RDPeek considerano attendibile il certificato del server e inviare le tue credenziali senza chiedere. Chiunque sia in grado di intercettare la connessione potrebbe fingersi il server e acquisirle. Un certificato che ha sostituito uno che avevi considerato attendibile viene comunque rifiutato.",
+    "ja": "このMacもRDPeekもサーバの証明書を信頼していない場合でも接続し、確認なしで資格情報を送信します。接続を傍受できる人がサーバになりすまして、資格情報を取得するおそれがあります。信頼した証明書が別の証明書に置き換わった場合、その証明書は引き続き拒否されます。",
+    "pt-BR": "Conectar mesmo quando nem este Mac nem o RDPeek confiam no certificado do servidor, e enviar suas credenciais sem perguntar. Qualquer pessoa capaz de interceptar a conexão poderia se passar pelo servidor e capturá-las. Um certificado que substituiu um em que você confiava continua sendo recusado.",
+    "ru": "Подключаться, даже если ни этот Mac, ни RDPeek не доверяют сертификату сервера, и отправлять ваши учётные данные без запроса. Любой, кто может перехватить соединение, способен выдать себя за сервер и получить их. Сертификат, заменивший доверенный вами, по-прежнему отклоняется.",
+    "zh-Hans": "即使这台 Mac 和 RDPeek 都不信任服务器的证书也进行连接，并在不询问的情况下发送你的凭证。任何能够拦截此连接的人都可能冒充该服务器并获取你的凭证。替换了你所信任证书的证书仍会被拒绝。"
+  },
+  "Connect to the selected PC": {
+    "en": "Connect to the selected PC",
+    "es": "Conectarse al PC seleccionado",
+    "fr": "Se connecter au PC sélectionné",
+    "it": "Connettiti al PC selezionato",
+    "ja": "選択したPCに接続",
+    "pt-BR": "Conectar ao PC selecionado",
+    "ru": "Подключиться к выбранному ПК",
+    "zh-Hans": "连接到所选电脑"
+  },
+  "Connected": {
+    "en": "Connected",
+    "es": "Conectado",
+    "fr": "Connecté",
+    "it": "Connesso",
+    "ja": "接続済み",
+    "pt-BR": "Conectado",
+    "ru": "Подключено",
+    "zh-Hans": "已连接"
+  },
+  "Connecting": {
+    "en": "Connecting",
+    "es": "Conectando",
+    "fr": "Connexion",
+    "it": "Connessione",
+    "ja": "接続中",
+    "pt-BR": "Conectando",
+    "ru": "Подключение",
+    "zh-Hans": "正在连接"
+  },
+  "Connection cancelled by user.": {
+    "en": "Connection cancelled by user.",
+    "es": "Conexión cancelada por el usuario.",
+    "fr": "Connexion annulée par l’utilisateur.",
+    "it": "Connessione annullata dall’utente.",
+    "ja": "ユーザが接続をキャンセルしました。",
+    "pt-BR": "Conexão cancelada pelo usuário.",
+    "ru": "Подключение отменено пользователем.",
+    "zh-Hans": "用户已取消连接。"
+  },
+  "Connection timeout: %llds": {
+    "en": "Connection timeout: %llds",
+    "es": "Tiempo de espera de conexión: %lld s",
+    "fr": "Délai de connexion : %lld s",
+    "it": "Timeout connessione: %lld s",
+    "ja": "接続タイムアウト：%lld秒",
+    "pt-BR": "Tempo limite de conexão: %lld s",
+    "ru": "Тайм-аут подключения: %lld с",
+    "zh-Hans": "连接超时：%lld 秒"
+  },
+  "Credentials": {
+    "en": "Credentials",
+    "es": "Credenciales",
+    "fr": "Identifiants",
+    "it": "Credenziali",
+    "ja": "資格情報",
+    "pt-BR": "Credenciais",
+    "ru": "Учётные данные",
+    "zh-Hans": "凭证"
+  },
+  "Default": {
+    "en": "Default",
+    "es": "Por omisión",
+    "fr": "Par défaut",
+    "it": "Predefinita",
+    "ja": "デフォルト",
+    "pt-BR": "Padrão",
+    "ru": "По умолчанию",
+    "zh-Hans": "默认"
+  },
+  "Default follows Resolution in Settings. Fast, Balanced or Quality is this PC's own, and applies to its open window at once.": {
+    "en": "Default follows Resolution in Settings. Fast, Balanced or Quality is this PC's own, and applies to its open window at once.",
+    "es": "“Por omisión” sigue el ajuste “Resolución” de Ajustes. “Rápida”, “Equilibrada” o “Calidad” es un ajuste propio de este PC y se aplica al instante a su ventana abierta.",
+    "fr": "« Par défaut » suit « Résolution » dans Réglages. « Rapide », « Équilibré » ou « Qualité » est propre à ce PC et s’applique aussitôt à sa fenêtre ouverte.",
+    "it": "“Predefinita” segue “Risoluzione” in Impostazioni. “Veloce”, “Bilanciata” o “Qualità” è una scelta propria di questo PC e si applica subito alla sua finestra aperta.",
+    "ja": "「デフォルト」は「設定」の「解像度」に従います。「高速」「バランス」「高画質」はこのPC独自の設定で、開いているウインドウにすぐに適用されます。",
+    "pt-BR": "Padrão segue a Resolução nos Ajustes. Rápida, Equilibrada ou Qualidade vale apenas para este PC e se aplica imediatamente à janela aberta dele.",
+    "ru": "«По умолчанию» следует параметру «Разрешение» в Настройках. «Скорость», «Баланс» или «Качество» задаются для этого ПК и сразу применяются к его открытому окну.",
+    "zh-Hans": "“默认”跟随“设置”中的“分辨率”。“快速”、“均衡”或“高质量”是此电脑自己的设置，并会立即应用到其已打开的窗口。"
+  },
+  "Defaults for New PCs": {
+    "en": "Defaults for New PCs",
+    "es": "Valores por omisión para PC nuevos",
+    "fr": "Réglages par défaut des nouveaux PC",
+    "it": "Valori predefiniti per i nuovi PC",
+    "ja": "新規PCのデフォルト",
+    "pt-BR": "Padrões para Novos PCs",
+    "ru": "Настройки для новых ПК",
+    "zh-Hans": "新电脑的默认设置"
+  },
+  "Delete": {
+    "en": "Delete",
+    "es": "Eliminar",
+    "fr": "Supprimer",
+    "it": "Elimina",
+    "ja": "削除",
+    "pt-BR": "Apagar",
+    "ru": "Удалить",
+    "zh-Hans": "删除"
+  },
+  "Delete the selected PC": {
+    "en": "Delete the selected PC",
+    "es": "Eliminar el PC seleccionado",
+    "fr": "Supprimer le PC sélectionné",
+    "it": "Elimina il PC selezionato",
+    "ja": "選択したPCを削除",
+    "pt-BR": "Apagar o PC selecionado",
+    "ru": "Удалить выбранный ПК",
+    "zh-Hans": "删除所选电脑"
+  },
+  "Delete “%@”?": {
+    "en": "Delete “%@”?",
+    "es": "¿Eliminar “%@”?",
+    "fr": "Supprimer « %@ » ?",
+    "it": "Vuoi eliminare “%@”?",
+    "ja": "「%@」を削除しますか？",
+    "pt-BR": "Apagar “%@”?",
+    "ru": "Удалить ПК «%@»?",
+    "zh-Hans": "删除“%@”？"
+  },
+  "Delete…": {
+    "en": "Delete…",
+    "es": "Eliminar…",
+    "fr": "Supprimer…",
+    "it": "Elimina…",
+    "ja": "削除…",
+    "pt-BR": "Apagar…",
+    "ru": "Удалить…",
+    "zh-Hans": "删除…"
+  },
+  "Disconnect": {
+    "en": "Disconnect",
+    "es": "Desconectar",
+    "fr": "Déconnecter",
+    "it": "Disconnetti",
+    "ja": "接続解除",
+    "pt-BR": "Desconectar",
+    "ru": "Отключиться",
+    "zh-Hans": "断开连接"
+  },
+  "Disconnected": {
+    "en": "Disconnected",
+    "es": "Desconectado",
+    "fr": "Déconnecté",
+    "it": "Disconnesso",
+    "ja": "接続解除済み",
+    "pt-BR": "Desconectado",
+    "ru": "Отключено",
+    "zh-Hans": "已断开连接"
+  },
+  "Display %lld — %@ × %@": {
+    "en": "Display %lld — %@ × %@",
+    "es": "Pantalla %lld — %@ × %@",
+    "fr": "Écran %lld — %@ × %@",
+    "it": "Monitor %lld — %@ × %@",
+    "ja": "ディスプレイ%lld — %@ × %@",
+    "pt-BR": "Monitor %lld — %@ × %@",
+    "ru": "Дисплей %1$lld — %2$@ × %3$@",
+    "zh-Hans": "显示器 %lld（%@ × %@）"
+  },
+  "Display %lld — %@ × %@ (Primary)": {
+    "en": "Display %lld — %@ × %@ (Primary)",
+    "es": "Pantalla %lld — %@ × %@ (principal)",
+    "fr": "Écran %lld — %@ × %@ (principal)",
+    "it": "Monitor %lld — %@ × %@ (principale)",
+    "ja": "ディスプレイ%lld — %@ × %@（メイン）",
+    "pt-BR": "Monitor %lld — %@ × %@ (Principal)",
+    "ru": "Дисплей %1$lld — %2$@ × %3$@ (основной)",
+    "zh-Hans": "显示器 %lld（%@ × %@，主显示器）"
+  },
+  "Displays": {
+    "en": "Displays",
+    "es": "Pantallas",
+    "fr": "Écrans",
+    "it": "Monitor",
+    "ja": "ディスプレイ",
+    "pt-BR": "Monitores",
+    "ru": "Дисплеи",
+    "zh-Hans": "显示器"
+  },
+  "Domain": {
+    "en": "Domain",
+    "es": "Dominio",
+    "fr": "Domaine",
+    "it": "Dominio",
+    "ja": "ドメイン",
+    "pt-BR": "Domínio",
+    "ru": "Домен",
+    "zh-Hans": "域"
+  },
+  "Duplicate": {
+    "en": "Duplicate",
+    "es": "Duplicar",
+    "fr": "Dupliquer",
+    "it": "Duplica",
+    "ja": "複製",
+    "pt-BR": "Duplicar",
+    "ru": "Дублировать",
+    "zh-Hans": "复制"
+  },
+  "Duplicate the selected PC": {
+    "en": "Duplicate the selected PC",
+    "es": "Duplicar el PC seleccionado",
+    "fr": "Dupliquer le PC sélectionné",
+    "it": "Duplica il PC selezionato",
+    "ja": "選択したPCを複製",
+    "pt-BR": "Duplicar o PC selecionado",
+    "ru": "Дублировать выбранный ПК",
+    "zh-Hans": "复制所选电脑"
+  },
+  "Edit PC": {
+    "en": "Edit PC",
+    "es": "Editar PC",
+    "fr": "Modifier le PC",
+    "it": "Modifica PC",
+    "ja": "PCを編集",
+    "pt-BR": "Editar PC",
+    "ru": "Изменить ПК",
+    "zh-Hans": "编辑电脑"
+  },
+  "Edit the selected PC": {
+    "en": "Edit the selected PC",
+    "es": "Editar el PC seleccionado",
+    "fr": "Modifier le PC sélectionné",
+    "it": "Modifica il PC selezionato",
+    "ja": "選択したPCを編集",
+    "pt-BR": "Editar o PC selecionado",
+    "ru": "Изменить выбранный ПК",
+    "zh-Hans": "编辑所选电脑"
+  },
+  "Edit…": {
+    "en": "Edit…",
+    "es": "Editar…",
+    "fr": "Modifier…",
+    "it": "Modifica…",
+    "ja": "編集…",
+    "pt-BR": "Editar…",
+    "ru": "Изменить…",
+    "zh-Hans": "编辑…"
+  },
+  "Fast": {
+    "en": "Fast",
+    "es": "Rápida",
+    "fr": "Rapide",
+    "it": "Veloce",
+    "ja": "高速",
+    "pt-BR": "Rápida",
+    "ru": "Скорость",
+    "zh-Hans": "快速"
+  },
+  "Host": {
+    "en": "Host",
+    "es": "Host",
+    "fr": "Hôte",
+    "it": "Host",
+    "ja": "ホスト",
+    "pt-BR": "Host",
+    "ru": "Хост",
+    "zh-Hans": "主机"
+  },
+  "Its saved password is removed from your Keychain too, unless another PC remembers the same sign-in. This cannot be undone.": {
+    "en": "Its saved password is removed from your Keychain too, unless another PC remembers the same sign-in. This cannot be undone.",
+    "es": "Su contraseña guardada también se elimina de tu llavero, salvo que otro PC recuerde el mismo inicio de sesión. Esta acción no se puede deshacer.",
+    "fr": "Son mot de passe enregistré est aussi supprimé de votre trousseau, sauf si un autre PC mémorise les mêmes identifiants. Cette action est irréversible.",
+    "it": "Anche la password salvata viene rimossa dal portachiavi, a meno che un altro PC non ricordi gli stessi dati di accesso. Non puoi annullare questa azione.",
+    "ja": "別のPCが同じサインイン情報を記憶していない限り、保存されているパスワードもキーチェーンから削除されます。この操作は取り消せません。",
+    "pt-BR": "A senha salva deste PC também é removida das suas Chaves, a menos que outro PC lembre as mesmas credenciais de início de sessão. Esta ação não pode ser desfeita.",
+    "ru": "Его сохранённый пароль также удаляется из Связки ключей, если тот же вход не запоминает другой ПК. Это действие нельзя отменить.",
+    "zh-Hans": "其存储的密码也会从你的钥匙串中移除，除非另一台电脑记住了相同的登录信息。此操作无法撤销。"
+  },
+  "Language": {
+    "en": "Language",
+    "es": "Idioma",
+    "fr": "Langue",
+    "it": "Lingua",
+    "ja": "言語",
+    "pt-BR": "Idioma",
+    "ru": "Язык",
+    "zh-Hans": "语言"
+  },
+  "Last used %@": {
+    "en": "Last used %@",
+    "es": "Último uso: %@",
+    "fr": "Dernière utilisation : %@",
+    "it": "Ultimo utilizzo: %@",
+    "ja": "最終使用：%@",
+    "pt-BR": "Último uso %@",
+    "ru": "Последнее подключение: %@",
+    "zh-Hans": "上次使用：%@"
+  },
+  "Later": {
+    "en": "Later",
+    "es": "Más tarde",
+    "fr": "Plus tard",
+    "it": "Più tardi",
+    "ja": "あとで",
+    "pt-BR": "Mais Tarde",
+    "ru": "Позже",
+    "zh-Hans": "稍后"
+  },
+  "Match Window Size": {
+    "en": "Match Window Size",
+    "es": "Ajustar al tamaño de la ventana",
+    "fr": "Adapter à la taille de la fenêtre",
+    "it": "Adatta alle dimensioni della finestra",
+    "ja": "ウインドウサイズに合わせる",
+    "pt-BR": "Ajustar ao Tamanho da Janela",
+    "ru": "По размеру окна",
+    "zh-Hans": "匹配窗口大小"
+  },
+  "Name": {
+    "en": "Name",
+    "es": "Nombre",
+    "fr": "Nom",
+    "it": "Nome",
+    "ja": "名前",
+    "pt-BR": "Nome",
+    "ru": "Имя",
+    "zh-Hans": "名称"
+  },
+  "New PC": {
+    "en": "New PC",
+    "es": "Nuevo PC",
+    "fr": "Nouveau PC",
+    "it": "Nuovo PC",
+    "ja": "新規PC",
+    "pt-BR": "Novo PC",
+    "ru": "Новый ПК",
+    "zh-Hans": "新电脑"
+  },
+  "No PCs Yet": {
+    "en": "No PCs Yet",
+    "es": "Aún no hay ningún PC",
+    "fr": "Aucun PC pour l’instant",
+    "it": "Ancora nessun PC",
+    "ja": "PCがまだありません",
+    "pt-BR": "Ainda Não Há PCs",
+    "ru": "ПК пока нет",
+    "zh-Hans": "尚无电脑"
+  },
+  "Optional": {
+    "en": "Optional",
+    "es": "Opcional",
+    "fr": "Facultatif",
+    "it": "Facoltativo",
+    "ja": "任意",
+    "pt-BR": "Opcional",
+    "ru": "Необязательно",
+    "zh-Hans": "可选"
+  },
+  "Optional, e.g. Build Server": {
+    "en": "Optional, e.g. Build Server",
+    "es": "Opcional, p. ej., Servidor de compilación",
+    "fr": "Facultatif, p. ex. Serveur de compilation",
+    "it": "Facoltativo, ad es. Server di build",
+    "ja": "任意（例：ビルドサーバ）",
+    "pt-BR": "Opcional, ex.: Servidor de Compilação",
+    "ru": "Необязательно, например Build Server",
+    "zh-Hans": "可选，例如“构建服务器”"
+  },
+  "Options": {
+    "en": "Options",
+    "es": "Opciones",
+    "fr": "Options",
+    "it": "Opzioni",
+    "ja": "オプション",
+    "pt-BR": "Opções",
+    "ru": "Параметры",
+    "zh-Hans": "选项"
+  },
+  "PC": {
+    "en": "PC",
+    "es": "PC",
+    "fr": "PC",
+    "it": "PC",
+    "ja": "PC",
+    "pt-BR": "PC",
+    "ru": "ПК",
+    "zh-Hans": "电脑"
+  },
+  "Password": {
+    "en": "Password",
+    "es": "Contraseña",
+    "fr": "Mot de passe",
+    "it": "Password",
+    "ja": "パスワード",
+    "pt-BR": "Senha",
+    "ru": "Пароль",
+    "zh-Hans": "密码"
+  },
+  "Performance Overlay": {
+    "en": "Performance Overlay",
+    "es": "Superposición de rendimiento",
+    "fr": "Superposition des performances",
+    "it": "Overlay prestazioni",
+    "ja": "パフォーマンスオーバーレイ",
+    "pt-BR": "Sobreposição de Desempenho",
+    "ru": "Индикатор производительности",
+    "zh-Hans": "性能叠加层"
+  },
+  "Play remote audio": {
+    "en": "Play remote audio",
+    "es": "Reproducir audio remoto",
+    "fr": "Lire l’audio distant",
+    "it": "Riproduci audio remoto",
+    "ja": "リモートオーディオを再生",
+    "pt-BR": "Reproduzir áudio remoto",
+    "ru": "Воспроизводить звук удалённого ПК",
+    "zh-Hans": "播放远程音频"
+  },
+  "Port": {
+    "en": "Port",
+    "es": "Puerto",
+    "fr": "Port",
+    "it": "Porta",
+    "ja": "ポート",
+    "pt-BR": "Porta",
+    "ru": "Порт",
+    "zh-Hans": "端口"
+  },
+  "Port must be a number between 1 and 65535.": {
+    "en": "Port must be a number between 1 and 65535.",
+    "es": "El puerto debe ser un número entre 1 y 65535.",
+    "fr": "Le port doit être un nombre compris entre 1 et 65535.",
+    "it": "La porta deve essere un numero compreso tra 1 e 65535.",
+    "ja": "ポートには1から65535までの数値を入力してください。",
+    "pt-BR": "A porta deve ser um número entre 1 e 65535.",
+    "ru": "Порт должен быть числом от 1 до 65535.",
+    "zh-Hans": "端口必须是 1 到 65535 之间的数字。"
+  },
+  "Quality": {
+    "en": "Quality",
+    "es": "Calidad",
+    "fr": "Qualité",
+    "it": "Qualità",
+    "ja": "高画質",
+    "pt-BR": "Qualidade",
+    "ru": "Качество",
+    "zh-Hans": "高质量"
+  },
+  "Quality asks for every pixel of the window. Balanced asks for up to 1.5 times its size in points, and Fast for its size in points; both are scaled up to fit. On a Retina display, Fast is a quarter of the pixels for the server to encode and send. This applies to every PC left at Default in its own settings, while its desktop follows the window on a Retina (HiDPI) display.": {
+    "en": "Quality asks for every pixel of the window. Balanced asks for up to 1.5 times its size in points, and Fast for its size in points; both are scaled up to fit. On a Retina display, Fast is a quarter of the pixels for the server to encode and send. This applies to every PC left at Default in its own settings, while its desktop follows the window on a Retina (HiDPI) display.",
+    "es": "“Calidad” solicita todos los píxeles de la ventana. “Equilibrada” solicita hasta 1,5 veces su tamaño en puntos, y “Rápida”, su tamaño en puntos; en ambos casos se amplía para ajustarse. En una pantalla Retina, con “Rápida” el servidor tiene que codificar y enviar una cuarta parte de los píxeles. Esto se aplica a todos los PC que tengan “Por omisión” en sus propios ajustes, mientras su escritorio siga la ventana en una pantalla Retina (HiDPI).",
+    "fr": "« Qualité » demande chaque pixel de la fenêtre. « Équilibré » demande jusqu’à 1,5 fois sa taille en points, et « Rapide » sa taille en points ; dans les deux cas, l’image est agrandie pour s’ajuster. Sur un écran Retina, « Rapide » représente un quart des pixels à encoder et à envoyer pour le serveur. Ce réglage s’applique à chaque PC laissé sur « Par défaut » dans ses propres réglages, tant que son bureau suit la fenêtre sur un écran Retina (HiDPI).",
+    "it": "“Qualità” richiede tutti i pixel della finestra. “Bilanciata” richiede fino a 1,5 volte le dimensioni della finestra in punti e “Veloce” le sue dimensioni in punti; entrambe vengono ingrandite per adattarsi. Su un display Retina, “Veloce” corrisponde a un quarto dei pixel da codificare e inviare per il server. Questa scelta si applica a ogni PC lasciato su “Predefinita” nelle proprie impostazioni, mentre il suo desktop segue la finestra su un display Retina (HiDPI).",
+    "ja": "「高画質」はウインドウのすべてのピクセルを要求します。「バランス」はウインドウのポイント単位のサイズの最大1.5倍を、「高速」はポイント単位のサイズを要求し、どちらもウインドウに合わせて拡大されます。Retinaディスプレイでは、「高速」ではサーバがエンコードして送信するピクセル数が4分の1になります。この設定は、PC自体の設定で「デフォルト」のままにしているすべてのPCに、Retina（HiDPI）ディスプレイでデスクトップがウインドウに追従している間適用されます。",
+    "pt-BR": "Qualidade pede todos os pixels da janela. Equilibrada pede até 1,5 vez o tamanho dela em pontos, e Rápida, o tamanho dela em pontos; ambas são ampliadas para caber. Em uma tela Retina, Rápida é um quarto dos pixels para o servidor codificar e enviar. Isso se aplica a todo PC deixado em Padrão nos próprios ajustes, enquanto a área de trabalho dele acompanha a janela em uma tela Retina (HiDPI).",
+    "ru": "«Качество» запрашивает каждый пиксель окна. «Баланс» — до полутора размеров окна в точках, а «Скорость» — его размер в точках; в обоих случаях изображение растягивается по окну. На дисплее Retina «Скорость» — это четверть пикселей, которые серверу нужно закодировать и отправить. Это действует для каждого ПК, у которого в собственных настройках выбрано «По умолчанию», пока его рабочий стол следует за окном на дисплее Retina (HiDPI).",
+    "zh-Hans": "“高质量”会请求窗口的每一个像素。“均衡”最多请求窗口以点为单位的尺寸的 1.5 倍，“快速”则请求窗口以点为单位的尺寸；两者都会放大以适合窗口。在 Retina 显示屏上，“快速”只需服务器编码和发送四分之一的像素。此设置适用于在自身设置中保持“默认”的每台电脑，在其桌面于 Retina（HiDPI）显示屏上跟随窗口期间生效。"
+  },
+  "RDPeek shows a new language once it is opened again.": {
+    "en": "RDPeek shows a new language once it is opened again.",
+    "es": "RDPeek muestra un nuevo idioma cuando se vuelve a abrir.",
+    "fr": "RDPeek s’affiche dans une nouvelle langue une fois rouvert.",
+    "it": "RDPeek mostra una nuova lingua dopo essere stato riaperto.",
+    "ja": "新しい言語は、RDPeekをもう一度開くと表示されます。",
+    "pt-BR": "O RDPeek mostra um novo idioma quando é aberto novamente.",
+    "ru": "RDPeek перейдёт на новый язык после перезапуска.",
+    "zh-Hans": "RDPeek 重新打开后才会显示新语言。"
+  },
+  "Recently Used": {
+    "en": "Recently Used",
+    "es": "Uso reciente",
+    "fr": "Utilisation récente",
+    "it": "Usati di recente",
+    "ja": "最近使用した順",
+    "pt-BR": "Uso Recente",
+    "ru": "Недавно использованные",
+    "zh-Hans": "最近使用"
+  },
+  "Reconnect": {
+    "en": "Reconnect",
+    "es": "Volver a conectar",
+    "fr": "Reconnecter",
+    "it": "Riconnetti",
+    "ja": "再接続",
+    "pt-BR": "Reconectar",
+    "ru": "Подключиться снова",
+    "zh-Hans": "重新连接"
+  },
+  "Reconnect a session that ended": {
+    "en": "Reconnect a session that ended",
+    "es": "Volver a conectar una sesión finalizada",
+    "fr": "Reconnecter une session terminée",
+    "it": "Riconnetti una sessione terminata",
+    "ja": "終了したセッションに再接続",
+    "pt-BR": "Reconectar uma sessão que terminou",
+    "ru": "Повторно подключить завершённый сеанс",
+    "zh-Hans": "重新连接已结束的会话"
+  },
+  "Remember password in Keychain": {
+    "en": "Remember password in Keychain",
+    "es": "Recordar contraseña en el llavero",
+    "fr": "Mémoriser le mot de passe dans le trousseau",
+    "it": "Ricorda password nel portachiavi",
+    "ja": "パスワードをキーチェーンに記憶",
+    "pt-BR": "Lembrar senha nas Chaves",
+    "ru": "Запомнить пароль в Связке ключей",
+    "zh-Hans": "在钥匙串中记住密码"
+  },
+  "Remote Audio": {
+    "en": "Remote Audio",
+    "es": "Audio remoto",
+    "fr": "Audio distant",
+    "it": "Audio remoto",
+    "ja": "リモートオーディオ",
+    "pt-BR": "Áudio Remoto",
+    "ru": "Звук удалённого ПК",
+    "zh-Hans": "远程音频"
+  },
+  "Remote Desktop": {
+    "en": "Remote Desktop",
+    "es": "Escritorio remoto",
+    "fr": "Bureau à distance",
+    "it": "Desktop remoto",
+    "ja": "リモートデスクトップ",
+    "pt-BR": "Área de Trabalho Remota",
+    "ru": "Удалённый рабочий стол",
+    "zh-Hans": "远程桌面"
+  },
+  "Reopen Now": {
+    "en": "Reopen Now",
+    "es": "Volver a abrir ahora",
+    "fr": "Rouvrir maintenant",
+    "it": "Riapri ora",
+    "ja": "今すぐ再度開く",
+    "pt-BR": "Reabrir Agora",
+    "ru": "Перезапустить",
+    "zh-Hans": "立即重新打开"
+  },
+  "Reopen RDPeek to Change Its Language?": {
+    "en": "Reopen RDPeek to Change Its Language?",
+    "es": "¿Volver a abrir RDPeek para cambiar su idioma?",
+    "fr": "Rouvrir RDPeek pour changer sa langue ?",
+    "it": "Vuoi riaprire RDPeek per cambiarne la lingua?",
+    "ja": "言語を変更するためにRDPeekを再度開きますか？",
+    "pt-BR": "Reabrir o RDPeek para Alterar o Idioma?",
+    "ru": "Перезапустить RDPeek, чтобы сменить язык?",
+    "zh-Hans": "要重新打开 RDPeek 以更改其语言吗？"
+  },
+  "Reopening RDPeek disconnects any open sessions and closes any PC being edited without saving it.": {
+    "en": "Reopening RDPeek disconnects any open sessions and closes any PC being edited without saving it.",
+    "es": "Al volver a abrir RDPeek se desconectan las sesiones abiertas y se cierra sin guardar cualquier PC que se esté editando.",
+    "fr": "La réouverture de RDPeek déconnecte les sessions ouvertes et ferme sans l’enregistrer tout PC en cours de modification.",
+    "it": "La riapertura di RDPeek disconnette le sessioni aperte e chiude senza salvarli i PC in fase di modifica.",
+    "ja": "RDPeekを再度開くと、開いているセッションはすべて接続解除され、編集中のPCは保存されずに閉じられます。",
+    "pt-BR": "Reabrir o RDPeek desconecta todas as sessões abertas e fecha qualquer PC em edição sem salvá-lo.",
+    "ru": "При повторном открытии RDPeek отключит все открытые сеансы и закроет редактор ПК без сохранения изменений.",
+    "zh-Hans": "重新打开 RDPeek 会断开所有已打开的会话，并在不存储的情况下关闭正在编辑的电脑。"
+  },
+  "Resolution": {
+    "en": "Resolution",
+    "es": "Resolución",
+    "fr": "Résolution",
+    "it": "Risoluzione",
+    "ja": "解像度",
+    "pt-BR": "Resolução",
+    "ru": "Разрешение",
+    "zh-Hans": "分辨率"
+  },
+  "SHA-256: %@": {
+    "en": "SHA-256: %@",
+    "es": "SHA-256: %@",
+    "fr": "SHA-256 : %@",
+    "it": "SHA-256: %@",
+    "ja": "SHA-256：%@",
+    "pt-BR": "SHA-256: %@",
+    "ru": "SHA-256: %@",
+    "zh-Hans": "SHA-256：%@"
+  },
+  "Save": {
+    "en": "Save",
+    "es": "Guardar",
+    "fr": "Enregistrer",
+    "it": "Salva",
+    "ja": "保存",
+    "pt-BR": "Salvar",
+    "ru": "Сохранить",
+    "zh-Hans": "存储"
+  },
+  "Save & Connect": {
+    "en": "Save & Connect",
+    "es": "Guardar y conectar",
+    "fr": "Enregistrer et se connecter",
+    "it": "Salva e connetti",
+    "ja": "保存して接続",
+    "pt-BR": "Salvar e Conectar",
+    "ru": "Сохранить и подключиться",
+    "zh-Hans": "存储并连接"
+  },
+  "Search devices": {
+    "en": "Search devices",
+    "es": "Buscar dispositivos",
+    "fr": "Rechercher des appareils",
+    "it": "Cerca dispositivi",
+    "ja": "デバイスを検索",
+    "pt-BR": "Buscar dispositivos",
+    "ru": "Поиск устройств",
+    "zh-Hans": "搜索设备"
+  },
+  "Select another PC": {
+    "en": "Select another PC",
+    "es": "Seleccionar otro PC",
+    "fr": "Sélectionner un autre PC",
+    "it": "Seleziona un altro PC",
+    "ja": "別のPCを選択",
+    "pt-BR": "Selecionar outro PC",
+    "ru": "Выбрать другой ПК",
+    "zh-Hans": "选择其他电脑"
+  },
+  "Session options": {
+    "en": "Session options",
+    "es": "Opciones de la sesión",
+    "fr": "Options de session",
+    "it": "Opzioni sessione",
+    "ja": "セッションオプション",
+    "pt-BR": "Opções da sessão",
+    "ru": "Параметры сеанса",
+    "zh-Hans": "会话选项"
+  },
+  "Settings": {
+    "en": "Settings",
+    "es": "Ajustes",
+    "fr": "Réglages",
+    "it": "Impostazioni",
+    "ja": "設定",
+    "pt-BR": "Ajustes",
+    "ru": "Настройки",
+    "zh-Hans": "设置"
+  },
+  "Share Clipboard": {
+    "en": "Share Clipboard",
+    "es": "Compartir portapapeles",
+    "fr": "Partager le presse-papiers",
+    "it": "Condividi appunti",
+    "ja": "クリップボードを共有",
+    "pt-BR": "Compartilhar Área de Transferência",
+    "ru": "Общий буфер обмена",
+    "zh-Hans": "共享剪贴板"
+  },
+  "Share Clipboard for %lld Seconds": {
+    "en": "Share Clipboard for %lld Seconds",
+    "es": {
+      "many": "Compartir portapapeles durante %lld segundos",
+      "one": "Compartir portapapeles durante %lld segundo",
+      "other": "Compartir portapapeles durante %lld segundos"
+    },
+    "fr": {
+      "many": "Partager le presse-papiers pendant %lld secondes",
+      "one": "Partager le presse-papiers pendant %lld seconde",
+      "other": "Partager le presse-papiers pendant %lld secondes"
+    },
+    "it": {
+      "many": "Condividi appunti per %lld secondi",
+      "one": "Condividi appunti per %lld secondo",
+      "other": "Condividi appunti per %lld secondi"
+    },
+    "ja": "%lld秒間クリップボードを共有",
+    "pt-BR": {
+      "many": "Compartilhar Área de Transferência por %lld Segundos",
+      "one": "Compartilhar Área de Transferência por %lld Segundo",
+      "other": "Compartilhar Área de Transferência por %lld Segundos"
+    },
+    "ru": {
+      "one": "Общий буфер обмена на %lld секунду",
+      "few": "Общий буфер обмена на %lld секунды",
+      "many": "Общий буфер обмена на %lld секунд",
+      "other": "Общий буфер обмена на %lld секунды"
+    },
+    "zh-Hans": "共享剪贴板 %lld 秒"
+  },
+  "Share clipboard": {
+    "en": "Share clipboard",
+    "es": "Compartir portapapeles",
+    "fr": "Partager le presse-papiers",
+    "it": "Condividi appunti",
+    "ja": "クリップボードを共有",
+    "pt-BR": "Compartilhar área de transferência",
+    "ru": "Общий буфер обмена",
+    "zh-Hans": "共享剪贴板"
+  },
+  "Sharing for %llds": {
+    "en": "Sharing for %llds",
+    "es": "Compartiendo durante %lld s",
+    "fr": "Partage encore %lld s",
+    "it": "Condivisione per %lld s",
+    "ja": "共有中（あと%lld秒）",
+    "pt-BR": "Compartilhando por %lld s",
+    "ru": "Общий доступ ещё %lld с",
+    "zh-Hans": "正在共享（还剩 %lld 秒）"
+  },
+  "Sort": {
+    "en": "Sort",
+    "es": "Ordenar",
+    "fr": "Trier",
+    "it": "Ordina",
+    "ja": "並べ替え",
+    "pt-BR": "Ordenar",
+    "ru": "Сортировка",
+    "zh-Hans": "排序"
+  },
+  "Sort By": {
+    "en": "Sort By",
+    "es": "Ordenar por",
+    "fr": "Trier par",
+    "it": "Ordina per",
+    "ja": "並べ替え",
+    "pt-BR": "Ordenar Por",
+    "ru": "Сортировка",
+    "zh-Hans": "排序方式"
+  },
+  "Sort devices": {
+    "en": "Sort devices",
+    "es": "Ordenar dispositivos",
+    "fr": "Trier les appareils",
+    "it": "Ordina dispositivi",
+    "ja": "デバイスを並べ替え",
+    "pt-BR": "Ordenar dispositivos",
+    "ru": "Сортировка устройств",
+    "zh-Hans": "对设备排序"
+  },
+  "Stats for Nerds": {
+    "en": "Stats for Nerds",
+    "es": "Estadísticas para nerds",
+    "fr": "Statistiques pour les geeks",
+    "it": "Statistiche per nerd",
+    "ja": "詳細統計情報",
+    "pt-BR": "Estatísticas para Nerds",
+    "ru": "Статистика для гиков",
+    "zh-Hans": "详细统计信息"
+  },
+  "Sync Clipboard Now": {
+    "en": "Sync Clipboard Now",
+    "es": "Sincronizar portapapeles ahora",
+    "fr": "Synchroniser le presse-papiers maintenant",
+    "it": "Sincronizza appunti ora",
+    "ja": "今すぐクリップボードを同期",
+    "pt-BR": "Sincronizar Área de Transferência Agora",
+    "ru": "Синхронизировать буфер обмена",
+    "zh-Hans": "立即同步剪贴板"
+  },
+  "System": {
+    "en": "System",
+    "es": "Sistema",
+    "fr": "Système",
+    "it": "Sistema",
+    "ja": "システム",
+    "pt-BR": "Sistema",
+    "ru": "Системный",
+    "zh-Hans": "跟随系统"
+  },
+  "These apply to PCs you add from now on. Existing PCs keep their own settings.": {
+    "en": "These apply to PCs you add from now on. Existing PCs keep their own settings.",
+    "es": "Se aplican a los PC que añadas a partir de ahora. Los PC existentes conservan sus propios ajustes.",
+    "fr": "Ces réglages s’appliquent aux PC que vous ajoutez à partir de maintenant. Les PC existants conservent leurs propres réglages.",
+    "it": "Si applicano ai PC che aggiungi da ora in poi. I PC esistenti mantengono le proprie impostazioni.",
+    "ja": "これらの設定は今後追加するPCに適用されます。既存のPCはそれぞれの設定を維持します。",
+    "pt-BR": "Estes padrões se aplicam aos PCs que você adicionar a partir de agora. Os PCs existentes mantêm os próprios ajustes.",
+    "ru": "Они применяются к ПК, которые вы добавите позже. У существующих ПК остаются свои настройки.",
+    "zh-Hans": "这些设置适用于你今后添加的电脑。现有电脑会保留其自己的设置。"
+  },
+  "This Mac does not trust the server's certificate. Trust it only if you expect it, such as a server's self-signed certificate.": {
+    "en": "This Mac does not trust the server's certificate. Trust it only if you expect it, such as a server's self-signed certificate.",
+    "es": "Este Mac no confía en el certificado del servidor. Confía en él solo si lo esperabas, como el certificado autofirmado de un servidor.",
+    "fr": "Ce Mac ne fait pas confiance au certificat du serveur. Ne lui faites confiance que si vous vous y attendez, par exemple s’il s’agit du certificat autosigné d’un serveur.",
+    "it": "Questo Mac non considera attendibile il certificato del server. Consideralo attendibile solo se te lo aspetti, ad esempio nel caso del certificato autofirmato di un server.",
+    "ja": "このMacはサーバの証明書を信頼していません。サーバの自己署名証明書など、想定している証明書である場合にのみ信頼してください。",
+    "pt-BR": "Este Mac não confia no certificado do servidor. Confie nele somente se você o esperava, como no caso do certificado autoassinado de um servidor.",
+    "ru": "Этот Mac не доверяет сертификату сервера. Доверяйте ему, только если ожидаете этого, например в случае самоподписанного сертификата сервера.",
+    "zh-Hans": "这台 Mac 不信任服务器的证书。仅当你预期会收到此证书（例如服务器的自签名证书）时才信任它。"
+  },
+  "Trust and Connect": {
+    "en": "Trust and Connect",
+    "es": "Confiar y conectar",
+    "fr": "Faire confiance et se connecter",
+    "it": "Considera attendibile e connetti",
+    "ja": "信頼して接続",
+    "pt-BR": "Confiar e Conectar",
+    "ru": "Доверять и подключиться",
+    "zh-Hans": "信任并连接"
+  },
+  "Untrusted Certificate": {
+    "en": "Untrusted Certificate",
+    "es": "Certificado no fiable",
+    "fr": "Certificat non fiable",
+    "it": "Certificato non attendibile",
+    "ja": "信頼されていない証明書",
+    "pt-BR": "Certificado Não Confiável",
+    "ru": "Недоверенный сертификат",
+    "zh-Hans": "不受信任的证书"
+  },
+  "Username": {
+    "en": "Username",
+    "es": "Nombre de usuario",
+    "fr": "Nom d’utilisateur",
+    "it": "Nome utente",
+    "ja": "ユーザ名",
+    "pt-BR": "Nome de usuário",
+    "ru": "Имя пользователя",
+    "zh-Hans": "用户名"
+  },
+  "hostname or IP address": {
+    "en": "hostname or IP address",
+    "es": "nombre de host o dirección IP",
+    "fr": "nom d’hôte ou adresse IP",
+    "it": "nome host o indirizzo IP",
+    "ja": "ホスト名またはIPアドレス",
+    "pt-BR": "nome do host ou endereço IP",
+    "ru": "имя хоста или IP-адрес",
+    "zh-Hans": "主机名或 IP 地址"
+  }
+}

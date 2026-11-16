@@ -31,8 +31,15 @@ export function FormSection({
   );
 }
 
-export function Row({ children }: { children: ReactNode }) {
-  return <div className="flex min-h-[34px] items-center justify-between gap-4 px-[10px] py-1">{children}</div>;
+/** A form row: label leading, control trailing. `wrap` lets a wide control drop below its label on a narrow page. */
+export function Row({ children, wrap = false }: { children: ReactNode; wrap?: boolean }) {
+  return (
+    <div
+      className={`flex min-h-[34px] items-center justify-between px-[10px] py-1 ${wrap ? "flex-wrap gap-x-4 gap-y-1.5" : "gap-4"}`}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function SwitchRow({
@@ -221,14 +228,14 @@ export function SegmentedRow<Value extends string>({
   }
 
   return (
-    <Row>
+    <Row wrap>
       <span id={labelId}>{label}</span>
       <div
         ref={groupRef}
         role="radiogroup"
         aria-labelledby={labelId}
         onKeyDown={handleKeyDown}
-        className="flex h-[22px] items-stretch rounded-[6px] bg-mac-field p-[1px]"
+        className="ml-auto flex h-[22px] items-stretch rounded-[6px] bg-mac-field p-[1px]"
       >
         {options.map((option, position) => {
           const selected = option.value === value;

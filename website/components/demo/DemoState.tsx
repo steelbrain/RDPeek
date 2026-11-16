@@ -8,6 +8,7 @@ import {
   type DemoDevice,
   type DeviceDraft,
 } from "@/lib/devices";
+import { useI18n } from "../I18n";
 
 export type SessionPhase = "connecting" | "active" | "ended" | "closed";
 
@@ -43,6 +44,7 @@ const TICK_SECONDS = 5;
 let nextDeviceNumber = 1;
 
 export function DemoProvider({ children }: { children: ReactNode }) {
+  const { ui } = useI18n();
   const [devices, setDevices] = useState(initialDevices);
   const [elapsed, setElapsed] = useState(0);
   const [session, setSession] = useState<SessionState>({
@@ -113,7 +115,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         const copy: DemoDevice = {
           ...original,
           id: `added-${nextDeviceNumber++}`,
-          name: `${displayName(original)} Copy`,
+          name: ui("%@ Copy", displayName(original)),
           hue: Math.random(),
           lastUsedAt: null,
         };
@@ -142,7 +144,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         setSession((current) => ({ ...current, phase: "closed" }));
       },
     }),
-    [devices, elapsed, session, connect],
+    [devices, elapsed, session, connect, ui],
   );
 
   return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>;

@@ -5,11 +5,13 @@ import {
   EMPTY_DRAFT,
   deviceGradient,
   displayName,
-  lastUsedText,
   monogram,
+  relativeTimeText,
   subtitle,
   type DemoDevice,
 } from "@/lib/devices";
+import { fill } from "@/lib/i18n/format";
+import { useI18n } from "../I18n";
 import { Logo } from "../Logo";
 import { DeviceEditorSheet } from "./DeviceEditorSheet";
 import { useDemo } from "./DemoState";
@@ -36,6 +38,7 @@ type EditorState = { mode: "new"; hue: number; key: number } | { mode: "edit"; i
  */
 export function ConnectionCenterWindow() {
   const demo = useDemo();
+  const { ui, demo: text, tag } = useI18n();
   const [query, setQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<SortOrder>("name");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -64,7 +67,7 @@ export function ConnectionCenterWindow() {
         if (b.lastUsedAt === null) return -1;
         return b.lastUsedAt - a.lastUsedAt;
       }
-      return displayName(a).localeCompare(displayName(b), undefined, { sensitivity: "base" });
+      return displayName(a).localeCompare(displayName(b), tag, { sensitivity: "base" });
     });
 
   function select(id: string | null) {
@@ -75,7 +78,7 @@ export function ConnectionCenterWindow() {
   function connect(device: DemoDevice) {
     setSelectedId(device.id);
     demo.connect(device);
-    setStatus(`Connecting to ${displayName(device)}. Its session window is in Sessions, further down.`);
+    setStatus(fill(text.grid.connecting, { name: displayName(device) }));
   }
 
   function openNewEditor() {
@@ -130,11 +133,11 @@ export function ConnectionCenterWindow() {
   const contextDevice = contextMenu ? demo.devices.find((device) => device.id === contextMenu.id) : undefined;
   const contextEntries: MenuEntry[] = contextDevice
     ? [
-        { type: "item", label: "Connect", onSelect: () => connect(contextDevice) },
-        { type: "item", label: "Edit…", onSelect: () => openEditEditor(contextDevice.id) },
-        { type: "item", label: "Duplicate", onSelect: () => demo.duplicateDevice(contextDevice.id) },
+        { type: "item", label: ui("Connect"), onSelect: () => connect(contextDevice) },
+        { type: "item", label: ui("Edit…"), onSelect: () => openEditEditor(contextDevice.id) },
+        { type: "item", label: ui("Duplicate"), onSelect: () => demo.duplicateDevice(contextDevice.id) },
         { type: "separator" },
-        { type: "item", label: "Delete…", destructive: true, onSelect: () => setPendingDeletion(contextDevice) },
+        { type: "item", label: ui("Delete…"), destructive: true, onSelect: () => setPendingDeletion(contextDevice) },
       ]
     : [];
 
@@ -146,12 +149,12 @@ export function ConnectionCenterWindow() {
         <div className="flex h-[52px] items-center gap-1.5 border-b border-mac-sep bg-mac-bar pl-[14px] pr-2.5">
           <TrafficLights />
           <span className="ml-3 mr-auto text-[13px] font-semibold max-[400px]:sr-only">RDPeek</span>
-          <ToolbarButton label="Add PC" onClick={openNewEditor}>
+          <ToolbarButton label={ui("Add PC")} onClick={openNewEditor}>
             <PlusIcon className="size-[15px]" />
           </ToolbarButton>
           <div className="relative">
             <ToolbarButton
-              label="Sort devices"
+              label={ui("Sort devices")}
               buttonRef={sortButtonRef}
               expanded={sortMenuOpen}
               onClick={() => setSortMenuOpen((open) => !open)}
@@ -160,16 +163,16 @@ export function ConnectionCenterWindow() {
             </ToolbarButton>
             {sortMenuOpen ? (
               <MacMenu
-                label="Sort"
+                label={ui("Sort")}
                 anchorRef={sortButtonRef}
                 onClose={() => setSortMenuOpen(false)}
                 className="right-0 top-full mt-1"
                 entries={[
-                  { type: "header", label: "Sort By" },
-                  { type: "item", label: "Name", checked: sortOrder === "name", onSelect: () => setSortOrder("name") },
+                  { type: "header", label: ui("Sort By") },
+                  { type: "item", label: ui("Name"), checked: sortOrder === "name", onSelect: () => setSortOrder("name") },
                   {
                     type: "item",
-                    label: "Recently Used",
+                    label: ui("Recently Used"),
                     checked: sortOrder === "recent",
                     onSelect: () => setSortOrder("recent"),
                   },
@@ -178,13 +181,13 @@ export function ConnectionCenterWindow() {
             ) : null}
           </div>
           <label className="relative ml-1 block w-[clamp(110px,28vw,210px)] max-[400px]:ml-2 max-[400px]:w-auto max-[400px]:flex-1">
-            <span className="sr-only">Search devices</span>
+            <span className="sr-only">{ui("Search devices")}</span>
             <SearchIcon className="pointer-events-none absolute left-2 top-1/2 size-[13px] -translate-y-1/2 text-mac-label-2" />
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search devices"
+              placeholder={ui("Search devices")}
               autoComplete="off"
               className="h-[28px] w-full rounded-[8px] bg-mac-field pl-7 pr-2 text-[13px] text-mac-label placeholder:text-mac-label-3 focus:outline-none focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--mac-accent)_45%,transparent)]"
             />
@@ -198,7 +201,7 @@ export function ConnectionCenterWindow() {
             <div
               ref={gridRef}
               role="listbox"
-              aria-label="Saved PCs"
+              aria-label={text.grid.savedPCs}
               aria-activedescendant={selectedId ? `device-${selectedId}` : undefined}
               tabIndex={0}
               onKeyDown={handleGridKeyDown}
@@ -230,15 +233,15 @@ export function ConnectionCenterWindow() {
             <div className="pointer-events-none absolute inset-0 grid place-items-center p-6 text-center">
               <div>
                 <SearchIcon className="mx-auto size-11 text-mac-label-2" />
-                <p className="mt-3 text-[17px] font-semibold">No Results for “{query.trim()}”</p>
-                <p className="mt-1 text-mac-label-2">Check the spelling or try a new search.</p>
+                <p className="mt-3 text-[17px] font-semibold">{fill(text.grid.noResults, { query: query.trim() })}</p>
+                <p className="mt-1 text-mac-label-2">{text.grid.noResultsHint}</p>
               </div>
             </div>
           ) : null}
 
           {contextMenu && contextDevice ? (
             <MacMenu
-              label={`${displayName(contextDevice)} actions`}
+              label={fill(text.grid.actions, { name: displayName(contextDevice) })}
               entries={contextEntries}
               onClose={() => setContextMenu(null)}
               style={{ left: Math.max(4, contextMenu.x), top: Math.max(4, contextMenu.y) }}
@@ -280,9 +283,7 @@ export function ConnectionCenterWindow() {
               onDelete={() => {
                 demo.deleteDevice(pendingDeletion.id);
                 if (demo.session.phase !== "closed" && demo.session.device.id === pendingDeletion.id) {
-                  setStatus(
-                    `Deleted “${displayName(pendingDeletion)}”. Its session window, under Sessions, stays open, as it does in the app.`,
-                  );
+                  setStatus(fill(text.grid.deleted, { name: displayName(pendingDeletion) }));
                 }
                 setPendingDeletion(null);
                 setSelectedId(null);
@@ -293,8 +294,7 @@ export function ConnectionCenterWindow() {
         </div>
       </div>
       <p className="mt-3 min-h-[1.5em] text-[14px] text-ink-3" aria-live="polite">
-        {status ??
-          "This is a working copy of the main window. Click a PC to select it and give it a new color, double-click it to connect, or right-click it."}
+        {status ?? text.grid.caption}
       </p>
     </div>
   );
@@ -348,8 +348,10 @@ function DeviceCard({
   onConnect: () => void;
   onContextMenu: (event: MouseEvent) => void;
 }) {
+  const { ui, tag } = useI18n();
   const name = displayName(device);
-  const lastUsed = device.lastUsedAt === null ? null : lastUsedText(elapsed - device.lastUsedAt);
+  const lastUsed =
+    device.lastUsedAt === null ? null : ui("Last used %@", relativeTimeText(elapsed - device.lastUsedAt, tag));
   return (
     <div
       id={`device-${device.id}`}
@@ -367,10 +369,10 @@ function DeviceCard({
       >
         <DisplayIcon className="absolute left-[calc(50%-18px)] top-[calc(50%-30px)] size-[92px] text-white/[0.14] [stroke-width:0.6]" />
         <span className="absolute inset-0 grid place-items-center font-rounded text-[34px] font-semibold text-white/[0.92] [text-shadow:0_2px_4px_rgba(0,0,0,0.25)] max-sm:text-[28px]">
-          {monogram(name)}
+          {monogram(name, ui("PC"))}
         </span>
         <span
-          title="Connect"
+          title={ui("Connect")}
           onClick={(event) => {
             event.stopPropagation();
             onConnect();
@@ -397,21 +399,22 @@ function DeviceCard({
 }
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
+  const { ui } = useI18n();
   return (
     <div className="grid min-h-[380px] place-items-center p-8 text-center">
       <div>
         <div className="mx-auto grid size-[132px] place-items-center rounded-full bg-[linear-gradient(to_bottom_right,color-mix(in_srgb,var(--mac-accent)_25%,transparent),color-mix(in_srgb,var(--mac-accent)_5%,transparent))]">
           <DisplayIcon className="size-[52px] text-mac-accent [stroke-width:1]" />
         </div>
-        <p className="mt-6 text-[22px] font-semibold">No PCs Yet</p>
-        <p className="mt-2 text-mac-label-2">Add your first PC to start a remote desktop session.</p>
+        <p className="mt-6 text-[22px] font-semibold">{ui("No PCs Yet")}</p>
+        <p className="mt-2 text-mac-label-2">{ui("Add your first PC to start a remote desktop session.")}</p>
         <button
           type="button"
           onClick={onAdd}
           className="mac-button mac-button-prominent mt-6 inline-flex h-[28px] min-w-[130px] items-center justify-center gap-1.5"
         >
           <PlusIcon className="size-3" />
-          Add PC
+          {ui("Add PC")}
         </button>
       </div>
     </div>
@@ -427,11 +430,13 @@ function DeleteAlert({
   onCancel: () => void;
   onDelete: () => void;
 }) {
+  const { ui } = useI18n();
+  const title = ui("Delete “%@”?", displayName(device));
   return (
     <div className="absolute inset-0 z-30 flex justify-center bg-black/15 px-2">
       <div
         role="alertdialog"
-        aria-label={`Delete “${displayName(device)}”?`}
+        aria-label={title}
         onKeyDown={(event) => {
           if (event.key === "Escape") onCancel();
         }}
@@ -440,14 +445,15 @@ function DeleteAlert({
         <div className="mx-auto w-fit">
           <Logo size={48} idPrefix="alert-logo" />
         </div>
-        <p className="mt-2.5 text-[13px] font-bold">Delete “{displayName(device)}”?</p>
+        <p className="mt-2.5 text-[13px] font-bold">{title}</p>
         <p className="mt-1.5 text-[11px] leading-snug">
-          Its saved password is removed from your Keychain too, unless another PC remembers the same sign-in. This
-          cannot be undone.
+          {ui(
+            "Its saved password is removed from your Keychain too, unless another PC remembers the same sign-in. This cannot be undone.",
+          )}
         </p>
         <div className="mt-4 grid gap-2">
           <button type="button" className="mac-button w-full text-mac-red" onClick={onDelete}>
-            Delete
+            {ui("Delete")}
           </button>
           <button
             type="button"
@@ -455,7 +461,7 @@ function DeleteAlert({
             onClick={onCancel}
             autoFocus
           >
-            Cancel
+            {ui("Cancel")}
           </button>
         </div>
       </div>

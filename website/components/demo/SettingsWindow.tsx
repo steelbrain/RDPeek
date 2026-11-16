@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { DEFAULT_RESOLUTION, DEFAULT_TIMEOUT, RESOLUTIONS, TIMEOUT_RANGE, type Resolution } from "@/lib/devices";
+import { fill } from "@/lib/i18n/format";
+import { useI18n } from "../I18n";
 import { Logo } from "../Logo";
 import { FormSection, PopUpRow, SegmentedRow, StepperRow, SwitchRow } from "./MacForm";
 import { TrafficLights } from "./MacUI";
@@ -27,10 +29,18 @@ type Language = (typeof LANGUAGES)[number]["value"];
 /** The language the page assumes RDPeek runs in: a Mac set to English. */
 const RUNNING_LANGUAGE: Language = "en";
 
-const RESOLUTION_OPTIONS = RESOLUTIONS.map(({ mode, title }) => ({ value: mode, title }));
+/** The page's language as the app's Language choice, so picking it, like English here, asks for no reopen. */
+const APP_LANGUAGES: Record<string, Language> = {
+  en: "en",
+  "zh-hans": "zh-Hans",
+  fr: "fr",
+  it: "it",
+  ja: "ja",
+  "pt-br": "pt-BR",
+  ru: "ru",
+  es: "es",
+};
 
-const UNTRUSTED_CERTIFICATES_HELP =
-  "Connect even when neither this Mac nor RDPeek trusts the server's certificate, and send your credentials without asking. Anyone able to intercept the connection could pose as the server and capture them. A certificate that replaced one you trusted is still refused.";
 
 /** The window the readout below Settings describes: 1440 × 900 points on a 2x (Retina) display. */
 const EXAMPLE_WINDOW = { width: 1440, height: 900, scale: 2 };
@@ -49,6 +59,9 @@ function requestScale(mode: Resolution, displayScale: number): number {
  * a new language.
  */
 export function SettingsWindow() {
+  const { ui, demo: text, locale } = useI18n();
+  // The app the page shows runs in the page's language: the Mac's, so System.
+  const runningLanguage = APP_LANGUAGES[locale] ?? RUNNING_LANGUAGE;
   const [language, setLanguage] = useState<Language>("system");
   const [offeringReopen, setOfferingReopen] = useState(false);
   const [reopenNote, setReopenNote] = useState<string | null>(null);
@@ -63,20 +76,33 @@ export function SettingsWindow() {
     setLanguage(next);
     setReopenNote(null);
     // Only a language other than the one RDPeek runs in needs it opened again.
-    const launchLanguage = next === "system" ? RUNNING_LANGUAGE : next;
-    setOfferingReopen(launchLanguage !== RUNNING_LANGUAGE);
+    const launchLanguage = next === "system" ? runningLanguage : next;
+    setOfferingReopen(launchLanguage !== runningLanguage);
   }
 
-  const languageTitle = LANGUAGES.find((option) => option.value === language)?.title ?? "";
+  const languageOptions = LANGUAGES.map((option) =>
+    option.value === "system" ? { ...option, title: ui("System") } : { ...option },
+  );
+  const languageTitle = languageOptions.find((option) => option.value === language)?.title ?? "";
+  const modeTitle = ui(RESOLUTIONS.find((option) => option.mode === resolution)?.title ?? "Quality");
   const scale = requestScale(resolution, EXAMPLE_WINDOW.scale);
   const requested = { width: EXAMPLE_WINDOW.width * scale, height: EXAMPLE_WINDOW.height * scale };
   const share = (scale * scale) / (EXAMPLE_WINDOW.scale * EXAMPLE_WINDOW.scale);
-  const readout =
+  const readoutTemplate =
     resolution === "quality"
-      ? `asks the server for a ${requested.width} × ${requested.height} desktop: every pixel of the window.`
-      : `asks the server for a ${requested.width} × ${requested.height} desktop, ${
-          share === 0.25 ? "a quarter" : `${Math.round(share * 100)}%`
-        } of the window’s pixels, and scales it up to fit.`;
+      ? text.settings.readoutQuality
+      : resolution === "fast"
+        ? text.settings.readoutFast
+        : text.settings.readoutBalanced;
+  // Sizes go in as text, so no locale groups their digits.
+  const readout = fill(readoutTemplate, {
+    mode: modeTitle,
+    width: String(EXAMPLE_WINDOW.width),
+    height: String(EXAMPLE_WINDOW.height),
+    requestedWidth: String(requested.width),
+    requestedHeight: String(requested.height),
+    percent: Math.round(share * 100),
+  }).replace(/ × /g, "\u00a0×\u00a0"); // keeps each size on one line
 
   return (
     <div>
@@ -84,24 +110,26 @@ export function SettingsWindow() {
         <div className="relative flex h-[28px] items-center px-[12px]">
           <TrafficLights />
           <span className="pointer-events-none absolute inset-x-0 text-center text-[13px] font-semibold">
-            RDPeek Settings
+            {text.settings.windowTitle}
           </span>
         </div>
 
         <div className="px-5 pb-5 pt-2">
-          <FormSection className="" footer="RDPeek shows a new language once it is opened again.">
-            <PopUpRow label="Language" value={language} options={[...LANGUAGES]} onChange={chooseLanguage} />
+          <FormSection className="" footer={ui("RDPeek shows a new language once it is opened again.")}>
+            <PopUpRow label={ui("Language")} value={language} options={languageOptions} onChange={chooseLanguage} />
           </FormSection>
 
           <FormSection
             className="mt-4"
-            title="Remote Desktop"
-            footer="Quality asks for every pixel of the window. Balanced asks for up to 1.5 times its size in points, and Fast for its size in points; both are scaled up to fit. On a Retina display, Fast is a quarter of the pixels for the server to encode and send. This applies to every PC left at Default in its own settings, while its desktop follows the window on a Retina (HiDPI) display."
+            title={ui("Remote Desktop")}
+            footer={ui(
+              "Quality asks for every pixel of the window. Balanced asks for up to 1.5 times its size in points, and Fast for its size in points; both are scaled up to fit. On a Retina display, Fast is a quarter of the pixels for the server to encode and send. This applies to every PC left at Default in its own settings, while its desktop follows the window on a Retina (HiDPI) display.",
+            )}
           >
             <SegmentedRow
-              label="Resolution"
+              label={ui("Resolution")}
               value={resolution}
-              options={RESOLUTION_OPTIONS}
+              options={RESOLUTIONS.map(({ mode, title }) => ({ value: mode, title: ui(title) }))}
               onChange={(next) => {
                 setResolution(next);
                 setReopenNote(null);
@@ -111,24 +139,26 @@ export function SettingsWindow() {
 
           <FormSection
             className="mt-4"
-            title="Defaults for New PCs"
-            footer="These apply to PCs you add from now on. Existing PCs keep their own settings."
+            title={ui("Defaults for New PCs")}
+            footer={ui("These apply to PCs you add from now on. Existing PCs keep their own settings.")}
           >
-            <SwitchRow label="Share clipboard" checked={clipboard} onChange={setClipboard} />
-            <SwitchRow label="Play remote audio" checked={audio} onChange={setAudio} />
+            <SwitchRow label={ui("Share clipboard")} checked={clipboard} onChange={setClipboard} />
+            <SwitchRow label={ui("Play remote audio")} checked={audio} onChange={setAudio} />
             <SwitchRow
-              label="Accept untrusted certificates"
+              label={ui("Accept untrusted certificates")}
               checked={acceptUntrusted}
               onChange={setAcceptUntrusted}
-              help={UNTRUSTED_CERTIFICATES_HELP}
+              help={ui(
+                "Connect even when neither this Mac nor RDPeek trusts the server's certificate, and send your credentials without asking. Anyone able to intercept the connection could pose as the server and capture them. A certificate that replaced one you trusted is still refused.",
+              )}
             />
             <StepperRow
-              label={`Connection timeout: ${timeout}s`}
+              label={ui("Connection timeout: %llds", timeout)}
               value={timeout}
               range={TIMEOUT_RANGE}
               onChange={setTimeoutSeconds}
-              increaseLabel="Increase the default connection timeout"
-              decreaseLabel="Decrease the default connection timeout"
+              increaseLabel={text.settings.increaseTimeout}
+              decreaseLabel={text.settings.decreaseTimeout}
             />
           </FormSection>
         </div>
@@ -137,7 +167,7 @@ export function SettingsWindow() {
           <ReopenAlert
             onReopen={() => {
               setOfferingReopen(false);
-              setReopenNote(`In the app, RDPeek would now quit and open again in ${languageTitle}.`);
+              setReopenNote(fill(text.settings.reopenNote, { language: languageTitle }));
             }}
             onLater={() => setOfferingReopen(false)}
           />
@@ -145,23 +175,20 @@ export function SettingsWindow() {
       </div>
 
       <p className="mt-3 max-w-[440px] text-[14px] leading-[1.5] text-ink-3" aria-live="polite">
-        {reopenNote ?? (
-          <>
-            With {RESOLUTIONS.find((option) => option.mode === resolution)?.title}, a session window of{" "}
-            {EXAMPLE_WINDOW.width} × {EXAMPLE_WINDOW.height} points on a Retina display {readout}
-          </>
-        )}
+        {reopenNote ?? readout}
       </p>
     </div>
   );
 }
 
 function ReopenAlert({ onReopen, onLater }: { onReopen: () => void; onLater: () => void }) {
+  const { ui } = useI18n();
+  const title = ui("Reopen RDPeek to Change Its Language?");
   return (
     <div className="absolute inset-x-0 bottom-0 top-[28px] z-30 flex justify-center bg-black/15 px-2">
       <div
         role="alertdialog"
-        aria-label="Reopen RDPeek to Change Its Language?"
+        aria-label={title}
         onKeyDown={(event) => {
           if (event.key === "Escape") onLater();
         }}
@@ -170,16 +197,16 @@ function ReopenAlert({ onReopen, onLater }: { onReopen: () => void; onLater: () 
         <div className="mx-auto w-fit">
           <Logo size={48} idPrefix="reopen-alert-logo" />
         </div>
-        <p className="mt-2.5 text-[13px] font-bold">Reopen RDPeek to Change Its Language?</p>
+        <p className="mt-2.5 text-[13px] font-bold">{title}</p>
         <p className="mt-1.5 text-[11px] leading-snug">
-          Reopening RDPeek disconnects any open sessions and closes any PC being edited without saving it.
+          {ui("Reopening RDPeek disconnects any open sessions and closes any PC being edited without saving it.")}
         </p>
         <div className="mt-4 grid gap-2">
           <button type="button" className="mac-button mac-button-prominent w-full" onClick={onReopen} autoFocus>
-            Reopen Now
+            {ui("Reopen Now")}
           </button>
           <button type="button" className="mac-button w-full" onClick={onLater}>
-            Later
+            {ui("Later")}
           </button>
         </div>
       </div>

@@ -14,7 +14,7 @@ export interface RemoteDisplay {
 export type Resolution = "fast" | "balanced" | "quality";
 
 /** The modes in the app's order (SessionQualityMode.allCases), with their titles. */
-export const RESOLUTIONS: { mode: Resolution; title: string }[] = [
+export const RESOLUTIONS: { mode: Resolution; title: "Fast" | "Balanced" | "Quality" }[] = [
   { mode: "fast", title: "Fast" },
   { mode: "balanced", title: "Balanced" },
   { mode: "quality", title: "Quality" },
@@ -193,15 +193,15 @@ export function hostLabel(fields: Pick<DemoDevice, "host" | "port">): string {
   return fields.port === DEFAULT_PORT ? fields.host : `${fields.host}:${fields.port}`;
 }
 
-/** Up to two initials, e.g. "Build Server" -> "BS"; "PC" when there are none. */
-export function monogram(name: string): string {
+/** Up to two initials, e.g. "Build Server" -> "BS"; the app's "PC" when there are none. */
+export function monogram(name: string, fallback = "PC"): string {
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((word) => Array.from(word)[0] ?? "")
     .join("");
-  return initials ? initials.toUpperCase() : "PC";
+  return initials ? initials.toUpperCase() : fallback;
 }
 
 function hsbToHex(hue: number, saturation: number, brightness: number): string {
@@ -227,14 +227,18 @@ export function deviceGradient(hue: number): string {
   return `linear-gradient(to bottom right, ${hsbToHex(hue, 0.6, 0.94)}, ${hsbToHex(hue + 0.05, 0.8, 0.62)})`;
 }
 
-/** RelativeDateTimeFormatter with the short units style, as "Last used …" shows it. */
-export function lastUsedText(secondsAgo: number): string {
+/**
+ * RelativeDateTimeFormatter with the short units style, in the page's
+ * language, as "Last used …" shows it: "5 min. ago" in English.
+ */
+export function relativeTimeText(secondsAgo: number, localeTag: string): string {
+  const format = new Intl.RelativeTimeFormat(localeTag, { style: "short", numeric: "always" });
   const seconds = Math.max(1, Math.round(secondsAgo));
-  if (seconds < MINUTE) return `Last used ${seconds} sec. ago`;
-  if (seconds < HOUR) return `Last used ${Math.floor(seconds / MINUTE)} min. ago`;
-  if (seconds < DAY) return `Last used ${Math.floor(seconds / HOUR)} hr. ago`;
+  if (seconds < MINUTE) return format.format(-seconds, "second");
+  if (seconds < HOUR) return format.format(-Math.floor(seconds / MINUTE), "minute");
+  if (seconds < DAY) return format.format(-Math.floor(seconds / HOUR), "hour");
   const days = Math.floor(seconds / DAY);
-  if (days < 7) return `Last used ${days} ${days === 1 ? "day" : "days"} ago`;
-  if (days < 30) return `Last used ${Math.floor(days / 7)} wk. ago`;
-  return `Last used ${Math.floor(days / 30)} mo. ago`;
+  if (days < 7) return format.format(-days, "day");
+  if (days < 30) return format.format(-Math.floor(days / 7), "week");
+  return format.format(-Math.floor(days / 30), "month");
 }
