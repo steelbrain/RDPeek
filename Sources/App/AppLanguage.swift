@@ -54,6 +54,19 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         }
     }
 
+    /// The localization out of `localizations` the app would start in with
+    /// the languages macOS reads from `defaults` now: the one picked in
+    /// Settings, one System Settings set for the app, or the Mac's.
+    static func launchLocalization(
+        defaults: UserDefaults = .standard,
+        localizations: [String] = Bundle.main.localizations
+    ) -> String? {
+        Bundle.preferredLocalizations(
+            from: localizations,
+            forPreferences: defaults.stringArray(forKey: systemLanguagesKey)
+        ).first
+    }
+
     /// The locale numbers and dates in the app's own text are written in:
     /// the language the app runs in, whatever the Mac's region, so they
     /// read as the words around them do.

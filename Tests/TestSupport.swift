@@ -12,6 +12,13 @@ extension XCTestCase {
     /// process exits, so a deleted plist there comes back. Once the folder
     /// is gone, that write fails.
     func makeIsolatedDefaults() throws -> UserDefaults {
+        try makeIsolatedSuite().defaults
+    }
+
+    /// `makeIsolatedDefaults()` and its suite name: the suite's persistent
+    /// domain holds only what the test wrote, while the defaults read
+    /// through to the global and launch-argument domains.
+    func makeIsolatedSuite() throws -> (defaults: UserDefaults, name: String) {
         let folder = FileManager.default.temporaryDirectory
             .appendingPathComponent("rdpeek-tests.\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -22,7 +29,7 @@ extension XCTestCase {
             CFPreferencesAppSynchronize(suiteName as CFString)
             try? FileManager.default.removeItem(at: folder)
         }
-        return defaults
+        return (defaults, suiteName)
     }
 }
 

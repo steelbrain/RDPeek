@@ -14,6 +14,7 @@ struct SettingsView: View {
     private var qualityMode = SessionQualityMode.standard
     @State private var language = AppLanguage.current()
     @State private var isOfferingRelaunch = false
+    @State private var relaunchFailed = false
 
     var body: some View {
         Form {
@@ -74,7 +75,9 @@ struct SettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
         .onChange(of: language) { _, language in
             language.store()
-            isOfferingRelaunch = true
+            // Only a language other than the one RDPeek runs in needs it
+            // opened again, such as after Later and a change back.
+            isOfferingRelaunch = AppLanguage.launchLocalization() != Bundle.main.preferredLocalizations.first
         }
         .alert("Reopen RDPeek to Change Its Language?", isPresented: $isOfferingRelaunch) {
             Button("Reopen Now") {
@@ -82,21 +85,26 @@ struct SettingsView: View {
             }
             Button("Later", role: .cancel) {}
         } message: {
-            Text("Reopening disconnects the sessions that are open.")
+            Text("Reopening RDPeek disconnects any open sessions and closes any PC being edited without saving it.")
+        }
+        .alert("RDPeek Could Not Reopen", isPresented: $relaunchFailed) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Quit RDPeek and open it again to see its new language.")
         }
     }
 
     /// Opens the app again and quits this one once the new one is up, so a
-    /// launch that fails leaves this one running.
+    /// launch that fails leaves this one running, and says so.
     private func reopenApp() {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.createsNewApplicationInstance = true
-        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, error in
-            guard error == nil else {
-                return
-            }
-            Task { @MainActor in
+        Task {
+            do {
+                _ = try await NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration)
                 NSApp.terminate(nil)
+            } catch {
+                relaunchFailed = true
             }
         }
     }

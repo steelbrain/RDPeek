@@ -1477,12 +1477,32 @@
         }
       }
     },
+    "Quit RDPeek and open it again to see its new language." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Завершите RDPeek и откройте его снова, чтобы увидеть новый язык."
+          }
+        }
+      }
+    },
     "RDPeek" : {
       "localizations" : {
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "RDPeek"
+          }
+        }
+      }
+    },
+    "RDPeek Could Not Reopen" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось повторно открыть RDPeek"
           }
         }
       }
@@ -1877,12 +1897,12 @@
         }
       }
     },
-    "Reopening disconnects the sessions that are open." : {
+    "Reopening RDPeek disconnects any open sessions and closes any PC being edited without saving it." : {
       "localizations" : {
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "При перезапуске открытые сеансы будут отключены."
+            "value" : "При повторном открытии RDPeek отключит все открытые сеансы и закроет редактор ПК без сохранения изменений."
           }
         }
       }
