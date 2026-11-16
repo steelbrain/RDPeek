@@ -73,7 +73,7 @@ targets:
       - path: Sources/Session/SessionDisplayControlPolicy.swift
       - path: Sources/Session/SessionHUD.swift
       - path: Sources/Session/SessionModels.swift
-      - path: Sources/Session/SessionQualityMode.swift
+      - path: Sources/Session/SessionViewerSurface.swift
       - path: Sources/Session/SessionWindowPlacement.swift
       - path: Sources/Storage/DeviceProfileStore.swift
       - path: Sources/Storage/ClientLicenseStore.swift
@@ -81,6 +81,7 @@ targets:
       - path: Sources/Storage/KeychainCredentialStore.swift
       - path: Sources/Storage/KeychainQueue.swift
       - path: Sources/Storage/KeychainService.swift
+      - path: Sources/Storage/SessionQualityMode.swift
       - path: Sources/Storage/TrustedCertificateStore.swift
     dependencies:
       - package: RDPKit

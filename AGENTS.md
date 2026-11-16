@@ -20,7 +20,8 @@ Layer boundaries:
 - `Sources/Diagnostics` — the Stats for Nerds window.
 - `Sources/Storage` — device profiles (UserDefaults), credentials and
   client licenses (Keychain), the in-memory cache of passwords signed
-  in with or saved this app run, trusted certificates (UserDefaults).
+  in with or saved this app run, trusted certificates and the
+  Resolution choice (UserDefaults).
 
 The session core (`SessionViewController`) is adapted from RDPKit's
 example client; it runs each connection attempt on RDPKit's
