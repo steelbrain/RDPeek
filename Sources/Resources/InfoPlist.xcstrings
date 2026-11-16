@@ -46,10 +46,46 @@
             "value" : "RDPeek connects to the remote desktops you add on your local network."
           }
         },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RDPeek se conecta a los escritorios remotos de tu red local que añadas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RDPeek se connecte aux bureaux distants que vous ajoutez sur votre réseau local."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RDPeek si connette ai desktop remoti che aggiungi sulla tua rete locale."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RDPeekは、追加したローカルネットワーク上のリモートデスクトップに接続します。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O RDPeek se conecta às áreas de trabalho remotas que você adiciona na sua rede local."
+          }
+        },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "RDPeek подключается к добавленным вами удалённым рабочим столам в локальной сети."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RDPeek 会连接你添加的、位于本地网络上的远程桌面。"
           }
         }
       }

@@ -79,21 +79,23 @@ reference implementation.
   shown to the user is built with `String(localized:)`, as one whole
   sentence per case, never spliced from fragments, and numbers that are
   not counts (ports, display sizes, status codes) are interpolated as
-  `String`s so no locale groups their digits. Add the Russian wording
-  for every new string, and drop the entries of text that is gone. Stats
-  for Nerds and text from RDPKit stay in English, apart from a session's
-  status and end reason, which Stats shows as the session window does;
-  its own labels use `Text(verbatim:)` or English literals. The tests
-  run without the catalog, so they see the English keys. A new language
-  needs its translations in both catalogs, `CFBundleLocalizations` in
-  `project.yml`, a case on `AppLanguage`, and the localization gate below
-  checking it as it checks Russian.
+  `String`s so no locale groups their digits. Give every new string its
+  wording in each language the app has (`CFBundleLocalizations` in
+  `project.yml` lists them), and drop the entries of text that is gone.
+  Stats for Nerds and text from RDPKit stay in English, apart from a
+  session's status and end reason, which Stats shows as the session
+  window does; its own labels use `Text(verbatim:)` or English literals.
+  The tests run without the catalog, so they see the English keys. A new
+  language needs its translations in both catalogs, its code in
+  `CFBundleLocalizations`, which the localization gate below reads, and
+  a case on `AppLanguage`.
 - Localization gate: `Scripts/check-localizations.sh` (after `xcodegen
   generate`) must pass, as CI checks. It runs Xcode's string export and
-  fails on a string without Russian, an entry for text or an Info.plist
-  key that is gone, or an entry added by hand, then puts the catalogs back
-  as they were: the export re-sorts them, and their committed key order
-  stays. It builds into `DerivedData`, so clean that up as after a build.
+  fails on a string missing any of the app's languages, an entry for
+  text or an Info.plist key that is gone, or an entry added by hand,
+  then puts the catalogs back as they were: the export re-sorts them,
+  and their committed key order stays. It builds into `DerivedData`, so
+  clean that up as after a build.
 - App icon: the master artwork is `Sources/Resources/AppIcon.svg`
   (excluded from the app bundle); regenerate the asset catalog with
   `Sources/Resources/build-app-icon.sh`. The glyph is a custom path on

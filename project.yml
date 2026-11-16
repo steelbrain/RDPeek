@@ -38,8 +38,9 @@ targets:
         CFBundleDisplayName: RDPeek
         CFBundleDevelopmentRegion: en
         # The languages of Sources/Resources/Localizable.xcstrings, which
-        # Settings offers to switch between.
-        CFBundleLocalizations: [en, ru]
+        # Settings offers to switch between (AppLanguage) and
+        # Scripts/check-localizations.sh checks.
+        CFBundleLocalizations: [en, es, fr, it, ja, pt-BR, ru, zh-Hans]
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)

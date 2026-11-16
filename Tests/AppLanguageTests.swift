@@ -18,7 +18,7 @@ final class AppLanguageTests: XCTestCase {
 
     func testAPickedLanguageIsWhatMacOSReadsAtLaunch() throws {
         let suite = try makeIsolatedSuite()
-        for language in [AppLanguage.russian, .english] {
+        for language in AppLanguage.allCases where language != .system {
             language.store(in: suite.defaults)
             XCTAssertEqual(AppLanguage.current(defaults: suite.defaults), language)
             XCTAssertEqual(storedLanguages(in: suite), [language.rawValue])
@@ -59,7 +59,7 @@ final class AppLanguageTests: XCTestCase {
 
     func testAPickedLanguageIsTheOneRDPeekStartsIn() throws {
         let defaults = try makeIsolatedDefaults()
-        for language in [AppLanguage.russian, .english] {
+        for language in AppLanguage.allCases where language != .system {
             language.store(in: defaults)
             XCTAssertEqual(launchLocalization(defaults), language.rawValue)
         }
@@ -73,6 +73,11 @@ final class AppLanguageTests: XCTestCase {
         XCTAssertEqual(launchLocalization(defaults), "ru")
         defaults.set(["de-DE", "en-US"], forKey: AppLanguage.systemLanguagesKey)
         XCTAssertEqual(launchLocalization(defaults), "en")
+        // The forms macOS lists Chinese, Japanese and Portuguese in.
+        for (preferred, expected) in [("zh-Hans-CN", "zh-Hans"), ("ja-JP", "ja"), ("pt-BR", "pt-BR")] {
+            defaults.set([preferred, "en-US"], forKey: AppLanguage.systemLanguagesKey)
+            XCTAssertEqual(launchLocalization(defaults), expected, preferred)
+        }
     }
 
     func testAStoredValueThatIsNoLanguageCountsAsTheMacs() throws {
@@ -82,8 +87,26 @@ final class AppLanguageTests: XCTestCase {
     }
 
     func testEachLanguageIsNamedInItself() {
-        XCTAssertEqual(AppLanguage.english.title, "English")
-        XCTAssertEqual(AppLanguage.russian.title, "Русский")
+        let titles = Dictionary(uniqueKeysWithValues: AppLanguage.allCases.map { ($0, $0.title) })
+        XCTAssertEqual(titles, [
+            .system: "System",
+            .english: "English",
+            .chineseSimplified: "简体中文",
+            .french: "Français",
+            .italian: "Italiano",
+            .japanese: "日本語",
+            .portugueseBrazil: "Português (Brasil)",
+            .russian: "Русский",
+            .spanish: "Español",
+        ])
+    }
+
+    func testEachPickableLanguageIsALocalizationTheAppHas() {
+        // CFBundleLocalizations in project.yml lists these codes.
+        XCTAssertEqual(
+            Set(AppLanguage.allCases.filter { $0 != .system }.map(\.rawValue)),
+            ["en", "es", "fr", "it", "ja", "pt-BR", "ru", "zh-Hans"]
+        )
     }
 
     func testNumbersAreWrittenInTheAppsLanguage() {
@@ -98,8 +121,11 @@ final class AppLanguageTests: XCTestCase {
         suite.defaults.persistentDomain(forName: suite.name)?[AppLanguage.systemLanguagesKey] as? [String]
     }
 
-    /// The localization RDPeek, which has English and Russian, would start in.
+    /// The localization RDPeek, with the languages it has, would start in.
     private func launchLocalization(_ defaults: UserDefaults) -> String? {
-        AppLanguage.launchLocalization(defaults: defaults, localizations: ["en", "ru"])
+        AppLanguage.launchLocalization(
+            defaults: defaults,
+            localizations: AppLanguage.allCases.filter { $0 != .system }.map(\.rawValue)
+        )
     }
 }

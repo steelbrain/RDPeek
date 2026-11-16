@@ -7,7 +7,15 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     /// The Mac's language, or the one System Settings sets for the app.
     case system
     case english = "en"
+    // The rest in the order of their English names. Each raw value is the
+    // localization's code, as CFBundleLocalizations in project.yml lists it.
+    case chineseSimplified = "zh-Hans"
+    case french = "fr"
+    case italian = "it"
+    case japanese = "ja"
+    case portugueseBrazil = "pt-BR"
     case russian = "ru"
+    case spanish = "es"
 
     static let defaultsKey = "app-language"
     /// What macOS goes by. Written for a picked language only, and removed
@@ -22,7 +30,13 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         switch self {
         case .system: String(localized: "System")
         case .english: "English"
+        case .chineseSimplified: "简体中文"
+        case .french: "Français"
+        case .italian: "Italiano"
+        case .japanese: "日本語"
+        case .portugueseBrazil: "Português (Brasil)"
         case .russian: "Русский"
+        case .spanish: "Español"
         }
     }
 
@@ -48,7 +62,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
                 defaults.removeObject(forKey: AppLanguage.systemLanguagesKey)
             }
             defaults.removeObject(forKey: AppLanguage.defaultsKey)
-        case .english, .russian:
+        default:
             defaults.set([rawValue], forKey: AppLanguage.systemLanguagesKey)
             defaults.set(rawValue, forKey: AppLanguage.defaultsKey)
         }
