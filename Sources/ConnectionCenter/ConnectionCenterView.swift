@@ -204,9 +204,9 @@ struct ConnectionCenterView: View {
 
     private var deletionTitle: String {
         guard let device = deviceList.devicePendingDeletion else {
-            return "Delete PC?"
+            return String(localized: "Delete PC?")
         }
-        return "Delete “\(device.displayName)”?"
+        return String(localized: "Delete “\(device.displayName)”?")
     }
 
     private var deletionBinding: Binding<Bool> {
@@ -282,8 +282,8 @@ private struct UnreadableDevicesNotice: View {
 
     private var message: String {
         count == 1
-            ? "1 saved PC can't be read by this version of RDPeek and is kept unchanged."
-            : "\(count) saved PCs can't be read by this version of RDPeek and are kept unchanged."
+            ? String(localized: "1 saved PC can't be read by this version of RDPeek and is kept unchanged.")
+            : String(localized: "\(count) saved PCs can't be read by this version of RDPeek and are kept unchanged.")
     }
 }
 

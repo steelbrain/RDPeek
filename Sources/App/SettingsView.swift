@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct SettingsView: View {
@@ -9,12 +10,25 @@ struct SettingsView: View {
     private var hideCertificateWarnings = NewDeviceDefaults.hideCertificateWarnings
     @AppStorage(NewDeviceDefaults.timeoutSecondsKey)
     private var timeoutSeconds = NewDeviceDefaults.timeoutSeconds
-
     @AppStorage(SessionQualityMode.defaultsKey)
     private var qualityMode = SessionQualityMode.standard
+    @State private var language = AppLanguage.current()
+    @State private var isOfferingRelaunch = false
 
     var body: some View {
         Form {
+            Section {
+                Picker("Language", selection: $language) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(verbatim: language.title).tag(language)
+                    }
+                }
+            } footer: {
+                Text("RDPeek shows a new language once it is opened again.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section {
                 Picker("Resolution", selection: $qualityMode) {
                     ForEach(SessionQualityMode.allCases) { mode in
@@ -25,13 +39,13 @@ struct SettingsView: View {
             } header: {
                 Text("Remote Desktop")
             } footer: {
-                Text(
-                    "Quality asks for every pixel of the window. Balanced asks for up to 1.5 times " +
-                        "its size in points, and Fast for its size in points; both are scaled up to " +
-                        "fit. On a Retina display, Fast is a quarter of the pixels for the server to " +
-                        "encode and send. This applies to every PC left at Default in its own " +
-                        "settings, while its desktop follows the window on a Retina (HiDPI) display."
-                )
+                Text("""
+                Quality asks for every pixel of the window. Balanced asks for up to 1.5 times \
+                its size in points, and Fast for its size in points; both are scaled up to \
+                fit. On a Retina display, Fast is a quarter of the pixels for the server to \
+                encode and send. This applies to every PC left at Default in its own \
+                settings, while its desktop follows the window on a Retina (HiDPI) display.
+                """)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
@@ -58,5 +72,32 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 440)
         .fixedSize(horizontal: false, vertical: true)
+        .onChange(of: language) { _, language in
+            language.store()
+            isOfferingRelaunch = true
+        }
+        .alert("Reopen RDPeek to Change Its Language?", isPresented: $isOfferingRelaunch) {
+            Button("Reopen Now") {
+                reopenApp()
+            }
+            Button("Later", role: .cancel) {}
+        } message: {
+            Text("Reopening disconnects the sessions that are open.")
+        }
+    }
+
+    /// Opens the app again and quits this one once the new one is up, so a
+    /// launch that fails leaves this one running.
+    private func reopenApp() {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, error in
+            guard error == nil else {
+                return
+            }
+            Task { @MainActor in
+                NSApp.terminate(nil)
+            }
+        }
     }
 }
