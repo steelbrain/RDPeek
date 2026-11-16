@@ -53,7 +53,7 @@ struct HelpView: View {
                             "works as a primary full-screen window."
                     )
                     HelpBody(
-                        "The Quality choice in Settings sets, for all PCs, how sharp a " +
+                        "The Resolution choice in Settings sets, for all PCs, how sharp a " +
                             "desktop that follows the window is. Quality, the default, asks " +
                             "for every pixel of the window. Balanced asks for up to 1.5 times " +
                             "its size in points, and Fast for its size in points at 100%; " +

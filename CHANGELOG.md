@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-A Quality choice for the remote desktop's size, and Remote Desktop
+A Resolution choice for the remote desktop, and Remote Desktop
 Session Host connections, on RDPKit 0.9.2.
 
 ### Connecting
@@ -14,7 +14,7 @@ Session Host connections, on RDPKit 0.9.2.
 
 ### Sessions
 
-- Settings has a Quality choice for all PCs: Fast, Balanced or
+- Settings has a Resolution choice for all PCs: Fast, Balanced or
   Quality. It sets the size a desktop that follows the window asks
   for. Quality, the default, asks for every pixel of the window, as
   before. Balanced asks for up to 1.5 times the window's size in

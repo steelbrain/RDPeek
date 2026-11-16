@@ -16,7 +16,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                Picker("Quality", selection: $qualityMode) {
+                Picker("Resolution", selection: $qualityMode) {
                     ForEach(SessionQualityMode.allCases) { mode in
                         Text(verbatim: mode.title).tag(mode)
                     }
